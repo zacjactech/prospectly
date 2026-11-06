@@ -14,21 +14,23 @@
   <div class="card">
     <h3>Key facts</h3>
     <dl class="facts">
-      <dt>Phone</dt><dd>{{ prospect.phone_raw or prospect.phone_e164 or "—" }}</dd>
-      <dt>Email</dt><dd>{{ prospect.email or "—" }}</dd>
+      <dt>Phone</dt><dd>{{ prospect.phone_raw or prospect.phone_e164 or "none" }}</dd>
+      <dt>Email</dt><dd>{{ prospect.email or "none" }}</dd>
       <dt>Website</dt><dd>
         {% if prospect.website_url %}
         <a href="{{ prospect.website_url }}" target="_blank" rel="noopener">{{ prospect.website_url }}</a>
         <span class="badge {{ 'ok' if prospect.website_status == 'reachable' else 'warn' }}">{{ prospect.website_status }}</span>
-        {% else %}<span class="muted">—</span>{% endif %}
+        {% else %}
+        <span class="muted">none</span>
+        {% endif %}
       </dd>
-      <dt>Location</dt><dd>{{ prospect.location_city or prospect.location_area or prospect.location_country or "—" }}</dd>
-      <dt>Source</dt><dd>{{ prospect.source.label if prospect.source else "—" }}</dd>
+      <dt>Location</dt><dd>{{ prospect.location_city or prospect.location_area or prospect.location_country or "none" }}</dd>
+      <dt>Source</dt><dd>{{ prospect.source.label if prospect.source else "none" }}</dd>
       <dt>Tags</dt><dd>
         {% for t in prospect.tags %}<span class="badge tag">{{ t.name }}</span>{% endfor %}
-        {% if not prospect.tags %}<span class="muted">—</span>{% endif %}
+        {% if not prospect.tags %}<span class="muted">none</span>{% endif %}
       </dd>
-      <dt>Last contacted</dt><dd>{{ prospect.last_contacted_at or "—" }}</dd>
+      <dt>Last contacted</dt><dd>{{ prospect.last_contacted_at or "none" }}</dd>
     </dl>
   </div>
 

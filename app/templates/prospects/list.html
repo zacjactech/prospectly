@@ -2,7 +2,7 @@
 {% block content %}
 <section class="page-header">
   <h1>Prospects</h1>
-  <p class="muted">Your pipeline. Filter, triage, act — one prospect at a time.</p>
+  <p class="muted">Your pipeline. Filter, sort, act.</p>
 </section>
 
 {% if message %}
@@ -13,7 +13,7 @@
   <form method="get" action="/prospects" class="filter-row">
     <label>Stage
       <select name="stage">
-        <option value="">— any —</option>
+        <option value="">Any</option>
         {% for s in stages %}
         <option value="{{ s }}" {% if current_stage == s %}selected{% endif %}>{{ s }}</option>
         {% endfor %}
@@ -21,7 +21,7 @@
     </label>
     <label>Tag
       <select name="tag">
-        <option value="">— any —</option>
+        <option value="">Any</option>
         {% for t in tags %}
         <option value="{{ t.name }}" {% if current_tag == t.name %}selected{% endif %}>{{ t.name }}</option>
         {% endfor %}
@@ -29,7 +29,7 @@
     </label>
     <label>Category
       <select name="category">
-        <option value="">— any —</option>
+        <option value="">Any</option>
         {% for c in categories %}
         <option value="{{ c }}" {% if current_category == c %}selected{% endif %}>{{ c }}</option>
         {% endfor %}
@@ -39,7 +39,7 @@
       <input name="location" value="{{ current_location or '' }}" placeholder="city / area / state">
     </label>
     <label>Search
-      <input name="q" value="{{ current_q or '' }}" placeholder="name, category, city…">
+      <input name="q" value="{{ current_q or '' }}" placeholder="name, category, city">
     </label>
     <button class="btn">Apply</button>
     {% if include_archived %}
@@ -53,7 +53,7 @@
     </label>
   </form>
   <div class="toolbar-actions">
-    <a href="/prospects/new" class="btn primary">+ Add prospect</a>
+    <a href="/prospects/new" class="btn primary">Add prospect</a>
   </div>
 </section>
 
@@ -69,7 +69,7 @@
         <th>Stage</th>
         <th>Last contact</th>
         <th>Next follow-up</th>
-        <th>Flags</th>
+        <th>Tags</th>
         <th>Actions</th>
       </tr>
     </thead>
@@ -81,18 +81,18 @@
           {% if p.do_not_contact %}<span class="badge danger">Suppressed</span>{% endif %}
           {% if p.archived_at %}<span class="badge muted">Archived</span>{% endif %}
         </td>
-        <td>{{ p.category or "—" }}</td>
-        <td>{{ p.location_city or p.location_area or "—" }}</td>
+        <td>{{ p.category or "none" }}</td>
+        <td>{{ p.location_city or p.location_area or "none" }}</td>
         <td>
           {% if p.website_url %}
           <a href="{{ p.website_url }}" target="_blank" rel="noopener">{{ p.website_url }}</a> <span class="badge {{ 'ok' if p.website_status == 'reachable' else 'warn' }}">{{ p.website_status }}</span>
           {% else %}
-          <span class="muted">—</span>
+          <span class="muted">none</span>
           {% endif %}
         </td>
         <td><span class="badge stage-{{ p.stage | replace('_', '-') }}">{{ p.stage }}</span></td>
-        <td>{{ p.last_contacted_at or "—" }}</td>
-        <td>—</td>
+        <td>{{ p.last_contacted_at or "none" }}</td>
+        <td>none</td>
         <td>
           {% for t in p.tags %}<span class="badge tag">{{ t.name }}</span>{% endfor %}
         </td>
@@ -100,8 +100,8 @@
           <div class="action-group">
             <a href="/prospects/{{ p.id }}" class="btn small">View</a>
             {% if p.do_not_contact %}
-            <form method="post" action="/prospects/{{ p.id }}/unarchive" style="display:inline;" onsubmit="return confirm('Clear suppression and restore this prospect?')">
-              <button class="btn small ghost">Unsuppress</button>
+            <form method="post" action="/prospects/{{ p.id }}/archive" style="display:inline;" onsubmit="return confirm('Archive this suppressed prospect?')">
+              <button class="btn small ghost">Archive</button>
             </form>
             {% elif p.archived_at %}
             <form method="post" action="/prospects/{{ p.id }}/unarchive" style="display:inline;" onsubmit="return confirm('Restore this prospect?')">

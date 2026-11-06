@@ -2,18 +2,18 @@
 {% block content %}
 <section class="page-header">
   <h1>Profile</h1>
-  <p class="muted">Your offer, who you target, and where. This drives automated discovery and personalizes your outreach drafts.</p>
+  <p class="muted">What you offer, who you target, and where. This drives discovery and personalizes your outreach drafts.</p>
 </section>
 
 <form method="post" action="/settings/profile">
   <div class="form-grid">
     <div class="field full">
-      <label>What you offer (value proposition)</label>
+      <label>What you offer</label>
       <textarea name="offer" rows="3">{{ profile.offer or '' }}</textarea>
       <p class="hint">e.g. "I build affordable websites for local businesses"</p>
     </div>
     <div class="field">
-      <label>Target industries / categories</label>
+      <label>Target industries</label>
       <input type="text" name="target_industries" value="{{ (profile.target_industries or [] )|join(', ') }}" placeholder="hotel, event planner, restaurant, retail">
       <p class="hint">Comma-separated.</p>
     </div>
