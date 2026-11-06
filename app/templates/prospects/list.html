@@ -54,9 +54,11 @@
       <input type="checkbox" name="do_not_contact_only" value="1" {% if do_not_contact_only %}checked{% endif %}> Suppressed only
     </label>
   </div>
+  {% if prospects %}
   <div class="toolbar-actions">
     <a href="/prospects/new" class="btn primary">Add prospect</a>
   </div>
+  {% endif %}
 </section>
 
 {% if prospects %}
