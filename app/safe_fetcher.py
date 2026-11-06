@@ -101,8 +101,8 @@ async def fetch(
     url = _validate_url(url)
 
     timeout = httpx.Timeout(
-        connect=timeout_seconds or settings.http_connect_timeout_seconds,
-        read=timeout_seconds or settings.http_timeout_seconds,
+        timeout=timeout_seconds or settings.http_timeout_seconds,
+        connect=settings.http_connect_timeout_seconds,
     )
 
     async with httpx.AsyncClient(

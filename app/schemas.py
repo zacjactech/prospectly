@@ -162,6 +162,6 @@ class FindingOut(BaseModel):
     verification_status: str
     confidence: str
     origin: str
-    created_at: datetime
+    recorded_at: datetime
 
     model_config = {"from_attributes": True}

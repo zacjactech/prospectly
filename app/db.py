@@ -47,9 +47,13 @@ SessionLocal = sessionmaker(
 
 
 def get_db() -> Iterator[Session]:
-    """FastAPI dependency yielding a session; always closed after the request."""
+    """FastAPI dependency yielding a session; commits on success, rolls back on error."""
     db = SessionLocal()
     try:
         yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
