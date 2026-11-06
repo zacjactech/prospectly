@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     bind_port: int = 8000
     app_access_token: str | None = None
 
+    # --- Phone normalization (E.164 storage, D9) ---
+    # ISO-3166 alpha-2 (e.g. US, GB) used when a number has no country code;
+    # None = numbers must be in international format (+... / 00...).
+    phone_default_country: str | None = None
+
     # --- Database ---
     database_url: str = f"sqlite:///{(BASE_DIR / 'data' / 'prospectly.db').as_posix()}"
 

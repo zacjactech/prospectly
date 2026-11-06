@@ -33,7 +33,7 @@ Where a prospect came from (P: source tracking).
 |---|---|---|
 | id | PK | |
 | type | TEXT enum | `manual`, `csv_import`, `osm_overpass`, `google_places`, `foursquare`, `web_search`, `directory_browse`, `referral`, `other` |
-| label | TEXT | e.g. "ConnectNigeria – Ikorodu hotels" |
+| label | TEXT | e.g. "Industry directory – hotels" |
 | detail | JSON | import filename, query used, provider response page |
 | created_at | DATETIME | |
 
@@ -45,10 +45,10 @@ Where a prospect came from (P: source tracking).
 | business_name | TEXT NOT NULL | display name |
 | normalized_name | TEXT | lowercased, punctuation-stripped, stopwords kept (for dedupe) |
 | category | TEXT | free text + controlled vocabulary in `settings` (e.g. hotel, event planner, restaurant) |
-| location_area | TEXT | e.g. "Ikorodu" |
-| location_city | TEXT | "Lagos" |
-| location_state | TEXT | "Lagos" |
-| location_country | TEXT | default `NG` |
+| location_area | TEXT | e.g. district/area name |
+| location_city | TEXT | e.g. city name |
+| location_state | TEXT | e.g. state/region name |
+| location_country | TEXT | ISO country code as entered (no default) |
 | address | TEXT | raw address if known |
 | phone_e164 | TEXT | normalized; NULL allowed |
 | phone_raw | TEXT | as entered |
@@ -201,7 +201,7 @@ Index: `(status, run_after)`.
 | prospects ↔ tags | M : N | CASCADE join rows |
 | outreach_messages → activities | via payload reference | — |
 
-**Retention note:** deletion of a prospect is allowed only via an explicit "delete personal data" action (NDPA erasure support), which cascades findings/activities and writes a tombstone `settings` audit entry (what was deleted, when, by whom) containing no personal data.
+**Retention note:** deletion of a prospect is allowed only via an explicit "delete personal data" action, which cascades findings/activities and writes a tombstone `settings` audit entry (what was deleted, when, by whom) containing no personal data.
 
 ## 4. Indexes (query-driven)
 

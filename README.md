@@ -1,8 +1,8 @@
 # Prospectly
 
-A lightweight, local-first, **semi-automated** business prospecting and outreach platform for an independent web developer acquiring website-development clients in Nigeria (starting with Ikorodu, Lagos).
+A lightweight, local-first, **semi-automated** prospecting and outreach platform for finding clients and running **cold and hot** WhatsApp outreach — offer- and location-agnostic.
 
-Discover businesses → research them with evidence → identify website opportunities → draft a personalized WhatsApp message → **approve it yourself** → open WhatsApp and send it manually → track replies, follow-ups, and conversions.
+Discover prospects → research them with evidence → identify outreach opportunities → draft a personalized WhatsApp message → **approve it yourself** → open WhatsApp and send it manually → track replies, follow-ups, and conversions.
 
 > **Status: Phase 0 complete — application scaffold runs and passes its quality gate.** Requirements, research, and architecture decisions live in [`docs/`](docs/); work proceeds phase-by-phase against the exit criteria in `docs/IMPLEMENTATION_ROADMAP.md`.
 
@@ -30,7 +30,7 @@ Full list: `docs/PRODUCT_BRIEF.md` §4.
 | [docs/API_DESIGN.md](docs/API_DESIGN.md) | Pages + JSON API contracts |
 | [docs/USER_FLOWS.md](docs/USER_FLOWS.md) | The ten core journeys and their guards |
 | [docs/UI_UX_SPECIFICATION.md](docs/UI_UX_SPECIFICATION.md) | Navigation, pages, components, tokens, responsive/a11y |
-| [docs/SECURITY_AND_PRIVACY.md](docs/SECURITY_AND_PRIVACY.md) | Validation, SSRF, CSRF, NDPA posture, checklist |
+| [docs/SECURITY_AND_PRIVACY.md](docs/SECURITY_AND_PRIVACY.md) | Validation, SSRF, CSRF, outreach posture, checklist |
 | [docs/IMPLEMENTATION_ROADMAP.md](docs/IMPLEMENTATION_ROADMAP.md) | Phases with testable exit criteria |
 | [docs/COST_ANALYSIS.md](docs/COST_ANALYSIS.md) | Free / low-cost / scalable configurations |
 | [AGENTS.md](AGENTS.md) | Engineering instructions for AI agents & contributors |

@@ -56,33 +56,29 @@ Additionally: research jobs only target URLs already attached to a prospect (or 
 - Uploads land in `uploads/` with random filenames; original name only used for display; parsed content never re-served as HTML (download/export endpoints send `Content-Disposition: attachment` + `text/csv` with formula-injection escaping: cells starting `= + - @` prefixed with `'`).
 - Export features (post-MVP if any) follow the same rule.
 
-## 7. Contact data handling, consent & outreach compliance (NDPA 2023)
-
-Framework: Nigeria Data Protection Act 2023 ([official text](https://ndpc.gov.ng/wp-content/uploads/2024/03/Nigeria_Data_Protection_Act_2023.pdf)) + NDPC guidance on consent/commercial outreach.
+## 7. Contact data handling & outreach posture
 
 **Product posture (built-in, not optional):**
 
 | Requirement | How the product implements it |
 |---|---|
-| Lawful basis | B2B outreach to **business contact channels** recorded with source and purpose; we store `source` + `source_type` on every contact point and treat legitimate-interest-style B2B outreach as the working basis — **owner to confirm this characterization** (§9 Q1) |
+| Business-purpose contacts | Outreach targets **business contact channels** recorded with source and purpose; `source` + `source_type` stored on every contact point |
 | Purpose limitation | Contact fields used only for in-app outreach; no export-to-marketing-tools features |
 | Data minimization | We store what the workflow needs (name, business role context, business contact) — no personal (non-business) data collection features |
-| Right to erasure | `DELETE /prospects/{id}?confirm=erase` cascades personal data; tombstone audit without content |
-| Right to object / opt-out | One-click **Do not contact** (Flow 8); suppression checked before draft/approve/open; suppression list exportable |
+| Erasure | `DELETE /prospects/{id}?confirm=erase` cascades personal data; tombstone audit without content |
+| Opt-out | One-click **Do not contact** (Flow 8); suppression checked before draft/approve/open; suppression list exportable |
 | Frequency control | `last_contacted_at` + one-active-message-per-prospect + follow-up pacing defaults; no bulk send path exists |
 | Auditability | Append-only `activities` with actor + timestamps |
-| Breach duty | Local app: main risk is the DB file — mitigated by disk encryption recommendation + backups location guidance (§8) |
+| Local exposure risk | Main risk is the DB file — mitigated by disk encryption recommendation + backups location guidance (§8) |
 
 **WhatsApp platform rules:** manual click-to-chat keeps a human pressing Send every time (compliant with WhatsApp's stance against unauthorized bulk/automated messaging, [WhatsApp FAQ](https://faq.whatsapp.com/5957850900902049)). Unofficial automation remains permanently out of scope (P3).
 
-**Honest limitation stated in-product:** the tool *prevents* accidental repeated outreach and honors opt-outs; it cannot verify that a public number welcomes marketing — the operator's judgment plus frequency caps are part of the compliance posture.
+**Honest limitation stated in-product:** the tool *prevents* accidental repeated outreach and honors opt-outs; it cannot verify that a public number welcomes contact — the operator's judgment plus frequency caps are part of the outreach posture.
 
-### Open compliance questions for the owner (must confirm before launch)
+### Open outreach-policy questions for the owner
 
-1. Confirm lawful-basis characterization for B2B WhatsApp outreach (legitimate interest vs consent) — ideally with a Nigerian data-protection practitioner.
-2. Confirm whether NDPC controller registration obligations apply at this volume.
-3. Decide retention period for inactive prospects (recommendation: auto-flag >12 months untouched for review/erasure; owner sets the number).
-4. Confirm message-content standards: identify yourself + business purpose in first line (recommended template rule, enforced softly by the draft guidelines).
+1. Decide retention period for inactive prospects (recommendation: auto-flag >12 months untouched for review/erasure; owner sets the number).
+2. Confirm message-content standards: identify yourself + business purpose in first line (recommended template rule, enforced softly by the draft guidelines).
 
 ## 8. Data-at-rest & backups
 

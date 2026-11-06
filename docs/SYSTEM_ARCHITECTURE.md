@@ -161,7 +161,7 @@ Rules:
 `app/whatsapp.py` exposes exactly two pure functions (D9):
 
 ```python
-def normalize_phone(raw: str, default_country: str = "NG") -> str | None: ...  # → E.164 digits
+def normalize_phone(raw: str, default_country: str | None = None) -> str | None: ...  # → E.164 digits; bare national numbers rejected unless a default country is configured
 def build_wa_me_url(e164: str, text: str) -> str: ...  # → https://wa.me/...?text=...
 ```
 

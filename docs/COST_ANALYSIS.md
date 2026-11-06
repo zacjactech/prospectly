@@ -11,7 +11,7 @@ Everything required for the complete workflow works without payment. *Caveat: so
 | Capability | Free solution | Limits to respect |
 |---|---|---|
 | App runtime | Own machine + Python + SQLite | — |
-| Prospect discovery | Manual + CSV import + **OpenStreetMap Overpass** (no key) | OSM coverage in Ikorodu is partial — treat as lead *hints*; public-instance rate limits (~10k queries/day practical guidance, 429s possible) |
+| Prospect discovery | Manual + CSV import + **OpenStreetMap Overpass** (no key) | OSM coverage is partial in many areas — treat as lead *hints*; public-instance rate limits (~10k queries/day practical guidance, 429s possible) |
 | Business research search | **Tavily** — 1,000 credits/month recurring, no card | ~200–1,000 searches depending on depth/extract mix; budget ≤10 searches/prospect |
 | Search fallback | `ddgs` library (keyless) | Unofficial, flaky (202 ratelimit), ToS risk — *fallback only, product never depends on it* |
 | Website inspection | Own httpx checker | Free, unlimited (subject to polite-use §5 of security doc) |
@@ -29,7 +29,7 @@ Trigger-based: adopt a line only when its free tier actually blocks work.
 
 | Item | Cost | When to add |
 |---|---|---|
-| **Google Places API (New)** — best discovery data for Nigeria | ~$0 within Essentials free allowance (**≈10,000 calls/month free per SKU**) then ~$5–8/1,000; **requires billing account/card** | When OSM coverage blocks discovery; 1,000 prospects/month of Text Search fits inside free allowance for most months |
+| **Google Places API (New)** — best discovery data quality (global coverage) | ~$0 within Essentials free allowance (**≈10,000 calls/month free per SKU**) then ~$5–8/1,000; **requires billing account/card** | When OSM coverage blocks discovery; 1,000 prospects/month of Text Search fits inside free allowance for most months |
 | **Serper** search top-up | $50 prepaid ≈ 50k queries (6-month expiry per reports) ≈ $1/1,000 | When Tavily's 1,000 credits run out mid-month |
 | **Tavily Project plan** | $30/mo → 4,000 credits | If search becomes daily-heavy |
 | **Gemini paid tier** | Pennies per 1,000 Flash-class tokens; spend caps configurable | If free RPM/RPD limits slow research runs |
@@ -48,7 +48,7 @@ Only if the tool becomes a shared product — **not needed for the current objec
 | PostgreSQL | $0 (self-hosted) or managed $15+/mo | Phase 6+ migration path documented |
 | Domain + TLS | $0–15/yr | |
 | Auth/multi-user hardening | $0 (engineering time) | |
-| **WhatsApp Business Platform** (if ever used) | Per delivered template message: Nigerian marketing ≈ **$0.05/msg** class rates (third-party tabulation, Oct 2026 Meta rate card — verify before use); utility ≈ $0.007/msg class | Only for approved-template outreach at volume; **replaces nothing in the approval workflow** — approval gate stays |
+| **WhatsApp Business Platform** (if ever used) | Per delivered template message: marketing ≈ **$0.05/msg** class rates (market-dependent; third-party tabulation, Oct 2026 Meta rate card — verify before use); utility ≈ $0.007/msg class | Only for approved-template outreach at volume; **replaces nothing in the approval workflow** — approval gate stays |
 | Backups/monitoring | $0–5/mo | |
 | **Total** | | **≈ $25–60/mo** + per-message WhatsApp costs |
 

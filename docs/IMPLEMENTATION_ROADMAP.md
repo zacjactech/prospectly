@@ -46,7 +46,7 @@ Phased plan with **testable exit criteria** per milestone. Each phase ends with:
 - `app/whatsapp.py` (normalize + `wa.me` build) + Open-in-WhatsApp flow + **explicit confirm-sent** step + default follow-up suggestion.
 - Outreach queue page; prospect Outreach tab; activity types for the whole chain.
 
-**Exit criteria:** state-machine tests (every illegal transition → 409); suppression blocks all outbound paths; golden path test end-to-end with fake AI: add → research(fakes) → opportunity validate → generate → edit → approve → open (URL asserted, status `opened_in_whatsapp`) → confirm → `sent_confirmed` + activity + `last_contacted_at`; phone normalization table-driven tests (NG formats).
+**Exit criteria:** state-machine tests (every illegal transition → 409); suppression blocks all outbound paths; golden path test end-to-end with fake AI: add → research(fakes) → opportunity validate → generate → edit → approve → open (URL asserted, status `opened_in_whatsapp`) → confirm → `sent_confirmed` + activity + `last_contacted_at`; phone normalization table-driven tests (international formats: E.164 with/without `+`, national numbers with configured default country).
 
 ## Phase 4 — Follow-ups, replies, dashboard, polish (M)
 
@@ -89,7 +89,7 @@ P6 items are individually releasable after P5
 | Risk | Mitigation |
 |---|---|
 | Free-tier changes (search/AI) mid-build | provider abstraction + template adapter floor; usage page shows breakage early |
-| OSM coverage weak in Ikorodu | manual/CSV remains primary discovery; Places provider ready when billing accepted |
+| OSM coverage weak in some target areas | manual/CSV remains primary discovery; Places provider ready when billing accepted |
 | Windows environment quirks (paths, ACLs, no Python yet) | Phase 0 handles install; path handling via `pathlib` everywhere; CI-free quality gate runnable in one command |
 | Scope creep toward "full CRM" | `PRODUCT_BRIEF.md` §6 exclusions are binding; new features require a doc amendment |
 | WhatsApp policy shifts | click-to-chat is official functionality; no unofficial tech to break; channel abstraction limits blast radius |

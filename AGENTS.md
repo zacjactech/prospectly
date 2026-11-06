@@ -6,7 +6,7 @@ This file instructs any AI agent (or new human contributor) working in this repo
 
 ## 1. What this project is
 
-**Prospectly** — a local-first, single-user, semi-automated business prospecting & WhatsApp outreach tool for an independent web developer acquiring clients in Nigeria. Discovery-phase documents live in `docs/`; **no application code exists yet** (see `docs/IMPLEMENTATION_ROADMAP.md`).
+**Prospectly** — a local-first, single-user, semi-automated prospecting & WhatsApp outreach tool for finding clients (offer- and location-agnostic; cold and hot outreach). Requirements and architecture live in `docs/`; Phase 0 scaffold is complete and phases are tracked in `docs/IMPLEMENTATION_ROADMAP.md`.
 
 Hard product principles live in `docs/PRODUCT_BRIEF.md` §4 (P1–P12). The three that cause the most agent mistakes:
 
@@ -101,5 +101,5 @@ Keep docs consistent — after multi-doc changes, grep for contradictions (e.g.,
 ## 10. Working style
 
 - Small, reviewable changes aligned to one roadmap milestone; no speculative "future-proofing" beyond what `docs/` specifies.
-- If a requirement is ambiguous or a doc conflict appears, **ask instead of assuming** — same rule the project owner set for the discovery phase.
+- If a requirement is ambiguous or a doc conflict appears, **ask instead of assuming** — standing rule from the project owner.
 - Exclude nonessential features listed in `docs/PRODUCT_BRIEF.md` §6; proposals to include one need an owner decision first.

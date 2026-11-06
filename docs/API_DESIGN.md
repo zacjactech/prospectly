@@ -48,7 +48,7 @@ HTMX partials return HTML fragments (`HX-Request` header honored); full page loa
 | POST | `/prospects` | `ProspectCreate` | `201 Prospect` · `409 duplicate` (with `existing_id`) · `422 validation` |
 | GET | `/prospects/{id}` | — | `Prospect` (with counts) |
 | PATCH | `/prospects/{id}` | `ProspectPatch` | `200 Prospect` |
-| DELETE | `/prospects/{id}` | `?confirm=erase` | `204` (NDPA erase path, cascades) |
+| DELETE | `/prospects/{id}` | `?confirm=erase` | `204` (explicit erase path, cascades) |
 | POST | `/prospects/{id}/archive` · `/unarchive` | — | `200 Prospect` |
 | POST | `/prospects/{id}/merge` | `{target_prospect_id}` | `200 Prospect` (re-links children, logs) |
 

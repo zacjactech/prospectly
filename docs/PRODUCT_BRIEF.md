@@ -1,14 +1,14 @@
 # Product Brief — Prospectly
 
-**Status:** Discovery phase — no application code exists yet.
-**Owner:** Solo developer / independent web developer (user).
-**Primary market:** Small businesses in Ikorodu, Lagos, Nigeria (expandable to other locations, industries, and services without architectural change).
+**Status:** Phase 0 complete (application scaffold running); build proceeds per `IMPLEMENTATION_ROADMAP.md`.
+**Owner:** Solo developer (user).
+**Scope:** Offer-agnostic and location-agnostic — any prospects, any market; the platform is for finding clients and running cold and hot outreach.
 
 ---
 
 ## 1. Problem statement
 
-Independent web developers in Nigeria acquire clients through word-of-mouth, referrals, and manual outreach. Finding businesses that actually need a website or a better digital presence requires hours of manual searching, verifying, and messaging — and the process is easy to abandon because it is unstructured and hard to track.
+Finding new clients through word-of-mouth, referrals, and manual outreach does not scale. Identifying the right prospects — real organizations worth contacting, with an evidence-backed reason to reach out — takes hours of manual searching, verifying, and messaging, and the process is easy to abandon because it is unstructured and hard to track.
 
 Existing CRMs are built for sales teams, are expensive, assume email-first pipelines, and do not handle the specific workflow of: discover → research → verify → identify opportunity → draft personalized WhatsApp message → human approval → manual send → track reply/follow-up → convert.
 
@@ -16,11 +16,11 @@ Existing CRMs are built for sales teams, are expensive, assume email-first pipel
 
 A lightweight, local-first, semi-automated prospecting and outreach platform that:
 
-1. Helps discover potential businesses in a target location/category.
+1. Helps discover potential clients in a target market/category.
 2. Stores them as prospects with deduplication and source tracking.
 3. Researches each prospect from publicly available information, retaining evidence (source URL, timestamp, verification status).
 4. Distinguishes verified facts from uncertain findings and AI-generated hypotheses.
-5. Identifies specific, evidence-backed website opportunities.
+5. Identifies specific, evidence-backed outreach opportunities (website/web-presence signals are the initial rule set — one signal type among others).
 6. Generates a personalized WhatsApp draft grounded in that research.
 7. Requires **mandatory manual approval** before any outbound message.
 8. Opens WhatsApp with the approved message prefilled (click-to-chat) — never sends it.
@@ -56,7 +56,7 @@ Every screen and data model in this product serves one of these steps.
 
 ## 5. Users
 
-Single primary user: **the independent web developer (owner)**. The application is a personal operational tool, not a multi-tenant SaaS in the MVP. Architecture must not preclude a later hosted, multi-user version (see `TECHNOLOGY_DECISIONS.md`, database strategy).
+Single primary user: **the owner** — a solo operator using the platform to find clients and run outreach. The application is a personal operational tool, not a multi-tenant SaaS in the MVP. Architecture must not preclude a later hosted, multi-user version (see `TECHNOLOGY_DECISIONS.md`, database strategy).
 
 ## 6. MVP scope
 
@@ -64,7 +64,7 @@ Single primary user: **the independent web developer (owner)**. The application 
 
 - **Prospect management:** manual add, CSV import, edit, archive, tags, notes, source tracking, duplicate detection (fuzzy name + normalized phone/email/website).
 - **Business research:** run a research job per prospect that fetches website status, collects findings from configured providers, and stores evidence records; all findings editable.
-- **Opportunity analysis:** rule-based heuristics (no website found, unreachable site, no visible contact path, etc.) + optional AI analysis, each opportunity linked to supporting findings.
+- **Opportunity analysis:** rule-based heuristics over findings (initial rule set: no website found, unreachable site, no visible contact path; rules are extensible to any outreach-relevant signal) + optional AI analysis, each opportunity linked to supporting findings.
 - **Personalized outreach:** AI-generated or template-based WhatsApp draft, grounded in approved findings; full editing; mandatory approval gate.
 - **WhatsApp handoff:** E.164 phone normalization, `wa.me` URL construction, "Open WhatsApp" action, then explicit "I sent it" confirmation.
 - **Outreach management:** full status lifecycle + append-only activity history.
@@ -118,9 +118,9 @@ Explicitly excluded: open rates, "AI-generated" counts, page views, chart clutte
 
 ## 9. Terminology
 
-- **Prospect** — a candidate business.
+- **Prospect** — a potential client (business or contact organization) worth approaching.
 - **Finding** — an evidence-backed research fact/observation with a source.
-- **Opportunity** — an identified website/digital-presence gap supported by findings.
+- **Opportunity** — an evidence-backed reason to reach out (e.g., a web-presence gap or missing contact path), linked to supporting findings.
 - **Outreach message** — a WhatsApp draft bound to one prospect, versioned.
 - **Stage** — prospect-level pipeline position (replied, interested, converted, …).
 - **Message status** — lifecycle of a single outreach message (draft … sent_confirmed).

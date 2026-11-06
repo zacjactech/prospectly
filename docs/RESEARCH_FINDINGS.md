@@ -58,11 +58,11 @@ Sources: 2026 SQLite vs PostgreSQL comparisons (tech-insider.org, codewithsql.co
 
 | Provider | Provides | Free tier (verified 2026-11-06) | Paid | API | Rate limits | Reliability | ToS notes |
 |---|---|---|---|---|---|---|---|
-| **OpenStreetMap Overpass API** | POIs/shops/businesses by tag + area: name, phone, website, address, coords | Fully free, no key | — | Yes (HTTP query API) | Public instances: per-client concurrent slots + cumulative runtime; HTTP 429 when exceeded; practical guidance ~10k queries/day ([OSM wiki](https://wiki.openstreetmap.org/wiki/Overpass_API), [OSMF API policy](https://operations.osmfoundation.org/policies/api/)) | Good where mappers have covered the area; coverage in Ikorodu is partial — results are a *starting point*, not an authoritative directory | ODbL attribution required; be a polite client (timeouts, `maxsize`, backoff on 429) |
+| **OpenStreetMap Overpass API** | POIs/shops/businesses by tag + area: name, phone, website, address, coords | Fully free, no key | — | Yes (HTTP query API) | Public instances: per-client concurrent slots + cumulative runtime; HTTP 429 when exceeded; practical guidance ~10k queries/day ([OSM wiki](https://wiki.openstreetmap.org/wiki/Overpass_API), [OSMF API policy](https://operations.osmfoundation.org/policies/api/)) | Good where mappers have covered the area; coverage is partial in many areas — results are a *starting point*, not an authoritative directory | ODbL attribution required; be a polite client (timeouts, `maxsize`, backoff on 429) |
 | **Google Places API (New)** Text Search / Place Details | Highest-quality business records: names, categories, phones, websites, addresses, hours | Per-SKU free monthly usage replaced the old $200 credit (March 2025): Essentials SKUs ≈ 10,000 calls/month free, Pro ≈ 5,000, Enterprise ≈ 1,000 ([Google FAQ](https://developers.google.com/maps/billing-and-pricing/faq), [Geoapify analysis](https://www.geoapify.com/is-google-maps-api-free/)) | $5–$8 per 1,000 calls by SKU ([official pricing](https://developers.google.com/maps/documentation/places/web-service/usage-and-billing)) | Yes (REST, API key) | Per-method per-project quotas; you must enable **billing** (card) even to use the free allowance | Highest | **Storage rules:** place IDs may be stored (refresh if >12 months old); caching of other place content is restricted; display results on Google Maps or with attribution per policy ([Place ID docs](https://developers.google.com/maps/documentation/places/web-service/place-id)) |
-| **Foursquare Places API** | Global POI database (100M+), search by lat/lng + query | 500 free Pro calls/month as of 2026-06-01 (reduced from 10,000) ([Foursquare upcoming-changes](https://docs.foursquare.com/developer/reference/upcoming-changes)) | ~$15 per 1,000 requests | Yes | Monthly free calls, then metered | Good global data; Nigerian coverage weaker than Google | Data license terms apply to storage |
-| **Yelp Fusion API** | US-centric business data | No meaningful free tier (reports of ~$229/month starting price) | High | Yes | — | Poor Nigeria coverage | Not applicable for this market |
-| **Nigerian directories (ConnectNigeria, BusinessList.com.ng, Hotfrog NG, Vconnect)** | Local listings with contacts | Free to browse | — | **No public API** | n/a (human browsing) | Useful for manual discovery | No published API: MVP treats these as *manual* discovery sources. Programmatic scraping would need a ToS review — deferred, not assumed |
+| **Foursquare Places API** | Global POI database (100M+), search by lat/lng + query | 500 free Pro calls/month as of 2026-06-01 (reduced from 10,000) ([Foursquare upcoming-changes](https://docs.foursquare.com/developer/reference/upcoming-changes)) | ~$15 per 1,000 requests | Yes | Monthly free calls, then metered | Good global data; coverage varies by region | Data license terms apply to storage |
+| **Yelp Fusion API** | US-centric business data | No meaningful free tier (reports of ~$229/month starting price) | High | Yes | — | US-centric coverage | Useful only for US-market prospects |
+| **Local/national business directories (per target market)** | Local listings with contacts | Free to browse | — | **No public API** (typical) | n/a (human browsing) | Useful for manual discovery | Most such directories publish no API: MVP treats them as *manual* discovery sources. Programmatic scraping would need a ToS review — deferred, not assumed |
 | **Manual add / CSV import** | Anything the user finds | Free | — | n/a | n/a | 100% user-controlled | Primary MVP discovery path; no provider dependency |
 
 ### 4.2 Web / search APIs
@@ -140,7 +140,7 @@ Sources: official rate-limit pages and 2026 free-tier trackers (ai.google.dev, c
 ### 6.2 Official WhatsApp Business Platform (Cloud API) — contrast
 
 - Server-to-server Meta API: requires approved WhatsApp Business Account, message templates pre-approved by Meta for business-initiated (marketing/utility) conversations, and per-message/per-conversation billing ([Meta pricing docs](https://developers.facebook.com/documentation/business-messaging/whatsapp/pricing/)).
-- Pricing effective Oct 2026 is per delivered template message by category and market; Nigerian marketing templates ≈ $0.05/message class rates (third-party tabulation — verify on Meta's rate card before any use).
+- Pricing effective Oct 2026 is per delivered template message by category and market; marketing-template rates are market-dependent (≈ $0.05/message class in one tabulated market — verify on Meta's rate card before any use).
 - Designed for customer-service scale and notification templates — **not** for one-to-one human-approved personal outreach at MVP volume.
 - Revisit only if volume ever justifies template approval workflows and per-message cost (documented in `COST_ANALYSIS.md` scalable tier).
 
@@ -155,19 +155,17 @@ Normalize phone → E.164 → build `wa.me` URL → open via OS default handler 
 
 ---
 
-## 7. Compliance research (summary — full treatment in `SECURITY_AND_PRIVACY.md`)
+## 7. Outreach & platform rules (summary — full treatment in `SECURITY_AND_PRIVACY.md`)
 
-- **Nigeria Data Protection Act (NDPA) 2023** ([official PDF](https://ndpc.gov.ng/wp-content/uploads/2024/03/Nigeria_Data_Protection_Act_2023.pdf)): processing personal data requires a lawful basis (consent or legitimate interest among others); purpose limitation; data-subject rights (access, erasure, objection); breach notification duties; registration duties for higher-volume controllers. **Public availability of a phone number or email does not equal marketing consent.**
-- **NDPC guidance** on consent, commercial permission, and opt-out management applies to outreach ([NDPC consent guidance coverage](https://4notify.net/ng/en/federal-gazette/ndpc-ndpa-2023-consent)).
 - **WhatsApp spam rules:** unauthorized bulk/automated messaging is an enforcement target ([WhatsApp FAQ](https://faq.whatsapp.com/5957850900902049)); our manual click-to-chat flow keeps a human in the loop for every message.
-- Practical posture adopted: rely on **legitimate-interest-style B2B outreach only with** (a) relevant business contact details used for their intended business purpose, (b) strict frequency caps, (c) immediate opt-out honoring, (d) do-not-contact suppression, (e) auditable activity log. This is documented product behavior, **not legal advice** — flagged for user confirmation.
+- **Public availability ≠ welcome contact:** a publicly listed phone number or email does not by itself mean its owner welcomes messages — the product therefore relies on (a) relevant business contact details used for their intended business purpose, (b) strict frequency caps, (c) immediate opt-out honoring, (d) do-not-contact suppression, (e) auditable activity log. This is documented product behavior, **not legal advice**.
 
 ---
 
 ## 8. Research conclusions (feeding `TECHNOLOGY_DECISIONS.md`)
 
 1. Backend: FastAPI; Frontend: HTMX + Jinja2 (no build step); DB: SQLite → PostgreSQL path.
-2. Discovery: manual/CSV + Overpass as the free core; Google Places as an optional billing-gated provider; Nigerian directories as manual sources.
+2. Discovery: manual/CSV + Overpass as the free core; Google Places as an optional billing-gated provider; regional business directories (per target market) as manual sources.
 3. Search: Tavily (recurring free 1,000 credits) primary free search; Serper for one-off larger batches; ddgs only as best-effort fallback.
 4. Website inspection: our own httpx-based checker; no paid tech-intel APIs in MVP.
 5. AI: interface-first; Gemini free tier default, Groq/OpenRouter alternates, template mode as no-AI floor.

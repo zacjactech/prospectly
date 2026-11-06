@@ -88,7 +88,7 @@ providers/
 **Decision: `app/whatsapp.py` — a pure module: `normalize_phone()`, `build_wa_me_url()`. It returns strings; the route opens the OS browser. No network calls, no WhatsApp SDK.**
 
 - Guarantees P3/P4 by construction: nothing in this module can send anything.
-- Phone normalization: strip formatting → require country code (Nigerian numbers normalized to `234XXXXXXXXXX`) → validate with `phonenumbers` library → store E.164.
+- Phone normalization: strip formatting → require an international format (country code present; an optional configured default country supplies it for bare national numbers) → validate with `phonenumbers` library → store E.164.
 
 ## D10 — Logging & observability
 
