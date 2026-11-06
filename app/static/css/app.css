@@ -175,7 +175,12 @@ a { color: var(--accent); text-decoration: none; }
   border-radius: 8px;
   padding: var(--sp-4);
 }
-.filter-row label { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-xs); color: var(--text-muted); }
+.filter-row .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.filter-row label { font-size: var(--fs-xs); color: var(--text-muted); }
 .filter-row label.checkbox { flex-direction: row; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--text); white-space: nowrap; }
 .filter-row label.checkbox input { width: auto; min-width: auto; height: auto; min-height: auto; }
 .filter-row select, .filter-row input {
@@ -190,6 +195,9 @@ a { color: var(--accent); text-decoration: none; }
   font-size: var(--fs-base);
 }
 .toolbar-actions { display: flex; gap: var(--sp-3); margin-top: var(--sp-2); }
+.filter-checkboxes { display: flex; gap: var(--sp-4); margin-top: var(--sp-2); }
+.filter-checkboxes label { flex-direction: row; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--text); white-space: nowrap; cursor: pointer; }
+.filter-checkboxes input { width: auto; min-width: auto; height: auto; min-height: auto; margin: 0; }
 
 /* --- Forms --- */
 .form-grid { display: grid; grid-template-columns: 1fr; gap: var(--sp-4); margin-bottom: var(--sp-6); }
@@ -231,7 +239,7 @@ table.prospects tr:last-child td { border-bottom: none; }
 table.prospects tr:hover td { background: #fafafa; }
 
 /* --- Empty states --- */
-.empty { text-align: center; padding: var(--sp-6); color: var(--text-muted); }
+.empty { text-align: center; padding: var(--sp-6); color: var(--text-muted); margin-top: var(--sp-4); }
 
 /* --- Activity list --- */
 .activity-list { list-style: none; padding: 0; margin: 0; }
@@ -269,13 +277,14 @@ table.prospects tr:hover td { background: #fafafa; }
   .page { padding: var(--sp-5) var(--sp-4); }
   .grid-2 { grid-template-columns: repeat(2, 1fr); }
   .grid-3 { grid-template-columns: repeat(3, 1fr); }
-  .filter-row { flex-direction: row; align-items: flex-end; }
-  .filter-row label { min-width: 120px; }
+  .filter-row { flex-direction: row; align-items: flex-end; gap: var(--sp-3); }
+  .filter-row label { min-width: 100px; }
   .toolbar-actions { margin-top: 0; margin-left: auto; }
   .form-grid { grid-template-columns: repeat(2, 1fr); }
   .facts { grid-template-columns: 140px 1fr; }
   .stage-form { flex-direction: row; align-items: center; }
   .stage-form select { width: auto; min-width: 160px; }
+  .filter-checkboxes { margin-top: 0; margin-left: auto; }
 }
 
 @media (min-width: 1024px) {
