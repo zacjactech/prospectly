@@ -3,7 +3,7 @@
 <section class="card">
   <div style="display:flex;align-items:baseline;justify-content:space-between;">
     <div>
-      <div style="font-weight:var(--fw-semibold);color:var(--color-text);">{{ prospect.business_name }}</div>
+      <div class="prospect-name">{{ prospect.business_name }}</div>
         <span class="badge stage-{{ prospect.stage | replace('_', '-') }}">{{ prospect.stage }}</span>
         {% if prospect.do_not_contact %}<span class="badge danger">Suppressed: {{ prospect.do_not_contact_reason }}</span>{% endif %}
         {% if prospect.archived_at %}<span class="badge muted">Archived</span>{% endif %}
@@ -31,7 +31,7 @@
       <dt>Location</dt><dd>{{ prospect.location_city or prospect.location_area or prospect.location_country or "none" }}</dd>
       <dt>Source</dt><dd>{{ prospect.source.label if prospect.source else "none" }}</dd>
       <dt>Tags</dt><dd>
-        {% for t in prospect.tags %}<span class="badge tag" style="margin-right:var(--sp-1);margin-bottom:var(--sp-1);">{{ t.name }}</span>{% endfor %}
+        {% for t in prospect.tags %}<span class="badge tag">{{ t.name }}</span>{% endfor %}
         {% if not prospect.tags %}<span class="muted">none</span>{% endif %}
       </dd>
       <dt>Last contacted</dt><dd>{{ prospect.last_contacted_at or "none" }}</dd>

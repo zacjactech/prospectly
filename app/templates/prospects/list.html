@@ -54,10 +54,10 @@
       <input type="checkbox" name="do_not_contact_only" value="1" {% if do_not_contact_only %}checked{% endif %}> Suppressed only
     </label>
   </div>
-</section>
-<div class="toolbar-actions">
+  <div class="toolbar-actions">
     <a href="/prospects/new" class="btn primary">Add prospect</a>
-</div>
+  </div>
+</section>
 
 {% if prospects %}
 <section class="table-wrap">
@@ -79,9 +79,9 @@
       {% for p in prospects %}
       <tr>
         <td>
-          <div style="font-weight:var(--fw-semibold);color:var(--color-text);"><a href="/prospects/{{ p.id }}">{{ p.business_name }}</a></div>
-          {% if p.do_not_contact %}<span class="badge danger" style="margin-top:var(--sp-1);">Suppressed</span>{% endif %}
-          {% if p.archived_at %}<span class="badge muted" style="margin-top:var(--sp-1);">Archived</span>{% endif %}
+          <div class="prospect-name"><a href="/prospects/{{ p.id }}">{{ p.business_name }}</a></div>
+          {% if p.do_not_contact %}<span class="badge danger">Suppressed</span>{% endif %}
+          {% if p.archived_at %}<span class="badge muted">Archived</span>{% endif %}
         </td>
         <td>{{ p.category or "none" }}</td>
         <td>{{ p.location_city or p.location_area or "none" }}</td>
@@ -96,7 +96,7 @@
         <td>{{ p.last_contacted_at or "none" }}</td>
         <td>none</td>
         <td>
-          {% for t in p.tags %}<span class="badge tag" style="margin-right:var(--sp-1);margin-bottom:var(--sp-1);">{{ t.name }}</span>{% endfor %}
+          {% for t in p.tags %}<span class="badge tag">{{ t.name }}</span>{% endfor %}
         </td>
         <td>
           <div class="action-group">
@@ -123,7 +123,7 @@
 </section>
 {% else %}
 <div class="empty">
-  <p>No prospects match your filters.</p>
+  <p>No prospects yet.</p>
   <p><a href="/prospects/new" class="btn primary">Add your first prospect</a></p>
 </div>
 {% endif %}

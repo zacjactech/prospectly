@@ -433,6 +433,18 @@ p {
   font-weight: var(--fw-medium);
   line-height: 1;
   border: 1px solid transparent;
+  margin-right: var(--sp-1);
+  margin-bottom: var(--sp-1);
+}
+
+.badge:last-child {
+  margin-right: 0;
+  margin-bottom: 0;
+}
+
+.prospect-name {
+  font-weight: var(--fw-semibold);
+  color: var(--color-text);
 }
 
 .badge.danger {
