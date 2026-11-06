@@ -1,4 +1,7 @@
 /* Prospectly — Premium SaaS UI Design System */
+/* Mobile-first responsive design */
+
+/* ===== CSS Variables ===== */
 :root {
   /* Colors — Slate + Indigo premium palette */
   --color-bg: #f8fafc;
@@ -74,7 +77,7 @@
   --max-w: 48rem;          /* 768px */
 }
 
-/* Reset */
+/* ===== Reset ===== */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -145,12 +148,31 @@ textarea:focus-visible {
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
+}
+
+.mobile-menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+.mobile-menu-toggle svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: var(--color-text);
 }
 
 .main {
   flex: 1;
-  padding: var(--sp-6) var(--sp-4);
+  padding: var(--sp-4) var(--sp-3);
   max-width: 100%;
 }
 
@@ -206,12 +228,18 @@ p {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: var(--sp-6);
+  padding: var(--sp-5);
   box-shadow: var(--shadow-sm);
+  margin-bottom: var(--sp-4);
+}
+
+.card:hover {
+  border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-md);
 }
 
 .card + .card {
-  margin-top: var(--sp-4);
+  margin-top: 0;
 }
 
 /* ===== Grid ===== */
@@ -219,6 +247,7 @@ p {
   display: grid;
   gap: var(--sp-4);
 }
+
 .grid-2 {
   grid-template-columns: 1fr;
 }
@@ -327,9 +356,13 @@ p {
   cursor: not-allowed;
 }
 
+.btn.full-width {
+  width: 100%;
+}
+
 /* ===== Forms ===== */
 .form-section {
-  margin-bottom: var(--sp-8);
+  margin-bottom: var(--sp-6);
 }
 
 .form-section:last-child {
@@ -541,16 +574,16 @@ p {
   padding: var(--sp-4);
   box-shadow: var(--shadow-sm);
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-3);
-  align-items: flex-end;
+  flex-direction: column;
+  gap: var(--sp-4);
 }
 
 .filter-chip {
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
-  min-width: 140px;
+  min-width: 0;
+  flex: 1;
 }
 
 .filter-chip label {
@@ -584,7 +617,6 @@ p {
 
 .filter-chip-search {
   flex: 1;
-  min-width: 200px;
 }
 
 .filter-chip-toggles {
@@ -660,13 +692,14 @@ p {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   -webkit-overflow-scrolling: touch;
+  margin-bottom: var(--sp-4);
 }
 
 table.prospects {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--fs-sm);
-  min-width: 700px;
+  min-width: 600px;
 }
 
 table.prospects th {
@@ -683,7 +716,7 @@ table.prospects th {
 }
 
 table.prospects td {
-  padding: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid var(--color-border);
   vertical-align: top;
 }
@@ -706,6 +739,10 @@ table.prospects tr:hover td {
 .empty p {
   font-size: var(--fs-base);
   margin-bottom: var(--sp-4);
+}
+
+.empty .btn {
+  margin-top: var(--sp-2);
 }
 
 /* ===== Action Group ===== */
@@ -820,12 +857,12 @@ ul.spaced li {
   .metric-grid {
     grid-template-columns: repeat(3, 1fr);
   }
-  .filter-row {
+  .filter-bar {
     flex-direction: row;
     align-items: flex-end;
     gap: var(--sp-3);
   }
-  .filter-group {
+  .filter-chip {
     min-width: 120px;
   }
   .toolbar-actions {
@@ -851,10 +888,6 @@ ul.spaced li {
     width: auto;
     min-width: 180px;
   }
-  .filter-checkboxes {
-    margin-top: 0;
-    margin-left: auto;
-  }
 }
 
 @media (min-width: 1024px) {
@@ -866,5 +899,8 @@ ul.spaced li {
   }
   .filter-group {
     min-width: 140px;
+  }
+  .grid-2 {
+    grid-template-columns: repeat(2, 1fr);
   }
 }

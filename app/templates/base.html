@@ -9,6 +9,13 @@
 <body>
   <div class="app-shell">
     <header class="topbar">
+      <button class="mobile-menu-toggle" aria-label="Menu" onclick="document.body.classList.toggle('nav-open')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
       <span class="brand">{{ app_name }}</span>
       <div class="topbar-right">
         <a href="/" class="btn ghost small {% if request.url.path == '/' %}active{% endif %}">Dashboard</a>

@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="card">
-  <div style="display:flex;align-items:baseline;justify-content:space-between;">
-    <div>
+  <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:var(--sp-3);">
+    <div style="flex:1;">
       <div class="prospect-name">{{ prospect.business_name }}</div>
+      <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-2);">
         <span class="badge stage-{{ prospect.stage | replace('_', '-') }}">{{ prospect.stage }}</span>
         {% if prospect.do_not_contact %}<span class="badge danger">Suppressed: {{ prospect.do_not_contact_reason }}</span>{% endif %}
         {% if prospect.archived_at %}<span class="badge muted">Archived</span>{% endif %}
