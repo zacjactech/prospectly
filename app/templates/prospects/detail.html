@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="card">
-  <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:var(--sp-3);">
-    <div style="flex:1;">
+  <div class="header-row">
+    <div class="grow">
       <div class="prospect-name">{{ prospect.business_name }}</div>
-      <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-2);">
+      <div class="badge-row">
         <span class="badge stage-{{ prospect.stage | replace('_', '-') }}">{{ prospect.stage }}</span>
         {% if prospect.do_not_contact %}<span class="badge danger">Suppressed: {{ prospect.do_not_contact_reason }}</span>{% endif %}
         {% if prospect.archived_at %}<span class="badge muted">Archived</span>{% endif %}
@@ -24,7 +24,7 @@
       <dt>Website</dt><dd>
         {% if prospect.website_url %}
         <a href="{{ prospect.website_url }}" target="_blank" rel="noopener">{{ prospect.website_url }}</a>
-        <span class="badge {{ 'ok' if prospect.website_status == 'reachable' else 'warn' }}">{{ prospect.website_status }}</span>
+        <span class="badge {{ 'success' if prospect.website_status == 'reachable' else 'warn' }}">{{ prospect.website_status }}</span>
         {% else %}
         <span class="muted">none</span>
         {% endif %}
@@ -77,11 +77,11 @@
   <div class="action-group">
     <a href="/prospects/{{ prospect.id }}/research" class="btn">View full research</a>
     {% if latest_run and latest_run.status != "running" %}
-    <form method="post" action="/prospects/{{ prospect.id }}/research/start" style="display:inline;" onsubmit="return confirm('Re-run research?')">
+    <form method="post" action="/prospects/{{ prospect.id }}/research/start" onsubmit="return confirm('Re-run research?')">
       <button class="btn primary">Re-run research</button>
     </form>
     {% elif not latest_run %}
-    <form method="post" action="/prospects/{{ prospect.id }}/research/start" style="display:inline;">
+    <form method="post" action="/prospects/{{ prospect.id }}/research/start">
       <button class="btn primary">Run research</button>
     </form>
     {% else %}
@@ -124,15 +124,15 @@
     <a href="/prospects/new" class="btn ghost">Add another</a>
     {% endif %}
     {% if prospect.do_not_contact %}
-    <form method="post" action="/prospects/{{ prospect.id }}/archive" style="display:inline;" onsubmit="return confirm('Archive this suppressed prospect?')">
+    <form method="post" action="/prospects/{{ prospect.id }}/archive" onsubmit="return confirm('Archive this suppressed prospect?')">
       <button class="btn ghost">Archive</button>
     </form>
     {% elif prospect.archived_at %}
-    <form method="post" action="/prospects/{{ prospect.id }}/unarchive" style="display:inline;" onsubmit="return confirm('Restore this prospect?')">
+    <form method="post" action="/prospects/{{ prospect.id }}/unarchive" onsubmit="return confirm('Restore this prospect?')">
       <button class="btn ghost">Restore</button>
     </form>
     {% else %}
-    <form method="post" action="/prospects/{{ prospect.id }}/archive" style="display:inline;" onsubmit="return confirm('Archive this prospect?')">
+    <form method="post" action="/prospects/{{ prospect.id }}/archive" onsubmit="return confirm('Archive this prospect?')">
       <button class="btn ghost">Archive</button>
     </form>
     {% endif %}

@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="page-header">
-  <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:var(--sp-3);">
-    <div style="flex:1;">
+  <div class="header-row">
+    <div class="grow">
       <h1>Research</h1>
       <p class="muted">Evidence and findings for {{ prospect.business_name }}</p>
     </div>
     <a href="/prospects/{{ prospect.id }}" class="btn ghost">Back to prospect</a>
     {% if latest_run and latest_run.status != "running" %}
-    <form method="post" action="/prospects/{{ prospect.id }}/research/start" style="display:inline;" onsubmit="return confirm('Run research again? This will refresh all findings.')">
+    <form method="post" action="/prospects/{{ prospect.id }}/research/start" onsubmit="return confirm('Run research again? This will refresh all findings.')">
       <button class="btn primary">Re-run research</button>
     </form>
     {% elif not latest_run %}
-    <form method="post" action="/prospects/{{ prospect.id }}/research/start" style="display:inline;">
+    <form method="post" action="/prospects/{{ prospect.id }}/research/start">
       <button class="btn primary">Run research</button>
     </form>
     {% else %}

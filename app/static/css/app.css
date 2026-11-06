@@ -562,9 +562,39 @@ p {
   color: var(--color-text-muted);
 }
 
+/* ===== Page Bar ===== */
+.page-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+  flex-wrap: wrap;
+}
+
+/* ===== Header Row ===== */
+.header-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.header-row .grow {
+  flex: 1;
+}
+
+.badge-row {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-top: var(--sp-2);
+}
+
 /* ===== Toolbar & Filters ===== */
 .toolbar {
-  margin-bottom: var(--sp-6);
+  margin-bottom: var(--sp-5);
 }
 
 .filter-bar {
@@ -574,8 +604,9 @@ p {
   padding: var(--sp-4);
   box-shadow: var(--shadow-sm);
   display: flex;
-  flex-direction: column;
-  gap: var(--sp-4);
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  align-items: flex-end;
 }
 
 .filter-chip {
@@ -583,7 +614,11 @@ p {
   flex-direction: column;
   gap: var(--sp-1);
   min-width: 0;
-  flex: 1;
+  flex: 1 1 140px;
+}
+
+.filter-chip-search {
+  flex: 2 1 220px;
 }
 
 .filter-chip label {
@@ -599,7 +634,7 @@ p {
   width: 100%;
   height: var(--control-h);
   min-height: 40px;
-  padding: 0 var(--sp-4);
+  padding: 0 var(--sp-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -615,15 +650,21 @@ p {
   box-shadow: 0 0 0 3px var(--color-accent-light);
 }
 
-.filter-chip-search {
-  flex: 1;
+.filter-actions {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+  flex: 0 0 auto;
+  padding-bottom: 2px;
 }
 
-.filter-chip-toggles {
+.filter-toggles {
   display: flex;
   gap: var(--sp-2);
   align-items: center;
   flex-wrap: wrap;
+  flex: 0 0 auto;
+  padding-bottom: 2px;
 }
 
 .toggle-chip {
@@ -640,6 +681,8 @@ p {
   cursor: pointer;
   transition: all var(--dur-base) ease;
   user-select: none;
+  min-height: 36px;
+  white-space: nowrap;
 }
 
 .toggle-chip input {
@@ -662,27 +705,12 @@ p {
   border-color: var(--color-accent-hover);
 }
 
-/* Hide the old checkbox styles that no longer apply */
-.filter-chip-checkboxes,
-.filter-chip-checkboxes .checkbox.inline,
-.filter-chip-checkboxes input {
-  display: none !important;
-}
-
-.toolbar-actions {
-  margin-left: auto;
-}
-
 .filter-bar .btn {
   height: var(--control-h);
   min-height: 40px;
-  padding: 0 var(--sp-5);
+  padding: 0 var(--sp-4);
   font-size: var(--fs-sm);
-}
-
-.filter-bar .btn.ghost {
-  height: var(--control-h);
-  min-height: 40px;
+  white-space: nowrap;
 }
 
 /* ===== Tables ===== */
@@ -693,13 +721,14 @@ p {
   box-shadow: var(--shadow-sm);
   -webkit-overflow-scrolling: touch;
   margin-bottom: var(--sp-4);
+  background: var(--color-surface);
 }
 
 table.prospects {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--fs-sm);
-  min-width: 600px;
+  min-width: 860px;
 }
 
 table.prospects th {
@@ -713,12 +742,15 @@ table.prospects th {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 table.prospects td {
   padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid var(--color-border);
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 table.prospects tr:last-child td {
@@ -727,6 +759,30 @@ table.prospects tr:last-child td {
 
 table.prospects tr:hover td {
   background: var(--color-surface-hover);
+}
+
+table.prospects td:first-child {
+  white-space: nowrap;
+}
+
+.truncate {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.row-actions {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+  white-space: nowrap;
+}
+
+.row-actions form {
+  display: inline;
 }
 
 /* ===== Empty States ===== */
@@ -751,6 +807,10 @@ table.prospects tr:hover td {
   gap: var(--sp-3);
   flex-wrap: wrap;
   margin-top: var(--sp-4);
+}
+
+.action-group form {
+  display: inline;
 }
 
 /* ===== Activity List ===== */
@@ -857,18 +917,6 @@ ul.spaced li {
   .metric-grid {
     grid-template-columns: repeat(3, 1fr);
   }
-  .filter-bar {
-    flex-direction: row;
-    align-items: flex-end;
-    gap: var(--sp-3);
-  }
-  .filter-chip {
-    min-width: 120px;
-  }
-  .toolbar-actions {
-    margin-top: 0;
-    margin-left: auto;
-  }
   .form-section {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -896,9 +944,6 @@ ul.spaced li {
   }
   .page {
     max-width: 64rem; /* 1024px */
-  }
-  .filter-group {
-    min-width: 140px;
   }
   .grid-2 {
     grid-template-columns: repeat(2, 1fr);

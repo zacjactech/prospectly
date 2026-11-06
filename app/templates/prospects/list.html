@@ -4,8 +4,17 @@
 <div class="flash {{ message_type }}">{{ message }}</div>
 {% endif %}
 
+<div class="page-bar">
+  <span class="muted">{{ prospects|length }} prospect{{ 's' if prospects|length != 1 else '' }}</span>
+  <a href="/prospects/new" class="btn primary">Add prospect</a>
+</div>
+
 <section class="toolbar">
   <form method="get" action="/prospects" class="filter-bar">
+    <div class="filter-chip filter-chip-search">
+      <label>Search</label>
+      <input name="q" value="{{ current_q or '' }}" placeholder="name, category, city">
+    </div>
     <div class="filter-chip">
       <label>Stage</label>
       <select name="stage">
@@ -37,30 +46,23 @@
       <label>Location</label>
       <input name="location" value="{{ current_location or '' }}" placeholder="city, area, region">
     </div>
-    <div class="filter-chip filter-chip-search">
-      <label>Search</label>
-      <input name="q" value="{{ current_q or '' }}" placeholder="name, category, city">
+    <div class="filter-actions">
+      <button class="btn primary">Apply</button>
+      {% if include_archived or do_not_contact_only or current_stage or current_tag or current_category or current_location or current_q %}
+      <a href="/prospects" class="btn ghost">Clear</a>
+      {% endif %}
     </div>
-    <button class="btn primary">Apply filters</button>
-    {% if include_archived %}
-    <a href="/prospects" class="btn ghost">Clear filters</a>
-    {% endif %}
-    <div class="filter-chip-toggles">
+    <div class="filter-toggles">
       <label class="toggle-chip {% if include_archived %}active{% endif %}">
         <input type="checkbox" name="include_archived" value="1" {% if include_archived %}checked{% endif %}>
-        <span class="toggle-label">Include archived</span>
+        <span>Include archived</span>
       </label>
       <label class="toggle-chip {% if do_not_contact_only %}active{% endif %}">
         <input type="checkbox" name="do_not_contact_only" value="1" {% if do_not_contact_only %}checked{% endif %}>
-        <span class="toggle-label">Suppressed only</span>
+        <span>Suppressed only</span>
       </label>
     </div>
   </form>
-  {% if prospects %}
-  <div class="toolbar-actions">
-    <a href="/prospects/new" class="btn primary">Add prospect</a>
-  </div>
-  {% endif %}
 </section>
 
 {% if prospects %}
@@ -91,7 +93,8 @@
         <td>{{ p.location_city or p.location_area or "none" }}</td>
         <td>
           {% if p.website_url %}
-          <a href="{{ p.website_url }}" target="_blank" rel="noopener">{{ p.website_url }}</a> <span class="badge {{ 'ok' if p.website_status == 'reachable' else 'warn' }}">{{ p.website_status }}</span>
+          <a href="{{ p.website_url }}" target="_blank" rel="noopener" class="truncate">{{ p.website_url }}</a>
+          <br><span class="badge {{ 'success' if p.website_status == 'reachable' else 'warn' }}">{{ p.website_status }}</span>
           {% else %}
           <span class="muted">none</span>
           {% endif %}
@@ -103,18 +106,18 @@
           {% for t in p.tags %}<span class="badge tag">{{ t.name }}</span>{% endfor %}
         </td>
         <td>
-          <div class="action-group">
+          <div class="row-actions">
             <a href="/prospects/{{ p.id }}" class="btn small">View</a>
             {% if p.do_not_contact %}
-            <form method="post" action="/prospects/{{ p.id }}/archive" style="display:inline;" onsubmit="return confirm('Archive this suppressed prospect?')">
+            <form method="post" action="/prospects/{{ p.id }}/archive" onsubmit="return confirm('Archive this suppressed prospect?')">
               <button class="btn small ghost">Archive</button>
             </form>
             {% elif p.archived_at %}
-            <form method="post" action="/prospects/{{ p.id }}/unarchive" style="display:inline;" onsubmit="return confirm('Restore this prospect?')">
+            <form method="post" action="/prospects/{{ p.id }}/unarchive" onsubmit="return confirm('Restore this prospect?')">
               <button class="btn small ghost">Restore</button>
             </form>
             {% else %}
-            <form method="post" action="/prospects/{{ p.id }}/archive" style="display:inline;" onsubmit="return confirm('Archive this prospect?')">
+            <form method="post" action="/prospects/{{ p.id }}/archive" onsubmit="return confirm('Archive this prospect?')">
               <button class="btn small ghost">Archive</button>
             </form>
             {% endif %}
@@ -128,7 +131,7 @@
 {% else %}
 <div class="empty">
   <p>No prospects yet.</p>
-  <p><a href="/prospects/new" class="btn primary btn-full">Add your first prospect</a></p>
+  <a href="/prospects/new" class="btn primary">Add your first prospect</a>
 </div>
 {% endif %}
 {% endblock %}
