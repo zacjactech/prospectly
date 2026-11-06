@@ -6,12 +6,14 @@
 </section>
 
 <form method="post" action="/settings/profile">
-  <div class="form-grid">
+  <div class="form-section">
     <div class="field full">
       <label>What you offer</label>
-      <textarea name="offer" rows="3">{{ profile.offer or '' }}</textarea>
+      <textarea name="offer" rows="4">{{ profile.offer or '' }}</textarea>
       <p class="hint">e.g. "I build affordable websites for local businesses"</p>
     </div>
+  </div>
+  <div class="form-section">
     <div class="field">
       <label>Target industries</label>
       <input type="text" name="target_industries" value="{{ (profile.target_industries or [] )|join(', ') }}" placeholder="hotel, event planner, restaurant, retail">
@@ -22,7 +24,9 @@
       <input type="text" name="target_locations" value="{{ (profile.target_locations or [] )|join(', ') }}" placeholder="city, area, region">
       <p class="hint">Comma-separated cities or areas.</p>
     </div>
-    <div class="field">
+  </div>
+  <div class="form-section">
+    <div class="field full">
       <label>Ideal-client signals</label>
       <input type="text" name="ideal_signals" value="{{ (profile.ideal_signals or [] )|join(', ') }}" placeholder="no website, outdated site, no contact form">
       <p class="hint">Signals that mark a good prospect for automated discovery.</p>

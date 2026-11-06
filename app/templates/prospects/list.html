@@ -1,8 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="page-header">
-  <h1>Prospects</h1>
-  <p class="muted">Your pipeline. Filter, sort, act.</p>
+  <div style="display:flex;align-items:baseline;justify-content:space-between;">
+    <div>
+      <h1>Prospects</h1>
+      <p class="muted">Your pipeline. Filter, sort, act.</p>
+    </div>
+    <a href="/prospects/new" class="btn primary">Add prospect</a>
+  </div>
 </section>
 
 {% if message %}
@@ -46,7 +51,7 @@
       <label>Search</label>
       <input name="q" value="{{ current_q or '' }}" placeholder="name, category, city">
     </div>
-    <button class="btn">Apply</button>
+    <button class="btn primary">Apply</button>
     {% if include_archived %}
     <a href="/prospects" class="btn ghost">Clear filters</a>
     {% endif %}
@@ -58,9 +63,6 @@
     <label class="checkbox">
       <input type="checkbox" name="do_not_contact_only" value="1" {% if do_not_contact_only %}checked{% endif %}> Suppressed only
     </label>
-  </div>
-  <div class="toolbar-actions">
-    <a href="/prospects/new" class="btn primary">Add prospect</a>
   </div>
 </section>
 
@@ -84,9 +86,9 @@
       {% for p in prospects %}
       <tr>
         <td>
-          <a href="/prospects/{{ p.id }}">{{ p.business_name }}</a>
-          {% if p.do_not_contact %}<span class="badge danger">Suppressed</span>{% endif %}
-          {% if p.archived_at %}<span class="badge muted">Archived</span>{% endif %}
+          <div style="font-weight:var(--fw-semibold);color:var(--color-text);"><a href="/prospects/{{ p.id }}">{{ p.business_name }}</a></div>
+          {% if p.do_not_contact %}<span class="badge danger" style="margin-top:var(--sp-1);">Suppressed</span>{% endif %}
+          {% if p.archived_at %}<span class="badge muted" style="margin-top:var(--sp-1);">Archived</span>{% endif %}
         </td>
         <td>{{ p.category or "none" }}</td>
         <td>{{ p.location_city or p.location_area or "none" }}</td>
@@ -101,7 +103,7 @@
         <td>{{ p.last_contacted_at or "none" }}</td>
         <td>none</td>
         <td>
-          {% for t in p.tags %}<span class="badge tag">{{ t.name }}</span>{% endfor %}
+          {% for t in p.tags %}<span class="badge tag" style="margin-right:var(--sp-1);margin-bottom:var(--sp-1);">{{ t.name }}</span>{% endfor %}
         </td>
         <td>
           <div class="action-group">

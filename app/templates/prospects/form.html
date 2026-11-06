@@ -10,14 +10,16 @@
 {% endif %}
 
 <form method="post" action="{{ action }}">
-  <div class="form-grid">
+  <div class="form-section full-width">
     <div class="field">
       <label>Business name <span class="required">*</span></label>
       <input type="text" name="business_name" value="{{ (form.business_name if form else (prospect.business_name if prospect else '')) }}" required>
     </div>
+  </div>
+  <div class="form-section">
     <div class="field">
       <label>Category</label>
-      <input type="text" name="category" value="{{ (form.category if form else (prospect.category if prospect else '')) }}" placeholder="hotel, event planner">
+      <input type="text" name="category" value="{{ (form.category if form else (prospect.category if prospect else '')) }}" placeholder="e.g. hotel, event planner">
     </div>
     <div class="field">
       <label>Area / district</label>
@@ -33,12 +35,14 @@
     </div>
     <div class="field">
       <label>Country</label>
-      <input type="text" name="location_country" value="{{ (form.location_country if form else (prospect.location_country if prospect else '')) }}" placeholder="US, NG">
+      <input type="text" name="location_country" value="{{ (form.location_country if form else (prospect.location_country if prospect else '')) }}" placeholder="e.g. US">
     </div>
     <div class="field">
       <label>Address</label>
       <input type="text" name="address" value="{{ (form.address if form else (prospect.address if prospect else '')) }}">
     </div>
+  </div>
+  <div class="form-section">
     <div class="field">
       <label>Phone</label>
       <input type="tel" name="phone_raw" value="{{ (form.phone_raw if form else (prospect.phone_raw if prospect else '')) }}">

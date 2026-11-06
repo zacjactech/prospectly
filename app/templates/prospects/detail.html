@@ -1,12 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="page-header">
-  <h1>{{ prospect.business_name }}</h1>
-  <div class="meta-row">
-    <span class="badge stage-{{ prospect.stage | replace('_', '-') }}">{{ prospect.stage }}</span>
-    {% if prospect.do_not_contact %}<span class="badge danger">Suppressed: {{ prospect.do_not_contact_reason }}</span>{% endif %}
-    {% if prospect.archived_at %}<span class="badge muted">Archived</span>{% endif %}
-    {% if prospect.category %}<span class="badge">{{ prospect.category }}</span>{% endif %}
+  <div style="display:flex;align-items:baseline;justify-content:space-between;">
+    <div>
+      <h1>{{ prospect.business_name }}</h1>
+      <div class="meta-row" style="margin-top:var(--sp-2);">
+        <span class="badge stage-{{ prospect.stage | replace('_', '-') }}">{{ prospect.stage }}</span>
+        {% if prospect.do_not_contact %}<span class="badge danger">Suppressed: {{ prospect.do_not_contact_reason }}</span>{% endif %}
+        {% if prospect.archived_at %}<span class="badge muted">Archived</span>{% endif %}
+        {% if prospect.category %}<span class="badge">{{ prospect.category }}</span>{% endif %}
+      </div>
+    </div>
+    <a href="/prospects/{{ prospect.id }}/edit" class="btn">Edit details</a>
   </div>
 </section>
 
@@ -27,7 +32,7 @@
       <dt>Location</dt><dd>{{ prospect.location_city or prospect.location_area or prospect.location_country or "none" }}</dd>
       <dt>Source</dt><dd>{{ prospect.source.label if prospect.source else "none" }}</dd>
       <dt>Tags</dt><dd>
-        {% for t in prospect.tags %}<span class="badge tag">{{ t.name }}</span>{% endfor %}
+        {% for t in prospect.tags %}<span class="badge tag" style="margin-right:var(--sp-1);margin-bottom:var(--sp-1);">{{ t.name }}</span>{% endfor %}
         {% if not prospect.tags %}<span class="muted">none</span>{% endif %}
       </dd>
       <dt>Last contacted</dt><dd>{{ prospect.last_contacted_at or "none" }}</dd>
@@ -59,7 +64,7 @@
         {% endfor %}
       </select>
       {% if transitions.get(current) %}
-      <button class="btn">Change stage</button>
+      <button class="btn primary">Change stage</button>
       {% else %}
       <span class="muted">No further transitions.</span>
       {% endif %}
@@ -70,7 +75,6 @@
 <section class="card">
   <h3>Actions</h3>
   <div class="action-group">
-    <a href="/prospects/{{ prospect.id }}/edit" class="btn">Edit details</a>
     {% if not prospect.do_not_contact and not prospect.archived_at %}
     <a href="/prospects/new" class="btn ghost">Add another</a>
     {% endif %}
