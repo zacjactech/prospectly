@@ -1,0 +1,57 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Prospectly",
+    "version": "0.1.0a1"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "Healthz",
+        "description": "Liveness probe (no auth, no data).",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Healthz Healthz Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "Index",
+        "description": "Placeholder home page (real dashboard arrives in Phase 4).",
+        "operationId": "index__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
