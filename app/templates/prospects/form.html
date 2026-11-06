@@ -1,10 +1,5 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="page-header">
-  <h1>{% if prospect %}Edit prospect{% else %}Add prospect{% endif %}</h1>
-  <p class="muted">Enter the details you know. Duplicates are checked automatically.</p>
-</section>
-
 {% if error %}
 <div class="flash error">{{ error }}</div>
 {% endif %}

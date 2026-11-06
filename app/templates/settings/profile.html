@@ -1,9 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="page-header">
-  <h1>Profile</h1>
-  <p class="muted">What you offer, who you target, and where. This drives discovery and personalizes your outreach drafts.</p>
-</section>
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
 
 <form method="post" action="/settings/profile">
   <div class="form-section">

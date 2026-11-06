@@ -12,21 +12,26 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Activity, Prospect, Source
+from app.models import Activity, Finding, Prospect, ResearchRun, Source, WebsiteCheck
 from app.schemas import (
     ActivityOut,
     DedupeCheckOut,
     ErrorOut,
+    FindingOut,
     ProfileIn,
     ProfileOut,
     ProspectCreate,
     ProspectOut,
     ProspectPatch,
+    ResearchRunOut,
+    ResearchStartOut,
     StageTransitionIn,
     StageTransitionOut,
+    WebsiteCheckOut,
 )
 from app.services import profile as profile_service
 from app.services import prospect as prospect_service
+from app.services import research as research_service
 
 router = APIRouter(tags=["api"])
 
@@ -265,3 +270,94 @@ def update_profile(
         ideal_signals=payload.ideal_signals,
     )
     return ProfileOut.model_validate(profile)
+
+
+@router.post(
+    "/prospects/{prospect_id}/research/runs",
+    response_model=ResearchStartOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={404: {"model": ErrorOut}},
+)
+def start_research(
+    prospect_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> ResearchStartOut:
+    """Queue a research run for a prospect."""
+    prospect = db.get(Prospect, prospect_id)
+    if prospect is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prospect not found")
+
+    run = ResearchRun(prospect_id=prospect_id, triggered_by="user")
+    db.add(run)
+    db.flush()
+
+    try:
+        research_service.run_research(db, prospect_id=prospect_id, research_run=run)
+    except Exception as exc:  # pragma: no cover - defensive
+        run.status = "failed"
+        run.error = str(exc)
+        run.finished_at = research_service._now()
+        db.flush()
+
+    return ResearchStartOut(
+        run_id=run.id,
+        job_id=None,
+        status=run.status,
+    )
+
+
+@router.get(
+    "/research/runs/{run_id}",
+    response_model=ResearchRunOut,
+    responses={404: {"model": ErrorOut}},
+)
+def get_research_run(
+    run_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> ResearchRunOut:
+    run = db.get(ResearchRun, run_id)
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Research run not found")
+    return ResearchRunOut.model_validate(run)
+
+
+@router.get(
+    "/prospects/{prospect_id}/findings",
+    response_model=list[FindingOut],
+    responses={404: {"model": ErrorOut}},
+)
+def list_findings(
+    prospect_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> list[FindingOut]:
+    prospect = db.get(Prospect, prospect_id)
+    if prospect is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prospect not found")
+    rows = (
+        db.query(Finding)
+        .filter_by(prospect_id=prospect_id)
+        .order_by(Finding.recorded_at.desc())
+        .all()
+    )
+    return [FindingOut.model_validate(r) for r in rows]
+
+
+@router.get(
+    "/prospects/{prospect_id}/website-checks",
+    response_model=list[WebsiteCheckOut],
+    responses={404: {"model": ErrorOut}},
+)
+def list_website_checks(
+    prospect_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> list[WebsiteCheckOut]:
+    prospect = db.get(Prospect, prospect_id)
+    if prospect is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prospect not found")
+    rows = (
+        db.query(WebsiteCheck)
+        .filter_by(prospect_id=prospect_id)
+        .order_by(WebsiteCheck.checked_at.desc())
+        .all()
+    )
+    return [WebsiteCheckOut.model_validate(r) for r in rows]

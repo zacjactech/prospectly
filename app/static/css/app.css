@@ -303,6 +303,18 @@ p {
   color: var(--color-text);
 }
 
+.btn.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn.active:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
 .btn.small {
   height: 2.5rem;
   min-height: 36px;

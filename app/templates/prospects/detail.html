@@ -1,10 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="page-header">
+<section class="card">
   <div style="display:flex;align-items:baseline;justify-content:space-between;">
     <div>
-      <h1>{{ prospect.business_name }}</h1>
-      <div class="meta-row" style="margin-top:var(--sp-2);">
+      <div style="font-weight:var(--fw-semibold);color:var(--color-text);">{{ prospect.business_name }}</div>
         <span class="badge stage-{{ prospect.stage | replace('_', '-') }}">{{ prospect.stage }}</span>
         {% if prospect.do_not_contact %}<span class="badge danger">Suppressed: {{ prospect.do_not_contact_reason }}</span>{% endif %}
         {% if prospect.archived_at %}<span class="badge muted">Archived</span>{% endif %}

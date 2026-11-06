@@ -113,3 +113,55 @@ class ErrorOut(BaseModel):
     code: str
     message: str
     details: dict[str, Any] | None = None
+
+
+class ResearchRunOut(BaseModel):
+    id: int
+    prospect_id: int
+    status: str
+    steps: dict[str, Any] | None
+    error: str | None
+    started_at: datetime | None
+    finished_at: datetime | None
+    created_at: datetime
+    triggered_by: str
+
+    model_config = {"from_attributes": True}
+
+
+class ResearchStartOut(BaseModel):
+    run_id: int
+    job_id: int | None
+    status: str
+
+
+class WebsiteCheckOut(BaseModel):
+    id: int
+    url_checked: str
+    outcome: str
+    http_status: int | None
+    final_url: str | None
+    response_ms: int | None
+    title: str | None
+    has_contact_path: bool
+    has_booking_or_cta: bool
+    signals: dict[str, Any] | None
+    error: str | None
+    checked_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class FindingOut(BaseModel):
+    id: int
+    kind: str
+    statement: str
+    detail: str | None
+    source_url: str | None
+    source_type: str
+    verification_status: str
+    confidence: str
+    origin: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

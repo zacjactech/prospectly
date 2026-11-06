@@ -11,9 +11,9 @@
     <header class="topbar">
       <span class="brand">{{ app_name }}</span>
       <div class="topbar-right">
-        <a href="/" class="btn ghost small">Dashboard</a>
-        <a href="/prospects" class="btn ghost small">Prospects</a>
-        <a href="/settings/profile" class="btn ghost small">Profile</a>
+        <a href="/" class="btn ghost small {% if request.url.path == '/' %}active{% endif %}">Dashboard</a>
+        <a href="/prospects" class="btn ghost small {% if request.url.path == '/prospects' or request.url.path.startswith('/prospects/') %}active{% endif %}">Prospects</a>
+        <a href="/settings/profile" class="btn ghost small {% if request.url.path.startswith('/settings') %}active{% endif %}">Profile</a>
       </div>
     </header>
     <main class="main">

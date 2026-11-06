@@ -4,6 +4,10 @@ All tables live in one SQLite file (WAL). Phase 1 creates:
 profiles, sources, prospects, tags, prospect_tags, notes, activities,
 discovery_jobs, jobs.
 
+Phase 2 adds: website_checks, research_runs, findings, opportunities,
+opportunity_findings, outreach_messages, follow_ups, provider_usage,
+ai_usage.
+
 Relationships follow DATABASE_DESIGN §3 (PROTECT sources, CASCADE with
 prospects, append-only activities).
 """
@@ -125,8 +129,28 @@ class Prospect(Base):
 
     source: Mapped[Source | None] = relationship(back_populates="prospects")
     tags: Mapped[list[Tag]] = relationship(secondary="prospect_tags", back_populates="prospects")
-    notes = relationship("Note", back_populates="prospect")
-    activities = relationship("Activity", back_populates="prospect", cascade="all, delete-orphan")
+    notes: Mapped[list[Note]] = relationship(back_populates="prospect")
+    activities: Mapped[list[Activity]] = relationship(
+        back_populates="prospect", cascade="all, delete-orphan"
+    )
+    research_runs: Mapped[list[ResearchRun]] = relationship(
+        back_populates="prospect", cascade="all, delete-orphan"
+    )
+    findings: Mapped[list[Finding]] = relationship(
+        back_populates="prospect", cascade="all, delete-orphan"
+    )
+    website_checks: Mapped[list[WebsiteCheck]] = relationship(
+        back_populates="prospect", cascade="all, delete-orphan"
+    )
+    opportunities: Mapped[list[Opportunity]] = relationship(
+        back_populates="prospect", cascade="all, delete-orphan"
+    )
+    outreach_messages: Mapped[list[OutreachMessage]] = relationship(
+        back_populates="prospect", cascade="all, delete-orphan"
+    )
+    follow_ups: Mapped[list[FollowUp]] = relationship(
+        back_populates="prospect", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         # Dedupe partial unique indexes (§2.2, P9) — only among non-archived rows.
@@ -272,3 +296,260 @@ class Activity(Base):
     prospect: Mapped[Prospect] = relationship(back_populates="activities")
 
     __table_args__ = (Index("ix_activities_prospect_created", "prospect_id", "created_at"),)
+
+
+class WebsiteCheck(Base):
+    """Website inspection results (§2.7)."""
+
+    __tablename__ = "website_checks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    prospect_id: Mapped[int] = mapped_column(
+        ForeignKey("prospects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("research_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    url_checked: Mapped[str] = mapped_column(Text, nullable=False)
+    outcome: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    final_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    response_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    has_contact_path: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    has_booking_or_cta: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    signals: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checked_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+    prospect: Mapped[Prospect] = relationship(back_populates="website_checks")
+    run: Mapped[ResearchRun | None] = relationship(back_populates="website_checks")
+
+
+class ResearchRun(Base):
+    """Research run per prospect (§2.5)."""
+
+    __tablename__ = "research_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    prospect_id: Mapped[int] = mapped_column(
+        ForeignKey("prospects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="queued", index=True)
+    steps: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    triggered_by: Mapped[str] = mapped_column(String(20), nullable=False, default="user")
+
+    prospect: Mapped[Prospect] = relationship(back_populates="research_runs")
+    findings: Mapped[list[Finding]] = relationship(
+        back_populates="run", cascade="all, delete-orphan"
+    )
+    website_checks: Mapped[list[WebsiteCheck]] = relationship(
+        back_populates="run", cascade="all, delete-orphan"
+    )
+
+
+class Finding(Base):
+    """Evidence-backed research fact (§2.6)."""
+
+    __tablename__ = "findings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    prospect_id: Mapped[int] = mapped_column(
+        ForeignKey("prospects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    research_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("research_runs.id", ondelete="SET NULL"), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    statement: Mapped[str] = mapped_column(Text, nullable=False)
+    detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    retrieved_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    recorded_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    verification_status: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="unverified"
+    )
+    confidence: Mapped[str] = mapped_column(String(20), nullable=False, default="low")
+    origin: Mapped[str] = mapped_column(String(20), nullable=False, default="provider")
+    finding_key: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    edited_by: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    original_statement: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    prospect: Mapped[Prospect] = relationship(back_populates="findings")
+    run: Mapped[ResearchRun | None] = relationship(back_populates="findings")
+    opportunities: Mapped[list[Opportunity]] = relationship(
+        secondary="opportunity_findings", back_populates="findings"
+    )
+
+    __table_args__ = (
+        Index("ix_findings_prospect_kind", "prospect_id", "kind"),
+        Index("ux_findings_prospect_key", "prospect_id", "finding_key", unique=True),
+    )
+
+
+class Opportunity(Base):
+    """Evidence-backed outreach reason (§2.8)."""
+
+    __tablename__ = "opportunities"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    prospect_id: Mapped[int] = mapped_column(
+        ForeignKey("prospects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    type: Mapped[str] = mapped_column(String(60), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="proposed")
+    origin: Mapped[str] = mapped_column(String(20), nullable=False, default="rule")
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    prospect: Mapped[Prospect] = relationship(back_populates="opportunities")
+    findings: Mapped[list[Finding]] = relationship(
+        secondary="opportunity_findings", back_populates="opportunities"
+    )
+
+
+class OpportunityFinding(Base):
+    """M:N join between opportunities and findings."""
+
+    __tablename__ = "opportunity_findings"
+
+    opportunity_id: Mapped[int] = mapped_column(
+        ForeignKey("opportunities.id", ondelete="CASCADE"), primary_key=True
+    )
+    finding_id: Mapped[int] = mapped_column(
+        ForeignKey("findings.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
+class OutreachMessage(Base):
+    """WhatsApp draft bound to one prospect (§2.9)."""
+
+    __tablename__ = "outreach_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    prospect_id: Mapped[int] = mapped_column(
+        ForeignKey("prospects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    current_text: Mapped[str] = mapped_column(Text, nullable=False)
+    generated_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    origin: Mapped[str] = mapped_column(String(20), nullable=False, default="template")
+    generator_meta: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    grounding: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
+    ungrounded_acknowledgement: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    approved_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    opened_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sent_confirmed_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    prospect: Mapped[Prospect] = relationship(back_populates="outreach_messages")
+
+    __table_args__ = (
+        Index("ux_outreach_messages_active", "prospect_id", unique=True),
+        Index("ix_outreach_messages_status", "status"),
+    )
+
+
+class FollowUp(Base):
+    """Follow-up task (§2.10)."""
+
+    __tablename__ = "follow_ups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    prospect_id: Mapped[int] = mapped_column(
+        ForeignKey("prospects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    message_id: Mapped[int | None] = mapped_column(
+        ForeignKey("outreach_messages.id", ondelete="SET NULL"), nullable=True
+    )
+    due_date: Mapped[dt.date | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open", index=True)
+    completed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    prospect: Mapped[Prospect] = relationship(back_populates="follow_ups")
+
+    __table_args__ = (Index("ix_follow_ups_status_due", "status", "due_date"),)
+
+
+class ProviderUsage(Base):
+    """Provider call accounting (§2.13)."""
+
+    __tablename__ = "provider_usage"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(30), nullable=False)
+    calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    errors: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    rate_limited: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    period: Mapped[dt.date] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    __table_args__ = (Index("ux_provider_usage", "provider", "kind", "period", unique=True),)
+
+
+class AIUsage(Base):
+    """AI call accounting (§2.13)."""
+
+    __tablename__ = "ai_usage"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    task: Mapped[str] = mapped_column(String(30), nullable=False)
+    prompt_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    completion_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    ok_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    failed_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    period: Mapped[dt.date] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    __table_args__ = (Index("ux_ai_usage", "provider", "model", "task", "period", unique=True),)
