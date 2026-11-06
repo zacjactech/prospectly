@@ -531,27 +531,29 @@ p {
 
 /* ===== Toolbar & Filters ===== */
 .toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-4);
   margin-bottom: var(--sp-6);
 }
 
-.filter-row {
+.filter-bar {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--sp-4);
   box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  align-items: flex-end;
 }
 
-.filter-group {
+.filter-chip {
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
+  min-width: 140px;
 }
 
-.filter-group label {
+.filter-chip label {
   font-size: var(--fs-xs);
   font-weight: var(--fw-medium);
   color: var(--color-text-muted);
@@ -559,54 +561,96 @@ p {
   letter-spacing: 0.05em;
 }
 
-.filter-group select,
-.filter-group input {
+.filter-chip select,
+.filter-chip input {
   width: 100%;
   height: var(--control-h);
-  min-height: 44px;
+  min-height: 40px;
   padding: 0 var(--sp-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   font-family: inherit;
-  font-size: var(--fs-base);
+  font-size: var(--fs-sm);
   color: var(--color-text);
+  transition: border-color var(--dur-base) ease, box-shadow var(--dur-base) ease;
 }
 
-.filter-group select:focus,
-.filter-group input:focus {
+.filter-chip select:focus,
+.filter-chip input:focus {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-light);
 }
 
-.toolbar-actions {
-  display: flex;
-  gap: var(--sp-3);
-  align-items: flex-end;
+.filter-chip-search {
+  flex: 1;
+  min-width: 200px;
 }
 
-.filter-checkboxes {
+.filter-chip-toggles {
   display: flex;
-  gap: var(--sp-4);
-  margin-top: var(--sp-2);
+  gap: var(--sp-2);
+  align-items: center;
+  flex-wrap: wrap;
 }
 
-.filter-checkboxes label {
-  display: flex;
+.toggle-chip {
+  display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
   font-size: var(--fs-sm);
-  color: var(--color-text);
+  font-weight: var(--fw-medium);
   cursor: pointer;
+  transition: all var(--dur-base) ease;
+  user-select: none;
 }
 
-.filter-checkboxes input {
-  width: auto;
-  min-width: auto;
-  height: auto;
-  min-height: auto;
-  margin: 0;
-  accent-color: var(--color-accent);
+.toggle-chip input {
+  display: none;
+}
+
+.toggle-chip:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.toggle-chip.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #ffffff;
+}
+
+.toggle-chip.active:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+/* Hide the old checkbox styles that no longer apply */
+.filter-chip-checkboxes,
+.filter-chip-checkboxes .checkbox.inline,
+.filter-chip-checkboxes input {
+  display: none !important;
+}
+
+.toolbar-actions {
+  margin-left: auto;
+}
+
+.filter-bar .btn {
+  height: var(--control-h);
+  min-height: 40px;
+  padding: 0 var(--sp-5);
+  font-size: var(--fs-sm);
+}
+
+.filter-bar .btn.ghost {
+  height: var(--control-h);
+  min-height: 40px;
 }
 
 /* ===== Tables ===== */

@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-header">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;">
+    <div>
+      <h1>Research</h1>
+      <p class="muted">Evidence and findings for {{ prospect.business_name }}</p>
+    </div>
+    <a href="/prospects/{{ prospect.id }}" class="btn ghost">Back to prospect</a>
+    {% if latest_run and latest_run.status != "running" %}
+    <form method="post" action="/prospects/{{ prospect.id }}/research/start" style="display:inline;" onsubmit="return confirm('Run research again? This will refresh all findings.')">
+      <button class="btn primary">Re-run research</button>
+    </form>
+    {% elif not latest_run %}
+    <form method="post" action="/prospects/{{ prospect.id }}/research/start" style="display:inline;">
+      <button class="btn primary">Run research</button>
+    </form>
+    {% else %}
+    <button class="btn primary" disabled>Research running...</button>
+    {% endif %}
+  </div>
+</section>
+
+{% if latest_run and latest_run.status == "running" %}
+<div class="flash info">
+  <span class="badge">Running</span> Research is in progress. Refresh this page to see updated results.
+</div>
+{% endif %}
+
+{% if latest_run and latest_run.status == "failed" %}
+<div class="flash error">
+  Research failed: {{ latest_run.error or "Unknown error" }}
+</div>
+{% endif %}
+
+<section class="card">
+  <h3>Website check</h3>
+  {% if website_checks %}
+  {% set latest_check = website_checks[0] %}
+  <div class="grid grid-2">
+    <div class="metric-card">
+      <div class="metric-label">Status</div>
+      <div class="metric-value">
+        <span class="badge stage-{{ latest_check.outcome }}">{{ latest_check.outcome }}</span>
+      </div>
+    </div>
+    {% if latest_check.http_status %}
+    <div class="metric-card">
+      <div class="metric-label">HTTP status</div>
+      <div class="metric-value">{{ latest_check.http_status }}</div>
+    </div>
+    {% endif %}
+    {% if latest_check.response_ms %}
+    <div class="metric-card">
+      <div class="metric-label">Response time</div>
+      <div class="metric-value">{{ latest_check.response_ms }}ms</div>
+    </div>
+    {% endif %}
+    {% if latest_check.title %}
+    <div class="metric-card">
+      <div class="metric-label">Page title</div>
+      <div class="metric-value">{{ latest_check.title }}</div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="facts">
+    <dt>URL checked</dt><dd><a href="{{ latest_check.url_checked }}" target="_blank" rel="noopener">{{ latest_check.url_checked }}</a></dd>
+    {% if latest_check.final_url and latest_check.final_url != latest_check.url_checked %}
+    <dt>Final URL</dt><dd><a href="{{ latest_check.final_url }}" target="_blank" rel="noopener">{{ latest_check.final_url }}</a></dd>
+    {% endif %}
+    <dt>Contact path</dt><dd>{{ "Yes" if latest_check.has_contact_path else "No" }}</dd>
+    <dt>Booking/CTA</dt><dd>{{ "Yes" if latest_check.has_booking_or_cta else "No" }}</dd>
+    {% if latest_check.error %}
+    <dt>Error</dt><dd class="text-danger">{{ latest_check.error }}</dd>
+    {% endif %}
+    <dt>Checked</dt><dd>{{ latest_check.checked_at }}</dd>
+  </div>
+  {% else %}
+  <p class="muted">No website check has been run yet.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3>Findings</h3>
+  {% if findings %}
+  <table class="prospects">
+    <thead>
+      <tr>
+        <th>Kind</th>
+        <th>Statement</th>
+        <th>Source</th>
+        <th>Verification</th>
+        <th>Confidence</th>
+        <th>Origin</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in findings %}
+      <tr>
+        <td><span class="badge">{{ f.kind }}</span></td>
+        <td>{{ f.statement }}</td>
+        <td>{% if f.source_url %}<a href="{{ f.source_url }}" target="_blank" rel="noopener">{{ f.source_url }}</a>{% else %}<span class="muted">none</span>{% endif %}</td>
+        <td><span class="badge stage-{{ f.verification_status }}">{{ f.verification_status }}</span></td>
+        <td><span class="badge">{{ f.confidence }}</span></td>
+        <td><span class="badge">{{ f.origin }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No findings yet. Run research to collect evidence.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3>Research runs</h3>
+  {% if runs %}
+  <table class="prospects">
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Triggered</th>
+        <th>Started</th>
+        <th>Finished</th>
+        <th>Error</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td><span class="badge stage-{{ r.status }}">{{ r.status }}</span></td>
+        <td>{{ r.triggered_by }}</td>
+        <td>{{ r.started_at or "—" }}</td>
+        <td>{{ r.finished_at or "—" }}</td>
+        <td>{{ r.error or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No research runs yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

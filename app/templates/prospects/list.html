@@ -5,8 +5,8 @@
 {% endif %}
 
 <section class="toolbar">
-  <form method="get" action="/prospects" class="filter-row">
-    <div class="filter-group">
+  <form method="get" action="/prospects" class="filter-bar">
+    <div class="filter-chip">
       <label>Stage</label>
       <select name="stage">
         <option value="">Any</option>
@@ -15,7 +15,7 @@
         {% endfor %}
       </select>
     </div>
-    <div class="filter-group">
+    <div class="filter-chip">
       <label>Tag</label>
       <select name="tag">
         <option value="">Any</option>
@@ -24,7 +24,7 @@
         {% endfor %}
       </select>
     </div>
-    <div class="filter-group">
+    <div class="filter-chip">
       <label>Category</label>
       <select name="category">
         <option value="">Any</option>
@@ -33,27 +33,29 @@
         {% endfor %}
       </select>
     </div>
-    <div class="filter-group">
+    <div class="filter-chip">
       <label>Location</label>
       <input name="location" value="{{ current_location or '' }}" placeholder="city, area, region">
     </div>
-    <div class="filter-group">
+    <div class="filter-chip filter-chip-search">
       <label>Search</label>
       <input name="q" value="{{ current_q or '' }}" placeholder="name, category, city">
     </div>
-    <button class="btn primary">Apply</button>
+    <button class="btn primary">Apply filters</button>
     {% if include_archived %}
     <a href="/prospects" class="btn ghost">Clear filters</a>
     {% endif %}
+    <div class="filter-chip-toggles">
+      <label class="toggle-chip {% if include_archived %}active{% endif %}">
+        <input type="checkbox" name="include_archived" value="1" {% if include_archived %}checked{% endif %}>
+        <span class="toggle-label">Include archived</span>
+      </label>
+      <label class="toggle-chip {% if do_not_contact_only %}active{% endif %}">
+        <input type="checkbox" name="do_not_contact_only" value="1" {% if do_not_contact_only %}checked{% endif %}>
+        <span class="toggle-label">Suppressed only</span>
+      </label>
+    </div>
   </form>
-  <div class="filter-checkboxes">
-    <label class="checkbox">
-      <input type="checkbox" name="include_archived" value="1" {% if include_archived %}checked{% endif %}> Include archived
-    </label>
-    <label class="checkbox">
-      <input type="checkbox" name="do_not_contact_only" value="1" {% if do_not_contact_only %}checked{% endif %}> Suppressed only
-    </label>
-  </div>
   {% if prospects %}
   <div class="toolbar-actions">
     <a href="/prospects/new" class="btn primary">Add prospect</a>

@@ -72,6 +72,51 @@
 </section>
 
 <section class="card">
+  <h3>Research</h3>
+  <div class="action-group">
+    <a href="/prospects/{{ prospect.id }}/research" class="btn">View full research</a>
+    {% if latest_run and latest_run.status != "running" %}
+    <form method="post" action="/prospects/{{ prospect.id }}/research/start" style="display:inline;" onsubmit="return confirm('Re-run research?')">
+      <button class="btn primary">Re-run research</button>
+    </form>
+    {% elif not latest_run %}
+    <form method="post" action="/prospects/{{ prospect.id }}/research/start" style="display:inline;">
+      <button class="btn primary">Run research</button>
+    </form>
+    {% else %}
+    <button class="btn primary" disabled>Research running...</button>
+    {% endif %}
+  </div>
+  {% if latest_run %}
+  <p class="muted">Last run: {{ latest_run.status }} ({{ latest_run.triggered_by }})</p>
+  {% endif %}
+  {% if website_checks %}
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="metric-label">Website status</div>
+      <div class="metric-value">
+        <span class="badge stage-{{ website_checks[0].outcome }}">{{ website_checks[0].outcome }}</span>
+      </div>
+    </div>
+    {% if website_checks[0].http_status %}
+    <div class="metric-card">
+      <div class="metric-label">HTTP status</div>
+      <div class="metric-value">{{ website_checks[0].http_status }}</div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if findings %}
+  <div class="facts">
+    {% for f in findings[:3] %}
+    <dt><span class="badge">{{ f.kind }}</span> {{ f.statement }}</dt>
+    <dd>{% if f.source_url %}<a href="{{ f.source_url }}" target="_blank" rel="noopener">Source</a>{% else %}<span class="muted">—</span>{% endif %}</dd>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+
+<section class="card">
   <h3>Actions</h3>
   <div class="action-group">
     {% if not prospect.do_not_contact and not prospect.archived_at %}

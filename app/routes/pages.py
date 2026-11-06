@@ -11,9 +11,10 @@ from sqlalchemy.orm import Session
 
 from app.config import BASE_DIR, settings
 from app.db import get_db
-from app.models import Activity, Prospect, Source, Tag
+from app.models import Activity, Finding, Prospect, ResearchRun, Source, Tag, WebsiteCheck
 from app.services import profile as profile_service
 from app.services import prospect as prospect_service
+from app.services import research as research_service
 
 router = APIRouter(tags=["pages"])
 
@@ -215,6 +216,26 @@ def prospect_detail(
         .limit(20)
         .all()
     )
+    latest_run = (
+        db.query(ResearchRun)
+        .filter_by(prospect_id=prospect_id)
+        .order_by(ResearchRun.created_at.desc())
+        .first()
+    )
+    findings = (
+        db.query(Finding)
+        .filter_by(prospect_id=prospect_id)
+        .order_by(Finding.recorded_at.desc())
+        .limit(5)
+        .all()
+    )
+    website_checks = (
+        db.query(WebsiteCheck)
+        .filter_by(prospect_id=prospect_id)
+        .order_by(WebsiteCheck.checked_at.desc())
+        .limit(3)
+        .all()
+    )
     return templates.TemplateResponse(
         request=request,
         name="prospects/detail.html",
@@ -222,6 +243,9 @@ def prospect_detail(
             "app_name": settings.app_name,
             "prospect": prospect,
             "activities": activities,
+            "latest_run": latest_run,
+            "findings": findings,
+            "website_checks": website_checks,
         },
     )
 
@@ -383,3 +407,77 @@ def profile_update(
         ideal_signals=_csv_to_list(ideal_signals),
     )
     return RedirectResponse(url="/settings/profile", status_code=303)
+
+
+@router.get("/prospects/{prospect_id}/research", response_class=HTMLResponse)
+def prospect_research(
+    request: Request,
+    prospect_id: int,
+    db: DbSession,
+) -> HTMLResponse:
+    """Research page for a prospect - shows findings, website checks, and run history."""
+    prospect = db.get(Prospect, prospect_id)
+    if prospect is None:
+        return HTMLResponse("Prospect not found", status_code=404)
+
+    runs = (
+        db.query(ResearchRun)
+        .filter_by(prospect_id=prospect_id)
+        .order_by(ResearchRun.created_at.desc())
+        .all()
+    )
+    latest_run = runs[0] if runs else None
+
+    findings = (
+        db.query(Finding)
+        .filter_by(prospect_id=prospect_id)
+        .order_by(Finding.recorded_at.desc())
+        .all()
+    )
+    website_checks = (
+        db.query(WebsiteCheck)
+        .filter_by(prospect_id=prospect_id)
+        .order_by(WebsiteCheck.checked_at.desc())
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="prospects/research.html",
+        context={
+            "app_name": settings.app_name,
+            "prospect": prospect,
+            "runs": runs,
+            "latest_run": latest_run,
+            "findings": findings,
+            "website_checks": website_checks,
+        },
+    )
+
+
+@router.post(
+    "/prospects/{prospect_id}/research/start", response_class=HTMLResponse, response_model=None
+)
+def prospect_research_start(
+    request: Request,
+    prospect_id: int,
+    db: DbSession,
+) -> HTMLResponse | RedirectResponse:
+    """Start a research run for a prospect."""
+    prospect = db.get(Prospect, prospect_id)
+    if prospect is None:
+        return HTMLResponse("Prospect not found", status_code=404)
+
+    run = ResearchRun(prospect_id=prospect_id, triggered_by="user")
+    db.add(run)
+    db.flush()
+
+    try:
+        research_service.run_research(db, prospect_id=prospect_id, research_run=run)
+    except Exception as exc:  # pragma: no cover - defensive
+        run.status = "failed"
+        run.error = str(exc)
+        run.finished_at = research_service._now()
+        db.flush()
+
+    return RedirectResponse(url=f"/prospects/{prospect_id}/research", status_code=303)
