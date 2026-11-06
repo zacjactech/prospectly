@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-header">
+  <h1>Profile</h1>
+  <p class="muted">Your offer, who you target, and where. This drives automated discovery and personalizes your outreach drafts.</p>
+</section>
+
+<form method="post" action="/settings/profile">
+  <div class="form-grid">
+    <div class="field full">
+      <label>What you offer (value proposition)</label>
+      <textarea name="offer" rows="3">{{ profile.offer or '' }}</textarea>
+      <p class="hint">e.g. "I build affordable websites for local businesses"</p>
+    </div>
+    <div class="field">
+      <label>Target industries / categories</label>
+      <input type="text" name="target_industries" value="{{ (profile.target_industries or [] )|join(', ') }}" placeholder="hotel, event planner, restaurant, retail">
+      <p class="hint">Comma-separated.</p>
+    </div>
+    <div class="field">
+      <label>Target locations</label>
+      <input type="text" name="target_locations" value="{{ (profile.target_locations or [] )|join(', ') }}" placeholder="Ikorodu, Lagos, Epe">
+      <p class="hint">Comma-separated cities or areas.</p>
+    </div>
+    <div class="field">
+      <label>Ideal-client signals</label>
+      <input type="text" name="ideal_signals" value="{{ (profile.ideal_signals or [] )|join(', ') }}" placeholder="no website, outdated site, no contact form">
+      <p class="hint">Signals that mark a good prospect for automated discovery.</p>
+    </div>
+  </div>
+  <div class="action-group">
+    <button class="btn primary">Save profile</button>
+    <a href="/" class="btn ghost">Cancel</a>
+  </div>
+</form>
+{% endblock %}

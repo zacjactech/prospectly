@@ -1,8 +1,34 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="empty-state">
-  <h1>{{ app_name }} scaffold ready</h1>
-  <p>Phase 0 complete — application shell, configuration, and database wiring are in place.</p>
-  <p>Prospect features arrive with Phases 1–4 (see <code>docs/IMPLEMENTATION_ROADMAP.md</code>).</p>
+<section class="page-header">
+  <h1>Dashboard</h1>
+  <p class="muted">{{ app_name }} — your prospecting pipeline.</p>
+</section>
+
+<section class="grid grid-3">
+  <div class="card">
+    <h3>Needs attention</h3>
+    <p class="big">—</p>
+    <p class="muted">Overdue follow-ups, pending drafts, unverified findings.</p>
+  </div>
+  <div class="card">
+    <h3>Pipeline</h3>
+    <p class="big">—</p>
+    <p class="muted">New → researched → opportunity → contacted → converted.</p>
+  </div>
+  <div class="card">
+    <h3>Today</h3>
+    <p class="big">—</p>
+    <p class="muted">Follow-ups due + recently replied.</p>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Quick start</h3>
+  <ul class="spaced">
+    <li><a href="/settings/profile">1. Set your profile</a> (what you sell, who you target, where).</li>
+    <li><a href="/prospects/new">2. Add a prospect manually</a> — or run automated discovery from your profile.</li>
+    <li><a href="/prospects">3. Browse your pipeline</a> — filter by stage, tag, category, location.</li>
+  </ul>
 </section>
 {% endblock %}

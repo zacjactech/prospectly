@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-header">
+  <h1>{% if prospect %}Edit prospect{% else %}Add prospect{% endif %}</h1>
+  <p class="muted">Enter the details you know. Duplicates are checked automatically.</p>
+</section>
+
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="{{ action }}">
+  <div class="form-grid">
+    <div class="field">
+      <label>Business name <span class="required">*</span></label>
+      <input type="text" name="business_name" value="{{ (form.business_name if form else (prospect.business_name if prospect else '')) }}" required>
+    </div>
+    <div class="field">
+      <label>Category</label>
+      <input type="text" name="category" value="{{ (form.category if form else (prospect.category if prospect else '')) }}" placeholder="e.g. hotel, event planner">
+    </div>
+    <div class="field">
+      <label>Area / district</label>
+      <input type="text" name="location_area" value="{{ (form.location_area if form else (prospect.location_area if prospect else '')) }}">
+    </div>
+    <div class="field">
+      <label>City</label>
+      <input type="text" name="location_city" value="{{ (form.location_city if form else (prospect.location_city if prospect else '')) }}">
+    </div>
+    <div class="field">
+      <label>State / region</label>
+      <input type="text" name="location_state" value="{{ (form.location_state if form else (prospect.location_state if prospect else '')) }}">
+    </div>
+    <div class="field">
+      <label>Country</label>
+      <input type="text" name="location_country" value="{{ (form.location_country if form else (prospect.location_country if prospect else '')) }}" placeholder="e.g. US, NG">
+    </div>
+    <div class="field">
+      <label>Address</label>
+      <input type="text" name="address" value="{{ (form.address if form else (prospect.address if prospect else '')) }}">
+    </div>
+    <div class="field">
+      <label>Phone (as entered)</label>
+      <input type="tel" name="phone_raw" value="{{ (form.phone_raw if form else (prospect.phone_raw if prospect else '')) }}">
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" name="email" value="{{ (form.email if form else (prospect.email if prospect else '')) }}">
+    </div>
+    <div class="field">
+      <label>Website</label>
+      <input type="url" name="website_url" value="{{ (form.website_url if form else (prospect.website_url if prospect else '')) }}">
+    </div>
+  </div>
+  <div class="action-group">
+    <button class="btn primary">{% if prospect %}Save changes{% else %}Create prospect{% endif %}</button>
+    <a href="/prospects" class="btn ghost">Cancel</a>
+  </div>
+</form>
+{% endblock %}

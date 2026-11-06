@@ -32,7 +32,7 @@ exclude = ["alembic/versions", ".venv", "*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
-ignore = ["E501"] # line length enforced by formatter, not linter
+ignore = ["E501", "B008"] # line length enforced by formatter; B008 = FastAPI Depends() pattern
 
 [tool.mypy]
 python_version = "3.12"
