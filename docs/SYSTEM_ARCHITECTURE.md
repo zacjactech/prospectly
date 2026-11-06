@@ -46,7 +46,7 @@ No other runtime dependencies: no Redis, no Celery, no message broker, no micros
 | `app/schemas` | Pydantic DTOs (API + AI structured outputs) | — | ORM models (explicit mapping) |
 | `app/providers/*` | External I/O adapters with limits/retries | httpx, config | domain decisions (they return data/errors) |
 | `app/ai/*` | AI interfaces + adapters + prompts | schemas, config | direct DB access |
-| `app/jobs` | Queue claim/heartbeat/retry loop | services | business rules of its own |
+| `app/jobs` | Queue claim/heartbeat/retry loop (discovery + research jobs) | services | business rules of its own |
 | `app/whatsapp` | Phone normalization, `wa.me` URL building | phonenumbers | any network I/O |
 | `app/templates` + `static` | Presentation | context from routes | business logic in Jinja (no complex expressions) |
 
@@ -92,7 +92,15 @@ replied → interested → follow_up_due ⇄ replied → converted
 
 ## 4. Data flow examples
 
-### 4.1 Research a prospect
+### 4.1 Profile-driven automated discovery (default path)
+
+1. Operator configures their profile in Settings (offer, target industries/categories, locations, ideal-client signals).
+2. "Run discovery" → service creates a `discovery_job` row keyed to the profile.
+3. Worker executes discovery steps: search queries (enabled SearchProvider) → optional Overpass/Places enrichment → candidate businesses.
+4. Each candidate → `prospect` row with `stage=new`, `source=<provider>`, activity `discovered`; duplicates flagged via dedupe keys; prospects awaiting review appear in the Prospects list.
+5. Operator reviews candidates (keep/edit/archive) → then runs research per prospect (Flow 3).
+
+### 4.2 Research a prospect
 
 1. User clicks "Run research" → service creates `research_run` + `jobs` row (type `research`).
 2. Worker claims job (transaction), sets run `running`.
@@ -101,7 +109,7 @@ replied → interested → follow_up_due ⇄ replied → converted
 5. Optional AI summarization (if configured) → additional findings with `origin='ai'`, `verification_status='unverified'`.
 6. Run marked `succeeded`/`partially_completed`; prospect stage → `researched`; UI polls HTMX partial for progress.
 
-### 4.2 Draft → approved → WhatsApp → confirmed
+### 4.3 Draft → approved → WhatsApp → confirmed
 
 1. "Generate draft" → service gathers approved/reliable findings → `MessageGenerator` (AI or template) → `outreach_messages` row (`draft`, `origin` recorded).
 2. User edits text freely (edits logged) → clicks **Submit for review** → `pending_review`.
@@ -172,7 +180,7 @@ The route layer opens the URL via `webbrowser.open()` (or returns it for the use
 - Bind to `127.0.0.1` by default; opt-in LAN bind requires an access token setting.
 - All outbound fetches go through one `SafeFetcher` (scheme allowlist `http/https`, DNS resolution checked against private/loopback ranges, redirect cap, size cap, timeout) to prevent SSRF.
 - CSRF token on every state-changing form; Jinja2 autoescaping on; CSP header set.
-- CSV import: size cap, encoding sniff, cell sanitization, no formula execution (export-side escaping too).
+- CSV import (secondary Settings utility): size cap, encoding sniff, cell sanitization, no formula execution (export-side escaping too).
 - Secrets only via env; redaction filter on log formatter for key-like values.
 
 ## 10. Configuration management

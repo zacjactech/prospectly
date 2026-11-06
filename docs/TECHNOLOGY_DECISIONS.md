@@ -82,6 +82,8 @@ providers/
 - API keys never appear in code, DB, logs, or URLs.
 - `config.py` exposes typed settings grouped by section (app, db, providers, ai, whatsapp, limits).
 - Paid providers off by default; enabling requires key + explicit `*_ENABLED=true`.
+- **User profile** lives in `settings` (or the dedicated `profiles` table per `DATABASE_DESIGN.md` §2.15): offer, target industries/categories, locations, ideal-client signals. Drives automated discovery jobs and personalizes outreach drafts.
+- **CSV import** is demoted to a secondary Settings utility (upload → preview → commit); it is not part of the default discovery flow.
 
 ## D9 — WhatsApp integration boundary
 

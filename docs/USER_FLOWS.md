@@ -4,24 +4,21 @@ Single-user tool; every flow is designed for one operator moving prospects throu
 
 ---
 
-## Flow 1 — Discover and add a prospect (manual)
+## Flow 0 — Configure your profile (one-time setup)
 
-1. Operator finds a business (Google Maps browsing, directory, street knowledge, word-of-mouth).
-2. **Add prospect** → enters name, category, location, phone, email, website if any, source.
-3. ⚠ System checks dedupe keys (name/phone/email/domain):
-   - exact match → block with link to existing prospect;
-   - fuzzy match → warning badge "possible duplicate" (operator decides).
-4. Saved with `stage=new`, activity `created`.
+1. **Settings → Profile** → enter what you offer, target industries/categories, target locations, ideal-client signals.
+2. ⚠ Discovery cannot run until a profile exists — it is the filter for who gets surfaced.
+3. Saved as the single owner profile; edit anytime (re-running discovery re-applies the new criteria).
 
-## Flow 2 — CSV import
+## Flow 1 — Discover prospects automatically (default path)
 
-1. **Import** → upload CSV (≤2 MB).
-2. **[system]** Parse, normalize phones (E.164), map columns, validate rows → **preview**: valid / duplicate / error rows with reasons.
-3. Operator reviews, unchecks rows they don't want → **Commit**.
-4. **[system]** Insert valid rows under one `csv_import` source; duplicates skipped; fuzzy matches flagged `stage=new` + tag `possible-duplicate`.
-5. Result summary: created / skipped / flagged. Backup reminder shown (P: backup before import).
+1. Open Prospects list → **Run discovery**.
+2. **[system]** Discovery job runs against your profile: search queries → optional directory/enrichment → candidate businesses.
+3. Candidates land as `stage=new` prospects with `source=<provider>`; duplicates flagged via dedupe keys (exact block, fuzzy warn).
+4. Operator reviews the candidate queue: **keep** (proceed to research), **edit** details, or **archive** (reject).
+5. Kept prospects move to research (Flow 2). CSV is not required to start.
 
-## Flow 3 — Research a prospect (core evidence loop)
+## Flow 2 — Research a prospect (core evidence loop)
 
 1. Open prospect → **Run research**.
 2. **[system]** Job pipeline: website inspection (HTTP/DNS/HTML signals) → web search (enabled provider) → optional discovery enrichment → optional AI summary (if configured).
@@ -35,6 +32,15 @@ Single-user tool; every flow is designed for one operator moving prospects throu
 6. ⚠ "No website" is only recorded as fact when evidence supports it: search found nothing AND/OR DNS/HTTP failure captured in `website_checks`. Otherwise `website_status=check_failed` — the UI shows "could not verify", never "no website".
 7. Prospect stage → `researched`.
 
+## Flow 3 — Add a prospect manually
+
+1. Operator finds a business (directory, street knowledge, word-of-mouth, research).
+2. **Add prospect** → enters name, category, location, phone, email, website if any, source.
+3. ⚠ System checks dedupe keys (name/phone/email/domain):
+   - exact match → block with link to existing prospect;
+   - fuzzy match → warning badge "possible duplicate" (operator decides).
+4. Saved with `stage=new`, activity `created`.
+
 ## Flow 4 — Identify and validate an opportunity
 
 1. **[system]** After research, rule engine proposes opportunities (e.g., "no standalone website found — searches + DNS evidence attached"), each linked to supporting findings.
@@ -44,7 +50,7 @@ Single-user tool; every flow is designed for one operator moving prospects throu
 
 ## Flow 5 — Draft → approve → WhatsApp → confirm sent (the heart of the product)
 
-1. **Generate draft** → context = validated opportunities + verified/high-confidence findings + business profile.
+1. **Generate draft** → context = validated opportunities + verified/high-confidence findings + **profile context** (your offer, who you sell to).
 2. **[system]** `MessageGenerator` (AI or template) produces text with grounding IDs; draft opens in editor.
 3. Operator edits freely (goal: their voice, accurate specifics; edits logged).
 4. ⚠ **Submit for review** → `pending_review` (editable, returns to `draft` on edit).
@@ -58,7 +64,7 @@ Single-user tool; every flow is designed for one operator moving prospects throu
 
 1. Prospect replies on WhatsApp (operator sees it in WhatsApp).
 2. In app: **Record reply** → paste/summarize text + timestamp → activity `reply_received`, stage → `replied`.
-3. Operator chooses: ** Interested** (stage `interested`), **Not interested** (stage `not_interested`, terminal for outreach), or **Do not contact** (⚠ terminal suppression, reason logged).
+3. Operator chooses: **Interested** (stage `interested`), **Not interested** (stage `not_interested`, terminal for outreach), or **Do not contact** (⚠ terminal suppression, reason logged).
 
 ## Flow 7 — Follow-up
 
@@ -77,7 +83,15 @@ Single-user tool; every flow is designed for one operator moving prospects throu
 1. Prospect agrees → operator sets stage `converted`.
 2. Handoff note (what was agreed) recorded as a note; prospect leaves active counts but remains searchable. Invoicing/payments are out of MVP scope.
 
-## Flow 10 — Review & correction day (maintenance loop)
+## Flow 10 — CSV import (secondary Settings utility)
+
+1. **Settings → Import** → upload CSV (≤2 MB).
+2. **[system]** Parse, normalize phones (E.164), map columns, validate rows → **preview**: valid / duplicate / error rows with reasons.
+3. Operator reviews, unchecks rows they don't want → **Commit**.
+4. **[system]** Insert valid rows under `csv_import` source; duplicates skipped; fuzzy matches flagged `stage=new` + tag `possible-duplicate`.
+5. Result summary: created / skipped / flagged. Backup reminder shown before commit (P: backup before bulk operations).
+
+## Flow 11 — Review & correction day (maintenance loop)
 
 Operator weekly: Dashboard "requires review" → fix unverified findings → approve pending drafts → clear overdue follow-ups → check Settings → Usage (provider errors/rate limits) → run backup.
 

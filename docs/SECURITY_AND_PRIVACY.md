@@ -8,7 +8,7 @@ Scope: a local-first, single-operator tool that stores personal contact data (na
 
 - All API bodies validated by Pydantic schemas (`extra='forbid'`, max lengths on every string, URL format checks).
 - HTML forms re-validate server-side (never trust the client) with per-field limits: business name ≤200, statement ≤1000, message ≤4096 (WhatsApp's practical limit ~65k, we cap lower for quality).
-- CSV upload: ≤2 MB, ≤5,000 rows, UTF-8/UTF-16 sniff with replacement-char report, per-cell length caps, reject embedded NUL/control chars, max 30 columns.
+- CSV upload (secondary Settings utility): ≤2 MB, ≤5,000 rows, UTF-8/UTF-16 sniff with replacement-char report, per-cell length caps, reject embedded NUL/control chars, max 30 columns.
 - Phone numbers validated with `phonenumbers`; invalid numbers stored as `phone_raw` only (never normalized) and flagged.
 
 ## 2. Injection & XSS

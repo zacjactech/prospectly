@@ -16,7 +16,7 @@ Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamp
 | GET | `/` | Dashboard |
 | GET | `/prospects` | List (filters: stage, tag, category, location, search, include-archived) |
 | GET/POST | `/prospects/new` | Manual add form |
-| GET/POST | `/prospects/import` | CSV upload + preview + confirm |
+| GET/POST | `/prospects/import` | CSV upload + preview + confirm **(secondary Settings utility; not part of discovery flow)** |
 | GET | `/prospects/{id}` | Detail (tabs: Overview · Research · Opportunities · Outreach · Activity) |
 | GET/POST | `/prospects/{id}/edit` | Edit |
 | POST | `/prospects/{id}/archive` · `/unarchive` | Soft archive |
@@ -31,7 +31,7 @@ Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamp
 | POST | `/prospects/{id}/follow-ups` · `/follow-ups/{fid}/complete` | Follow-ups |
 | POST | `/prospects/{id}/do-not-contact` · `/clear` | Suppression |
 | GET | `/follow-ups` | Due/overdue list |
-| GET | `/settings`, `/settings/providers`, `/settings/usage` | Config, provider status, usage |
+| GET | `/settings`, `/settings/providers`, `/settings/usage`, `/settings/profile` | Config, provider status, usage, user profile |
 | GET | `/healthz` | Liveness (no auth, no data) |
 
 HTMX partials return HTML fragments (`HX-Request` header honored); full page loads return complete templates. Flash/toast messages via `HX-Trigger` headers.
@@ -59,6 +59,11 @@ HTMX partials return HTML fragments (`HX-Request` header honored); full page loa
              "message": "A prospect with the same phone already exists",
              "details": { "existing_id": 42, "match_type": "phone" } } }
 ```
+
+| Method | Path | Body / query | Returns |
+|---|---|---|---|
+| GET | `/settings/profile` | — | `UserProfile` (offer, industries, locations, signals) |
+| PATCH | `/settings/profile` | `UserProfilePatch` | `200 UserProfile` |
 
 ### 2.2 Import
 

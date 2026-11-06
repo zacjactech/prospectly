@@ -39,35 +39,6 @@ Where a prospect came from (P: source tracking).
 
 ### 2.2 `prospects`
 
-| Column | Type | Notes |
-|---|---|---|
-| id | PK | |
-| business_name | TEXT NOT NULL | display name |
-| normalized_name | TEXT | lowercased, punctuation-stripped, stopwords kept (for dedupe) |
-| category | TEXT | free text + controlled vocabulary in `settings` (e.g. hotel, event planner, restaurant) |
-| location_area | TEXT | e.g. district/area name |
-| location_city | TEXT | e.g. city name |
-| location_state | TEXT | e.g. state/region name |
-| location_country | TEXT | ISO country code as entered (no default) |
-| address | TEXT | raw address if known |
-| phone_e164 | TEXT | normalized; NULL allowed |
-| phone_raw | TEXT | as entered |
-| email | TEXT | |
-| website_url | TEXT | as entered (may be NULL — that itself is a finding, not a fact) |
-| social_links | JSON | `{instagram, facebook, tiktok, linkedin, x, youtube}` — manual entry in MVP |
-| stage | TEXT enum | `new`, `researched`, `opportunity_identified`, `outreach_ready`, `contacted`, `replied`, `interested`, `follow_up_due`, `converted`, `not_interested`, `do_not_contact` |
-| website_status | TEXT enum | `unknown`, `no_website_found`, `check_failed`, `reachable`, `unreachable` (P6) |
-| source_id | FK → sources | |
-| owner_id | TEXT NULL | reserved for hosted multi-user phase (Phase 6+), unused in MVP |
-| tags via `prospect_tags` | | |
-| research_summary | TEXT | last human-edited research synopsis |
-| last_contacted_at | DATETIME | set on `sent_confirmed` |
-| created_at / updated_at | DATETIME | |
-| archived_at | DATETIME NULL | soft archive |
-| do_not_contact | BOOLEAN default false | hard guard flag (P10) |
-| do_not_contact_reason | TEXT | `opt_out`, `not_interested`, `invalid_number`, `manual`, `converted` |
-| do_not_contact_at | DATETIME | |
-
 **Dedupe keys (P9):** unique partial indexes where `archived_at IS NULL`:
 - `uq_prospects_norm_name` on `(normalized_name)`
 - `uq_prospects_phone` on `(phone_e164)` (when not null)
@@ -187,6 +158,34 @@ Index: `(status, run_after)`.
 
 ### 2.14 `settings`
 `key TEXT PK, value JSON, updated_at` — runtime toggles (category vocabulary, default follow-up days, daily caps). Secrets are **not** stored here (env only, D8).
+
+### 2.15 `profiles` — user profile (single owner, one row)
+Drives automated discovery (who to look for, where) and personalizes outreach drafts (who you are, what you sell).
+
+| Column | Notes |
+|---|---|
+| id | PK |
+| offer | TEXT — what you sell / your value proposition |
+| target_industries | JSON array — industries/categories to target |
+| target_locations | JSON array — locations to search |
+| ideal_signals | JSON — signals that mark a good prospect (e.g. no website, outdated site, no contact path) |
+| updated_at | DATETIME |
+
+### 2.16 `discovery_jobs` — automated discovery runs keyed to profile
+| Column | Notes |
+|---|---|
+| id | PK |
+| profile_id FK → profiles | |
+| status | `queued`, `running`, `succeeded`, `partially_completed`, `failed` |
+| query | TEXT — discovery query derived from profile |
+| candidates_found | INT — candidates surfaced |
+| prospects_created | INT — prospects created after operator review |
+| error | TEXT NULL |
+| started_at / finished_at | |
+| created_at | |
+
+### 2.12 `jobs` (D5)
+`id, type ('research','discover','followup_sweep','provider_probe'), payload JSON, status ('queued','running','succeeded','failed','cancelled'), run_after DATETIME, attempts INT, max_attempts default 3, locked_at, last_error, created_at, updated_at`.
 
 ---
 

@@ -63,7 +63,8 @@ Sources: 2026 SQLite vs PostgreSQL comparisons (tech-insider.org, codewithsql.co
 | **Foursquare Places API** | Global POI database (100M+), search by lat/lng + query | 500 free Pro calls/month as of 2026-06-01 (reduced from 10,000) ([Foursquare upcoming-changes](https://docs.foursquare.com/developer/reference/upcoming-changes)) | ~$15 per 1,000 requests | Yes | Monthly free calls, then metered | Good global data; coverage varies by region | Data license terms apply to storage |
 | **Yelp Fusion API** | US-centric business data | No meaningful free tier (reports of ~$229/month starting price) | High | Yes | — | US-centric coverage | Useful only for US-market prospects |
 | **Local/national business directories (per target market)** | Local listings with contacts | Free to browse | — | **No public API** (typical) | n/a (human browsing) | Useful for manual discovery | Most such directories publish no API: MVP treats them as *manual* discovery sources. Programmatic scraping would need a ToS review — deferred, not assumed |
-| **Manual add / CSV import** | Anything the user finds | Free | — | n/a | n/a | 100% user-controlled | Primary MVP discovery path; no provider dependency |
+| **Automated profile-driven discovery** (search + Overpass/Places, keyed to your profile) | Candidates surfaced from your target industries/categories/locations | Free (uses providers below) | Uses search/Places credits | Yes | Rate limits of underlying providers | Results are candidate prospects pending operator review — not auto-added | Operators review every candidate before it becomes a prospect |
+| **Manual add / CSV import** | Anything the user finds / lists you already own | Free | — | n/a | n/a | 100% user-controlled | **Secondary utility** (Settings → Import), not the default discovery path; no provider dependency |
 
 ### 4.2 Web / search APIs
 
@@ -165,7 +166,7 @@ Normalize phone → E.164 → build `wa.me` URL → open via OS default handler 
 ## 8. Research conclusions (feeding `TECHNOLOGY_DECISIONS.md`)
 
 1. Backend: FastAPI; Frontend: HTMX + Jinja2 (no build step); DB: SQLite → PostgreSQL path.
-2. Discovery: manual/CSV + Overpass as the free core; Google Places as an optional billing-gated provider; regional business directories (per target market) as manual sources.
+2. Discovery: **automated, profile-driven** (search queries + optional Overpass/Places enrichment, keyed to your profile) as the default path; manual add + CSV import as secondary Settings utility; Google Places as an optional billing-gated provider; regional business directories (per target market) as manual sources.
 3. Search: Tavily (recurring free 1,000 credits) primary free search; Serper for one-off larger batches; ddgs only as best-effort fallback.
 4. Website inspection: our own httpx-based checker; no paid tech-intel APIs in MVP.
 5. AI: interface-first; Gemini free tier default, Groq/OpenRouter alternates, template mode as no-AI floor.

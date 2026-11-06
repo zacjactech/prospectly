@@ -21,10 +21,12 @@ Phased plan with **testable exit criteria** per milestone. Each phase ends with:
 
 ## Phase 1 — Prospect management (M)
 
-- Models: `sources`, `prospects`, `tags`, `notes`, `activities` (+ migrations).
+- Models: `profiles`, `sources`, `prospects`, `discovery_jobs`, `tags`, `notes`, `activities` (+ migrations).
 - Services: create/edit/archive, dedupe keys (exact + fuzzy flag), stage transitions with validation, activity logging.
 - Pages: prospect list (filters/search/URL state), manual add/edit, detail shell with tabs, empty states; JSON API `/api/v1/prospects*`.
-- CSV import: upload → preview → commit with per-row outcomes; backup reminder.
+- **Profile** (Settings): offer, target industries/categories, locations, ideal-client signals — drives discovery + drafts.
+- **Automated discovery** (default path): profile-driven discovery jobs + candidate review queue; research per prospect.
+- CSV import: secondary Settings utility (upload → preview → commit); not part of the default flow.
 
 **Exit criteria:** tests for dedupe (exact blocked / fuzzy flagged), stage machine, import parsing (valid/dup/error rows); golden test: add → edit → archive → history intact; XSS payload in name renders escaped.
 
@@ -89,7 +91,7 @@ P6 items are individually releasable after P5
 | Risk | Mitigation |
 |---|---|
 | Free-tier changes (search/AI) mid-build | provider abstraction + template adapter floor; usage page shows breakage early |
-| OSM coverage weak in some target areas | manual/CSV remains primary discovery; Places provider ready when billing accepted |
+| OSM coverage weak in some target areas | manual/CSV remains secondary discovery; automated profile-driven discovery is default; Places provider ready when billing accepted |
 | Windows environment quirks (paths, ACLs, no Python yet) | Phase 0 handles install; path handling via `pathlib` everywhere; CI-free quality gate runnable in one command |
 | Scope creep toward "full CRM" | `PRODUCT_BRIEF.md` §6 exclusions are binding; new features require a doc amendment |
 | WhatsApp policy shifts | click-to-chat is official functionality; no unofficial tech to break; channel abstraction limits blast radius |

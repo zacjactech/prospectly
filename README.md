@@ -4,6 +4,8 @@ A lightweight, local-first, **semi-automated** prospecting and outreach platform
 
 Discover prospects → research them with evidence → identify outreach opportunities → draft a personalized WhatsApp message → **approve it yourself** → open WhatsApp and send it manually → track replies, follow-ups, and conversions.
 
+Default path: **configure your profile first** (what you sell, who you target, where), then run automated discovery jobs to find prospects — no CSV required to start.
+
 > **Status: Phase 0 complete — application scaffold runs and passes its quality gate.** Requirements, research, and architecture decisions live in [`docs/`](docs/); work proceeds phase-by-phase against the exit criteria in `docs/IMPLEMENTATION_ROADMAP.md`.
 
 ## Product principles (non-negotiable)
@@ -90,6 +92,9 @@ All keys are documented in `.env.example`. Highlights:
 | `TAVILY_API_KEY` / `SERPER_API_KEY` / … | optional search providers (feature-flagged by presence) |
 | `AI_PROVIDER` | `gemini` \| `groq` \| `openrouter` \| `ollama` \| `template` (default floor: `template`) |
 | `*_DAILY_CAP` | hard usage caps per provider |
+| `PHONE_DEFAULT_COUNTRY` | ISO country code applied to national-format numbers during E.164 normalization (unset = international format required) |
+
+**User profile** (in Settings): what you offer, target industries/categories, target locations, ideal-client signals — drives automated discovery jobs and personalizes outreach drafts. This is where you configure discovery before adding prospects.
 
 **Secrets never go in git.** `.env` is ignored; commit only `.env.example`.
 
@@ -99,7 +104,7 @@ All keys are documented in `.env.example`. Highlights:
 py -m uv run python -m app.cli backup    # consistent snapshot to backups/ (Phase 0+)
 ```
 
-Back up before each CSV import and weekly. Keep `backups/` out of cloud-sync folders (it contains personal data).
+Back up before major operations (import batches, bulk edits) and weekly. Keep `backups/` out of cloud-sync folders (it contains personal data).
 
 ## License / data note
 

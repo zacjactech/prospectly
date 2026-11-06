@@ -11,7 +11,7 @@ Everything required for the complete workflow works without payment. *Caveat: so
 | Capability | Free solution | Limits to respect |
 |---|---|---|
 | App runtime | Own machine + Python + SQLite | — |
-| Prospect discovery | Manual + CSV import + **OpenStreetMap Overpass** (no key) | OSM coverage is partial in many areas — treat as lead *hints*; public-instance rate limits (~10k queries/day practical guidance, 429s possible) |
+| Prospect discovery | **Automated, profile-driven** (search queries + optional Overpass/Places enrichment, keyed to your profile) + **OpenStreetMap Overpass** (no key) | OSM coverage is partial in many areas — treat as lead *hints*; public-instance rate limits (~10k queries/day practical guidance, 429s possible) |
 | Business research search | **Tavily** — 1,000 credits/month recurring, no card | ~200–1,000 searches depending on depth/extract mix; budget ≤10 searches/prospect |
 | Search fallback | `ddgs` library (keyless) | Unofficial, flaky (202 ratelimit), ToS risk — *fallback only, product never depends on it* |
 | Website inspection | Own httpx checker | Free, unlimited (subject to polite-use §5 of security doc) |

@@ -62,15 +62,22 @@ Single primary user: **the owner** — a solo operator using the platform to fin
 
 ### In scope (MVP)
 
-- **Prospect management:** manual add, CSV import, edit, archive, tags, notes, source tracking, duplicate detection (fuzzy name + normalized phone/email/website).
+- **User profile** (one profile per owner): what you offer, target industries/categories, target locations, and ideal-client signals. Drives automated discovery jobs (who to look for, where) and personalizes outreach drafts (who you are, what you sell). Editable in Settings; every draft links back to profile context so tone and offer stay consistent.
+- **Prospect management:** manual add, edit, archive, tags, notes, source tracking, duplicate detection (fuzzy name + normalized phone/email/website).
+- **Automated discovery:** profile-driven prospect discovery jobs (webscraping / search / directory queries per your profile criteria) — the default path to find prospects; results land as candidate prospects pending review.
 - **Business research:** run a research job per prospect that fetches website status, collects findings from configured providers, and stores evidence records; all findings editable.
 - **Opportunity analysis:** rule-based heuristics over findings (initial rule set: no website found, unreachable site, no visible contact path; rules are extensible to any outreach-relevant signal) + optional AI analysis, each opportunity linked to supporting findings.
-- **Personalized outreach:** AI-generated or template-based WhatsApp draft, grounded in approved findings; full editing; mandatory approval gate.
+- **Personalized outreach:** AI-generated or template-based WhatsApp draft, grounded in approved findings + profile context; full editing; mandatory approval gate.
 - **WhatsApp handoff:** E.164 phone normalization, `wa.me` URL construction, "Open WhatsApp" action, then explicit "I sent it" confirmation.
 - **Outreach management:** full status lifecycle + append-only activity history.
 - **Follow-ups:** due dates, overdue view, reply recording, not-interested / do-not-contact actions.
 - **Dashboard:** operational metrics only (see §8).
-- **Settings:** provider configuration (keys via environment), feature flags for optional paid providers.
+- **Settings:** provider configuration (keys via environment), feature flags for optional paid providers, user profile, CSV import utility (secondary).
+
+### Explicitly out of scope (MVP)
+
+- **CSV import as the default discovery path.** CSV remains a secondary Settings utility for backfilling lists you already own; it is not part of the discovery flow.
+- Any automatic sending (WhatsApp, email, SMS).
 
 ### Explicitly out of scope (MVP)
 
@@ -119,6 +126,7 @@ Explicitly excluded: open rates, "AI-generated" counts, page views, chart clutte
 ## 9. Terminology
 
 - **Prospect** — a potential client (business or contact organization) worth approaching.
+- **Profile** — the owner's settings: what you offer, target industries/categories, locations, and ideal-client signals; drives automated discovery and personalizes outreach drafts.
 - **Finding** — an evidence-backed research fact/observation with a source.
 - **Opportunity** — an evidence-backed reason to reach out (e.g., a web-presence gap or missing contact path), linked to supporting findings.
 - **Outreach message** — a WhatsApp draft bound to one prospect, versioned.

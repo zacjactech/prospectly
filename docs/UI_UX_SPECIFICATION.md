@@ -17,8 +17,9 @@ Prospectly
 │     └── Prospect detail (tabs: Overview · Research · Opportunities · Outreach · Activity)
 ├── Follow-ups           (due / overdue / upcoming)
 ├── Outreach             (message queue by status: pending_review → approved → opened_in_whatsapp)
-├── Import               (CSV)
 ├── Settings
+│     ├── Profile        (offer, target industries/categories, locations, signals — drives discovery + drafts)
+│     ├── Import         (CSV utility — secondary, not part of discovery flow)
 │     ├── Providers      (keys/status, feature flags)
 │     ├── Usage          (provider + AI usage, errors, rate limits)
 │     └── General        (vocabulary, defaults, backup)
@@ -43,7 +44,7 @@ Prospectly
 - Filter bar: stage, category, tag, location, "requires review", archived toggle, free-text search. Filter state persists in URL (shareable/back-button safe).
 - Row click → detail. Hover reveals quick actions (Run research, Open WhatsApp — only when state allows).
 - Bulk selection limited to safe ops: add tag, archive, change source. **No bulk outreach actions exist anywhere** (P1).
-- Empty state: "No prospects yet — Add manually or Import CSV" + two buttons.
+- Empty state: "No prospects yet — configure your Profile, run automated Discovery, or Add manually" + two buttons.
 
 ### 2.3 Prospect detail
 - **Header:** name, stage badge, key facts (phone with copy, email, website with "open" + status chip), suppression warning banner if `do_not_contact`.
@@ -59,13 +60,16 @@ Prospectly
 ### 2.5 Follow-ups
 - Grouped: **Overdue** (red count) · **Today** · **Upcoming**. Rows: prospect, due date, note, last contact. Actions: Complete, Snooze, Open prospect. Overdue group uses restrained amber/red only on the count chip — no row backgrounds.
 
-### 2.6 Import
-- 3-step wizard: Upload → Preview (valid/duplicate/error sections with per-row reasons, row checkboxes) → Commit + result summary. Shows backup reminder before commit.
+### 2.6 Import (CSV — secondary utility)
+
+Moved under Settings because CSV is not the default discovery path. 3-step wizard: Upload → Preview (valid/duplicate/error sections with per-row reasons, row checkboxes) → Commit + result summary. Shows backup reminder before commit.
 
 ### 2.7 Settings
+- **Profile:** your offer, target industries/categories, target locations, ideal-client signals — one editable form; drives automated discovery and personalizes drafts.
 - **Providers:** per provider: configured? (key present), enabled toggle, "Test" button (runs a trivial call, shows result), last error. Keys themselves are never displayed — only masked presence (`GEMINI_API_KEY · configured`).
 - **Usage:** table of provider calls/errors/rate-limits per day + AI tokens/costs estimate per day. Simple table, no charts.
 - **General:** category vocabulary editor, default follow-up days, daily caps, backup button + last-backup timestamp.
+- **Import (CSV):** secondary utility — Upload → Preview → Commit. Not the default discovery path.
 
 ## 3. Main user journeys (screen-level)
 
@@ -73,7 +77,7 @@ Prospectly
 |---|---|
 | Morning triage | Dashboard → "Needs attention" → prospect/review/follow-up |
 | New lead from phone call | Prospects → Add → (Research later) |
-| Batch discovery day | Import → Preview → Commit → filter `possible-duplicate` tag → research queue |
+| Batch discovery day | Profile → run automated Discovery → review candidates → research queue |
 | Research session | Prospect → Research tab → run → verify findings → Opportunities tab → validate |
 | Send window | Outreach queue → pending_review → edit → approve → Open in WhatsApp → confirm sent → set follow-up |
 | Weekly cleanup | Follow-ups overdue → complete/snooze → Settings → Usage → Backup |
