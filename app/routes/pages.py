@@ -91,9 +91,13 @@ def healthz() -> dict[str, str]:
 
 
 @router.get("/", response_class=HTMLResponse)
-def index(request: Request, db: DbSession) -> HTMLResponse:
-    """Dashboard home: redirects to prospects list."""
-    return _render_list(request, db, message=None)
+def index(request: Request) -> HTMLResponse:
+    """Dashboard home page."""
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={"app_name": settings.app_name},
+    )
 
 
 @router.get("/prospects", response_class=HTMLResponse)
