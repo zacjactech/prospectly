@@ -102,7 +102,7 @@ def index(request: Request, db: DbSession) -> HTMLResponse:
         context={
             "app_name": settings.app_name,
             "stage_counts": counts,
-            "pipeline_stages": dashboard_service.PIPELINE_STAGES,
+            "pipeline_phases": dashboard_service.PIPELINE_PHASES,
             "stage_label": dashboard_service.stage_label,
             "total_prospects": dashboard_service.total_prospects(db),
         },

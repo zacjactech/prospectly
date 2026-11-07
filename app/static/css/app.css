@@ -387,25 +387,52 @@ p {
   margin-bottom: 0;
 }
 
-/* ===== Pipeline strip (dashboard) ===== */
+/* ===== Pipeline strip (dashboard) =====
+   Grouped into display phases (UI/UX spec §2.1): each phase is a labelled
+   cluster of stage cells, so the nine numbers read as a progression instead
+   of one undifferentiated row. Two cells per phase keeps labels legible. */
 .pipeline-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  background: var(--color-border);
+  grid-template-columns: 1fr; /* phases stack below 768px */
+  gap: var(--sp-6); /* 24px: the phases are separate cards, not one divided band */
+  margin-bottom: var(--sp-4);
+}
+
+.pipeline-phase {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.pipeline-phase-label {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.pipeline-phase-cells {
+  flex: 1; /* phases share one row height regardless of cell count */
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  margin-bottom: var(--sp-4);
 }
 
 .pipeline-item {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 6px;
-  /* Vertical room makes the strip read as a KPI band; horizontal stays tight
-     because 9 cells share the width from 768px up. */
-  padding: 16px 8px;
+  padding: 14px 12px;
+  /* Separators are per-cell (not a gap-coloured backdrop) so a phase with an
+     odd cell count shows plain surface rather than a painted empty slot. */
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text);
   text-decoration: none;
@@ -416,6 +443,40 @@ p {
 .pipeline-item:hover {
   background: var(--color-surface-hover);
   text-decoration: none;
+}
+
+/* Qualify (4 cells): 2x2 — drop the right edge on column 2, the bottom edge
+   on the last row. */
+.phase-qualify .pipeline-item:nth-child(2n) {
+  border-right: none;
+}
+
+.phase-qualify .pipeline-item:nth-last-child(-n + 2) {
+  border-bottom: none;
+}
+
+/* Outreach (3 cells): a row of two, then a full-width trailing cell. */
+.phase-outreach .pipeline-item:nth-child(2n) {
+  border-right: none;
+}
+
+.phase-outreach .pipeline-item:last-child {
+  grid-column: 1 / -1;
+  border-right: none;
+  border-bottom: none;
+}
+
+/* Convert (2 cells): single column so it fills the same two-row height. */
+.phase-convert .pipeline-phase-cells {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.phase-convert .pipeline-item {
+  border-right: none;
+}
+
+.phase-convert .pipeline-item:last-child {
+  border-bottom: none;
 }
 
 .pipeline-count {
@@ -430,13 +491,13 @@ p {
 }
 
 .pipeline-label {
-  /* Fluid so the longest stage label ("Opportunity") fits a 9-across row from
-     768px up instead of ellipsising at the narrow end. */
-  font-size: clamp(8px, 1vw, 9px);
+  /* Two cells per phase means a cell is ~128px at 856px, so the longest
+     label ("Opportunity") fits at 11-13px instead of the old 8px. */
+  font-size: clamp(11px, 1.15vw, 13px);
   font-weight: var(--fw-medium);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -444,7 +505,7 @@ p {
 
 @media (min-width: 768px) {
   .pipeline-strip {
-    grid-template-columns: repeat(9, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

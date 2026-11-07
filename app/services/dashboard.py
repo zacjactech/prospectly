@@ -15,16 +15,19 @@ from app.models import Prospect
 # The main progression (SYSTEM_ARCHITECTURE §3.2), in order. Terminal states
 # (not_interested, do_not_contact, archived) are deliberately absent: they are
 # closed, not in-flight.
-PIPELINE_STAGES: tuple[str, ...] = (
-    "new",
-    "researched",
-    "opportunity_identified",
-    "outreach_ready",
-    "contacted",
-    "replied",
-    "follow_up_due",
-    "interested",
-    "converted",
+#
+# Grouped into display phases for the dashboard strip (UI/UX spec §2.1). The
+# phases are presentation only: stage order, semantics and the state machine
+# are unchanged, and PIPELINE_STAGES is derived so every existing caller sees
+# the same flat tuple as before.
+PIPELINE_PHASES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Qualify", ("new", "researched", "opportunity_identified", "outreach_ready")),
+    ("Outreach", ("contacted", "replied", "follow_up_due")),
+    ("Convert", ("interested", "converted")),
+)
+
+PIPELINE_STAGES: tuple[str, ...] = tuple(
+    stage for _phase, stages in PIPELINE_PHASES for stage in stages
 )
 
 _LABELS: dict[str, str] = {

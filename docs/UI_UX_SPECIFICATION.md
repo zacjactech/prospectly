@@ -36,11 +36,11 @@ Prospectly
 - **Responsibility:** answer "what do I do next today?" — not analytics theater.
 - **Sections:**
   1. *Needs attention* queue (overdue follow-ups, drafts pending review, research runs failed, findings unverified) — the primary block, sorted by urgency. Empty state: "Nothing needs attention. ✓"
-  2. *Pipeline strip*: counts for total → researched → opportunity → outreach-ready → contacted → replied → interested → converted (single horizontal row of linked numbers, **not** a funnel chart).
+  2. *Pipeline strip*: counts for every stage, grouped into three labelled display phases so the numbers read as a progression — **Qualify** (new, researched, opportunity, ready) · **Outreach** (contacted, replied, follow-up) · **Convert** (interested, converted). Each phase is its own bordered card of stage cells (not a funnel chart, not a single undifferentiated row). Phase grouping is presentation-only: stage order and semantics come from `SYSTEM_ARCHITECTURE.md` §3.2 and are unchanged.
   3. *Today*: follow-ups due today + recently replied.
 - All numbers link to the pre-filtered Prospects list.
 
-**Status (Phase 2):** only the **pipeline strip** is built, and it is rendered honestly — real per-stage counts of non-archived prospects (`app/services/dashboard.py`), zero-filled and grayed when empty, every cell linking to `/prospects?stage=…`. There are **no placeholder metric cards**; the "Needs attention" and "Today" queues are Phase 4 (they depend on follow-ups and outreach, which do not exist yet). Empty dashboard: one sentence + Add prospect / Set up profile.
+**Status (Phase 2):** only the **pipeline strip** is built, and it is rendered honestly — real per-stage counts of non-archived prospects (`app/services/dashboard.py`, whose `PIPELINE_PHASES` defines the grouping and derives `PIPELINE_STAGES`), zero-filled and grayed when empty, every cell linking to `/prospects?stage=…`. There are **no placeholder metric cards**; the "Needs attention" and "Today" queues are Phase 4 (they depend on follow-ups and outreach, which do not exist yet). Empty dashboard: one sentence + Add prospect / Set up profile.
 
 ### 2.2 Prospects list (home base)
 - **Responsibility:** scan, filter, triage.

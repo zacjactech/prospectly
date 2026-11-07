@@ -9,11 +9,18 @@
 
 <section aria-label="Pipeline">
   <div class="pipeline-strip">
-    {% for s in pipeline_stages %}
-    <a class="pipeline-item{% if stage_counts[s] == 0 %} zero{% endif %}" href="/prospects?stage={{ s }}">
-      <span class="pipeline-count">{{ stage_counts[s] }}</span>
-      <span class="pipeline-label">{{ stage_label(s) }}</span>
-    </a>
+    {% for phase, stages in pipeline_phases %}
+    <div class="pipeline-phase phase-{{ phase|lower }}">
+      <span class="pipeline-phase-label">{{ phase }}</span>
+      <div class="pipeline-phase-cells">
+        {% for s in stages %}
+        <a class="pipeline-item{% if stage_counts[s] == 0 %} zero{% endif %}" href="/prospects?stage={{ s }}">
+          <span class="pipeline-count">{{ stage_counts[s] }}</span>
+          <span class="pipeline-label">{{ stage_label(s) }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
     {% endfor %}
   </div>
 </section>
