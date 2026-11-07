@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+{% set active_status = message.status|replace('_',' ') %}
+
+{% if prospect.do_not_contact %}
+<div class="banner danger">
+  Suppressed: {{ prospect.do_not_contact_reason or "do not contact" }}. No WhatsApp actions allowed.
+</div>
+{% endif %}
+
+<section class="card">
+  <div class="header-row">
+    <div class="grow">
+      <div class="prospect-name">{{ prospect.business_name }}</div>
+      <div class="badge-row">
+        <span class="badge stage-{{ prospect.stage|replace('_','-') }}">{{ prospect.stage|replace('_',' ') }}</span>
+        <span class="badge">{{ active_status }}</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a href="/prospects/{{ prospect.id }}" class="btn ghost">Back to prospect</a>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Open in WhatsApp</h3>
+  <p class="muted small">The app builds a wa.me link and pre-fills your message. You press Send in WhatsApp — the app never sends automatically (P4).</p>
+  <dl class="facts">
+    <dt>To</dt><dd>{{ prospect.phone_raw or prospect.phone_e164 or "none" }}</dd>
+    <dt>Message</dt><dd class="muted small">{{ message.current_text }}</dd>
+  </dl>
+  <div class="action-group">
+    <a href="{{ wa_me_url }}" target="_blank" rel="noopener" class="btn primary">Open WhatsApp</a>
+  </div>
+  <p class="muted small">After you send in WhatsApp, come back and confirm below.</p>
+</section>
+
+<section class="card">
+  <h3>Confirm</h3>
+  <div class="action-group">
+    <form method="post" action="/messages/{{ message.id }}/confirm-sent" data-confirm="Did you send this message? Yes confirms it was sent.">
+      <button class="btn primary" type="submit">I have sent this message</button>
+    </form>
+    <form method="post" action="/messages/{{ message.id }}/not-sent" data-confirm="Return this message to approved (ready to re-open)?">
+      <button class="btn ghost small" type="submit">Not sent</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

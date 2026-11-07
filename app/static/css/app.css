@@ -807,6 +807,36 @@ p {
   color: var(--color-info);
 }
 
+/* Message status badges (Flow 5) */
+.badge.stage-draft,
+.badge.stage-pending_review,
+.badge.stage-opened_in_whatsapp {
+  background: var(--color-warn-light);
+  color: var(--color-warn);
+}
+
+.badge.stage-approved {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.badge.stage-sent_confirmed {
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+}
+
+/* Origin badges (P5: origin is evidence metadata, never decoration) */
+.badge.stage-human,
+.badge.stage-provider {
+  background: var(--color-info-light);
+  color: var(--color-info);
+}
+
+.badge.stage-ai {
+  background: var(--color-warn-light);
+  color: var(--color-warn);
+}
+
 .prospect-name {
   font-size: var(--fs-2xl);
   font-weight: var(--fw-semibold);

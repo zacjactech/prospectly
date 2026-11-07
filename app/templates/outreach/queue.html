@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <div class="header-row">
+    <div class="grow">
+      <div class="prospect-name">Outreach queue</div>
+      <div class="badge-row">
+        <span class="badge muted">Never lose an approved-but-unconfirmed message</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a href="/" class="btn ghost">Dashboard</a>
+    </div>
+  </div>
+</section>
+
+{% set groups = groups or {} %}
+
+<section class="grid grid-2">
+  {# Pending review — needs me #}
+  <div class="card">
+    <h3>Pending review</h3>
+    <p class="muted small">{{ groups.pending_review|length }} awaiting your approval.</p>
+    <ul class="mini-list">
+      {% for m in groups.pending_review %}
+      <li>
+        <span class="badge stage-pending_review">Pending review</span>
+        <span>{{ m.current_text|truncate(60) }}</span>
+        <a class="src" href="/messages/{{ m.id }}/edit">Review</a>
+      </li>
+      {% else %}
+      <li><span class="muted">None.</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  {# Approved — ready to send #}
+  <div class="card">
+    <h3>Approved</h3>
+    <p class="muted small">{{ groups.approved|length }} ready to open in WhatsApp.</p>
+    <ul class="mini-list">
+      {% for m in groups.approved %}
+      <li>
+        <span class="badge stage-approved">Approved</span>
+        <span>{{ m.current_text|truncate(60) }}</span>
+        <a class="src" href="/messages/{{ m.id }}/open">Open</a>
+      </li>
+      {% else %}
+      <li><span class="muted">None.</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  {# Opened in WhatsApp — did I send? #}
+  <div class="card">
+    <h3>Opened in WhatsApp</h3>
+    <p class="muted small">{{ groups.opened_in_whatsapp|length }} waiting on your confirmation.</p>
+    <ul class="mini-list">
+      {% for m in groups.opened_in_whatsapp %}
+      <li>
+        <span class="badge stage-opened_in_whatsapp">Opened</span>
+        <span>{{ m.current_text|truncate(60) }}</span>
+        <div class="row-actions">
+          <form method="post" action="/messages/{{ m.id }}/confirm-sent" data-confirm="Confirm this was sent?">
+            <button class="btn small" type="submit">Confirm sent</button>
+          </form>
+          <form method="post" action="/messages/{{ m.id }}/not-sent" data-confirm="Return to approved?">
+            <button class="btn ghost small" type="submit">Not sent</button>
+          </form>
+        </div>
+      </li>
+      {% else %}
+      <li><span class="muted">None.</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% endblock %}

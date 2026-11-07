@@ -87,16 +87,17 @@
 <section class="card">
   <h3>Research</h3>
   <div class="action-group">
+    {% set outreach_primary = active_message is not none or (not prospect.do_not_contact and prospect.stage not in ('new', 'archived')) %}
     {% if latest_run and latest_run.status != "running" %}
     <form method="post" action="/prospects/{{ prospect.id }}/research/start" data-confirm="Re-run research? This refreshes all findings.">
-      <button class="btn primary" type="submit">Re-run research</button>
+      <button class="btn {% if not outreach_primary %}primary{% endif %}" type="submit">Re-run research</button>
     </form>
     {% elif not latest_run %}
     <form method="post" action="/prospects/{{ prospect.id }}/research/start">
-      <button class="btn primary" type="submit">Run research</button>
+      <button class="btn {% if not outreach_primary %}primary{% endif %}" type="submit">Run research</button>
     </form>
     {% else %}
-    <button class="btn primary" type="button" disabled>Research running...</button>
+    <button class="btn" type="button" disabled>Research running...</button>
     {% endif %}
     <a href="/prospects/{{ prospect.id }}/research" class="btn">View full research</a>
   </div>
@@ -117,6 +118,7 @@
     {% for f in findings[:3] %}
     <li>
       <span class="badge stage-{{ f.verification_status|replace('_','-') }}">{{ f.verification_status|replace('_',' ') }}</span>
+      <span class="badge stage-{{ f.origin|replace('_','-') }}">{{ f.origin }}</span>
       <span>{{ f.statement }}</span>
       {% if f.source_url %}<a class="src" href="{{ f.source_url }}" target="_blank" rel="noopener">Source</a>{% endif %}
     </li>
@@ -128,6 +130,130 @@
   <p class="muted">Not researched yet. Run research to collect evidence.</p>
   {% endif %}
 </section>
+
+<section class="card">
+  <h3>Opportunities</h3>
+  {% if prospect.do_not_contact %}
+  <p class="muted">Suppressed — no outreach actions available.</p>
+  {% elif opportunities %}
+  <div class="action-group">
+    <form method="post" action="/prospects/{{ prospect.id }}/opportunities">
+      <input type="text" name="type" placeholder="Opportunity type (e.g. no_standalone_website)" required>
+      <input type="text" name="summary" placeholder="One-line summary" required>
+      <button class="btn primary" type="submit">Add opportunity</button>
+    </form>
+  </div>
+  <ul class="mini-list">
+    {% for o in opportunities %}
+    <li>
+      <span class="badge stage-{{ o.status|replace('_','-') }}">{{ o.status|replace('_',' ') }}</span>
+      <span class="badge">{{ o.origin }}</span>
+      <strong>{{ o.summary }}</strong>
+      {% if o.rationale %}<span class="muted small">{{ o.rationale }}</span>{% endif %}
+      <div class="row-actions">
+        {% if o.status == "proposed" %}
+        <form method="post" action="/opportunities/{{ o.id }}/validate" data-confirm="Validate this opportunity? It advances the stage to Opportunity identified.">
+          <button class="btn small" type="submit">Validate</button>
+        </form>
+        <form method="post" action="/opportunities/{{ o.id }}/dismiss" data-confirm="Dismiss this opportunity?">
+          <button class="btn ghost small" type="submit">Dismiss</button>
+        </form>
+        {% else %}
+        <span class="badge muted">{{ o.status|replace('_',' ') }}</span>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No opportunities yet. Run research — the rule engine proposes evidence-backed outreach reasons.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3>Outreach</h3>
+  {% if prospect.do_not_contact %}
+  <p class="muted">Suppressed — no drafts, approvals, or WhatsApp actions allowed.</p>
+  {% elif active_message %}
+  <div class="action-group">
+    <span class="badge stage-{{ active_message.status|replace('_','-') }}">{{ active_message.status|replace('_',' ') }}</span>
+    {% if active_message.origin %}<span class="badge">{{ active_message.origin }}</span>{% endif %}
+  </div>
+  <dl class="facts">
+    <dt>Message</dt><dd class="muted small">{{ active_message.current_text }}</dd>
+  </dl>
+  {% if grounded_findings is not none and grounded_findings %}
+  <div class="action-group">
+    <span class="muted small">Grounded in:</span>
+    {% for f in grounded_findings %}
+    <span class="badge small">{{ f.statement|truncate(40) }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="action-group">
+    {% if active_message.status == "draft" %}
+    <form method="post" action="/messages/{{ active_message.id }}/submit" data-confirm="Submit this draft for review?">
+      <button class="btn primary" type="submit">Submit for review</button>
+    </form>
+    {% elif active_message.status == "pending_review" %}
+    <form method="post" action="/messages/{{ active_message.id }}/approve" data-confirm="Approve this message for sending?">
+      <button class="btn primary" type="submit">Approve</button>
+    </form>
+    {% elif active_message.status == "approved" %}
+    <form method="post" action="/messages/{{ active_message.id }}/open" data-confirm="Open WhatsApp with this message prefilled? You press Send in WhatsApp — the app never sends automatically.">
+      <button class="btn primary" type="submit">Open in WhatsApp</button>
+    </form>
+    {% elif active_message.status == "opened_in_whatsapp" %}
+    <form method="post" action="/messages/{{ active_message.id }}/confirm-sent" data-confirm="Did you send this message? Yes confirms it was sent.">
+      <button class="btn primary" type="submit">I have sent this message</button>
+    </form>
+    <form method="post" action="/messages/{{ active_message.id }}/not-sent" data-confirm="Return this message to approved (ready to re-open)?">
+      <button class="btn ghost small" type="submit">Not sent</button>
+    </form>
+    {% elif active_message.status == "sent_confirmed" %}
+    <form method="post" action="/prospects/{{ prospect.id }}/start-new-outreach" data-confirm="Start a new outreach draft for this prospect?">
+      <button class="btn primary" type="submit">Start new outreach</button>
+    </form>
+    {% endif %}
+    <a href="/messages/{{ active_message.id }}/edit" class="btn">Edit text</a>
+  </div>
+  {% else %}
+  <div class="action-group">
+    <form method="post" action="/prospects/{{ prospect.id }}/draft/generate">
+      <button class="btn {% if outreach_primary %}primary{% endif %}" type="submit">Generate draft</button>
+    </form>
+  </div>
+  <p class="muted small">No active outreach. Generate a draft from validated opportunities and research findings.</p>
+  {% endif %}
+</section>
+
+{% if follow_ups %}
+<section class="card">
+  <h3>Follow-ups</h3>
+  <ul class="mini-list">
+    {% for fu in follow_ups %}
+    <li>
+      <span class="badge stage-{{ fu.status|replace('_','-') }}">{{ fu.status|replace('_',' ') }}</span>
+      {% if fu.due_date %}<span class="muted small">{{ fu.due_date.strftime('%b %d, %Y') }}</span>{% endif %}
+      <span>{{ fu.note or "no note" }}</span>
+      <div class="row-actions">
+        <form method="post" action="/follow-ups/{{ fu.id }}/complete" data-confirm="Mark this follow-up complete?">
+          <button class="btn small" type="submit">Complete</button>
+        </form>
+        <form method="post" action="/follow-ups/{{ fu.id }}/cancel" data-confirm="Cancel this follow-up?">
+          <button class="btn ghost small" type="submit">Cancel</button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/prospects/{{ prospect.id }}/follow-ups" class="action-group">
+    <input type="date" name="due_date">
+    <input type="text" name="note" placeholder="Note">
+    <button class="btn small" type="submit">Add follow-up</button>
+  </form>
+</section>
+{% endif %}
 
 <section class="card">
   <h3>Recent activity</h3>

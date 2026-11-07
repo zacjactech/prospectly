@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block content %}
+{% set active_status = message.status|replace('_',' ') %}
+{% if prospect.do_not_contact %}
+<div class="banner danger">
+  Suppressed: {{ prospect.do_not_contact_reason or "do not contact" }}. No drafts or outreach actions allowed.
+</div>
+{% endif %}
+
+<section class="card">
+  <div class="header-row">
+    <div class="grow">
+      <div class="prospect-name">{{ prospect.business_name }}</div>
+      <div class="badge-row">
+        <span class="badge stage-{{ prospect.stage|replace('_','-') }}">{{ prospect.stage|replace('_',' ') }}</span>
+        <span class="badge">{{ active_status }}</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a href="/prospects/{{ prospect.id }}" class="btn ghost">Back to prospect</a>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Draft editor</h3>
+  <p class="muted small">Edits are logged and demote the message back to draft — approval is invalidated by any change.</p>
+  <form method="post" action="/messages/{{ message.id }}/edit">
+    <div class="field">
+      <textarea name="current_text" rows="8" placeholder="Write your message…">{{ message.current_text }}</textarea>
+    </div>
+    <div class="action-group">
+      <button class="btn" type="submit">Save text</button>
+    </div>
+  </form>
+  <p class="muted small">{{ message.current_text|length }} characters.</p>
+</section>
+
+<section class="card">
+  <h3>Grounding</h3>
+  {% if grounded_findings %}
+  <p class="muted small">Findings this draft is based on (AI claims start unverified — verify before relying on them).</p>
+  <ul class="mini-list">
+    {% for f in grounded_findings %}
+    <li>
+      <span class="badge stage-{{ f.origin|replace('_','-') }}">{{ f.origin }}</span>
+      <span class="badge stage-{{ f.verification_status|replace('_','-') }}">{{ f.verification_status }}</span>
+      <span>{{ f.statement }}</span>
+      {% if f.source_url %}<a class="src" href="{{ f.source_url }}" target="_blank" rel="noopener">Source</a>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No grounded findings. You can still approve, but check the ungrounded acknowledgement below.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3>Send chain</h3>
+  <p class="muted small">One primary action at a time. The app builds a wa.me link; you press Send in WhatsApp. "Sent" is recorded only by your explicit confirmation.</p>
+  <div class="action-group">
+    {% if message.status == "draft" %}
+    <form method="post" action="/messages/{{ message.id }}/submit" data-confirm="Submit this draft for review?">
+      <button class="btn primary" type="submit">Submit for review</button>
+    </form>
+    {% elif message.status == "pending_review" %}
+    <form method="post" action="/messages/{{ message.id }}/approve">
+      <label style="display:flex;align-items:center;gap:var(--sp-2);">
+        <input type="checkbox" name="ungrounded_acknowledgement" value="1">
+        I accept ungrounded content
+      </label>
+      <button class="btn primary" type="submit">Approve</button>
+    </form>
+    {% elif message.status == "approved" %}
+    <form method="post" action="/messages/{{ message.id }}/open" data-confirm="Open WhatsApp with this message prefilled? You press Send — the app never sends automatically.">
+      <button class="btn primary" type="submit">Open in WhatsApp</button>
+    </form>
+    {% elif message.status == "opened_in_whatsapp" %}
+    <form method="post" action="/messages/{{ message.id }}/confirm-sent" data-confirm="Did you send this message? Yes confirms it was sent.">
+      <button class="btn primary" type="submit">I have sent this message</button>
+    </form>
+    <form method="post" action="/messages/{{ message.id }}/not-sent" data-confirm="Return this message to approved (ready to re-open)?">
+      <button class="btn ghost small" type="submit">Not sent</button>
+    </form>
+    {% elif message.status == "sent_confirmed" %}
+    <form method="post" action="/prospects/{{ prospect.id }}/start-new-outreach" data-confirm="Start a new outreach draft for this prospect?">
+      <button class="btn primary" type="submit">Start new outreach</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card">
+  <h3>Message history</h3>
+  <p class="muted">Status: {{ message.status|replace('_',' ') }} · Origin: {{ message.origin }} · Created {{ message.created_at.strftime('%b %d, %H:%M') }}</p>
+  {% if message.approved_at %}<p class="muted small">Approved {{ message.approved_at.strftime('%b %d, %H:%M') }}</p>{% endif %}
+  {% if message.opened_at %}<p class="muted small">Opened in WhatsApp {{ message.opened_at.strftime('%b %d, %H:%M') }}</p>{% endif %}
+  {% if message.sent_confirmed_at %}<p class="muted small">Send confirmed {{ message.sent_confirmed_at.strftime('%b %d, %H:%M') }}</p>{% endif %}
+</section>
+{% endblock %}

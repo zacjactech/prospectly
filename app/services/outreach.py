@@ -18,7 +18,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.ai import get_generator
-from app.models import Finding, OutreachMessage, Prospect
+from app.models import Finding, FollowUp, OutreachMessage, Prospect
 from app.services.activity import log_activity
 from app.services.prospect import transition_stage
 from app.whatsapp import build_wa_me_url
@@ -434,3 +434,33 @@ def start_new_outreach(
     if _is_suppressed(db, prospect_id):
         return None, "Cannot start outreach for a do-not-contact prospect"
     return create_draft(db, prospect_id=prospect_id, current_text="", actor=actor, allow_empty=True)
+
+
+def create_follow_up(
+    db: Session,
+    *,
+    prospect_id: int,
+    due_date: datetime | None,
+    note: str | None = None,
+    actor: str = "user",
+) -> tuple[FollowUp | None, str | None]:
+    """Create an open follow-up task for a prospect (Flow 7)."""
+    prospect = db.get(Prospect, prospect_id)
+    if prospect is None:
+        return None, "Prospect not found"
+    follow_up = FollowUp(
+        prospect_id=prospect_id,
+        due_date=due_date,
+        note=note,
+        status="open",
+    )
+    db.add(follow_up)
+    db.flush()
+    log_activity(
+        db,
+        prospect_id=prospect_id,
+        type="follow_up_set",
+        actor=actor,
+        payload={"follow_up_id": follow_up.id, "due_date": str(due_date) if due_date else None},
+    )
+    return follow_up, None

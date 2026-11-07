@@ -202,3 +202,41 @@ class MessageOpenOut(BaseModel):
 class MessageConfirmOut(BaseModel):
     status: str
     last_contacted_at: datetime | None
+
+
+class OpportunityOut(BaseModel):
+    id: int
+    prospect_id: int
+    type: str
+    summary: str
+    rationale: str | None
+    status: str
+    origin: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class OpportunityCreate(BaseModel):
+    type: str = Field(min_length=1, max_length=60)
+    summary: str = Field(min_length=1, max_length=1000)
+    rationale: str | None = Field(default=None, max_length=4000)
+
+
+class FollowUpOut(BaseModel):
+    id: int
+    prospect_id: int
+    message_id: int | None
+    due_date: datetime | None
+    note: str | None
+    status: str
+    completed_at: datetime | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class FollowUpCreate(BaseModel):
+    due_date: datetime | None = None
+    note: str | None = None

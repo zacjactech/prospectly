@@ -6,6 +6,7 @@ and the user profile. Routes stay thin; logic lives in `app/services`.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
@@ -13,12 +14,27 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db
-from app.models import Activity, Finding, Prospect, ResearchRun, Source, WebsiteCheck
+from app.models import (
+    Activity,
+    Finding,
+    FollowUp,
+    Prospect,
+    ResearchRun,
+    Source,
+    WebsiteCheck,
+)
 from app.schemas import (
     ActivityOut,
     DedupeCheckOut,
     ErrorOut,
     FindingOut,
+    FollowUpCreate,
+    FollowUpOut,
+    MessageConfirmOut,
+    MessageOpenOut,
+    OpportunityCreate,
+    OpportunityOut,
+    OutreachMessageOut,
     ProfileIn,
     ProfileOut,
     ProspectCreate,
@@ -30,6 +46,8 @@ from app.schemas import (
     StageTransitionOut,
     WebsiteCheckOut,
 )
+from app.services import opportunity as opportunity_service
+from app.services import outreach as outreach_service
 from app.services import profile as profile_service
 from app.services import prospect as prospect_service
 from app.services import research as research_service
@@ -369,3 +387,283 @@ def list_website_checks(
         .all()
     )
     return [WebsiteCheckOut.model_validate(r) for r in rows]
+
+
+# ===== Opportunities (Flow 4) =====
+
+
+@router.get(
+    "/prospects/{prospect_id}/opportunities",
+    response_model=list[OpportunityOut],
+    responses={404: {"model": ErrorOut}},
+)
+def list_opportunities_api(
+    prospect_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> list[OpportunityOut]:
+    prospect = db.get(Prospect, prospect_id)
+    if prospect is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prospect not found")
+    rows = opportunity_service.list_opportunities(db, prospect_id=prospect_id)
+    return [OpportunityOut.model_validate(r) for r in rows]
+
+
+@router.post(
+    "/prospects/{prospect_id}/opportunities",
+    response_model=OpportunityOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
+)
+def create_opportunity_api(
+    prospect_id: int = Path(ge=1),
+    payload: OpportunityCreate = Body(...),
+    db: Session = Depends(get_db),
+) -> OpportunityOut:
+    opportunity, error = opportunity_service.create_opportunity(
+        db,
+        prospect_id=prospect_id,
+        type=payload.type,
+        summary=payload.summary,
+        rationale=payload.rationale,
+        origin="human",
+        actor="user",
+    )
+    if error:
+        if error == "Prospect not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    assert opportunity is not None
+    return OpportunityOut.model_validate(opportunity)
+
+
+@router.post(
+    "/opportunities/{opportunity_id}/validate",
+    response_model=OpportunityOut,
+    responses={404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
+)
+def validate_opportunity_api(
+    opportunity_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> OpportunityOut:
+    opportunity, error = opportunity_service.validate_opportunity(
+        db, opportunity_id=opportunity_id, actor="user"
+    )
+    if error:
+        if error == "Opportunity not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    assert opportunity is not None
+    return OpportunityOut.model_validate(opportunity)
+
+
+@router.post(
+    "/opportunities/{opportunity_id}/dismiss",
+    response_model=OpportunityOut,
+    responses={404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
+)
+def dismiss_opportunity_api(
+    opportunity_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> OpportunityOut:
+    opportunity, error = opportunity_service.dismiss_opportunity(
+        db, opportunity_id=opportunity_id, actor="user"
+    )
+    if error:
+        if error == "Opportunity not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    assert opportunity is not None
+    return OpportunityOut.model_validate(opportunity)
+
+
+# ===== Outreach messages (Flow 5) =====
+
+
+@router.post(
+    "/prospects/{prospect_id}/drafts",
+    response_model=OutreachMessageOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
+)
+def generate_draft_api(
+    prospect_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> OutreachMessageOut:
+    """Generate a draft from research findings (Flow 5)."""
+    message, error = outreach_service.generate_draft(db, prospect_id=prospect_id, actor="user")
+    if error:
+        if error == "Prospect not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    assert message is not None
+    return OutreachMessageOut.model_validate(message)
+
+
+@router.patch(
+    "/messages/{message_id}",
+    response_model=OutreachMessageOut,
+    responses={404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
+)
+def edit_message_api(
+    message_id: int = Path(ge=1),
+    current_text: str = Body(..., embed=True),
+    db: Session = Depends(get_db),
+) -> OutreachMessageOut:
+    """Edit message text — any edit demotes the message back to draft (§3.1)."""
+    message, error = outreach_service.edit_message(
+        db, message_id=message_id, current_text=current_text, actor="user"
+    )
+    if error:
+        if error == "Message not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    assert message is not None
+    return OutreachMessageOut.model_validate(message)
+
+
+@router.post(
+    "/messages/{message_id}/submit",
+    response_model=OutreachMessageOut,
+    responses={404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
+)
+def submit_message_api(
+    message_id: int = Path(ge=1),
+    current_text: str = Body(..., embed=True),
+    db: Session = Depends(get_db),
+) -> OutreachMessageOut:
+    """Submit a draft for review: draft → pending_review."""
+    message, error = outreach_service.submit_message(
+        db, message_id=message_id, current_text=current_text, actor="user"
+    )
+    if error:
+        if error == "Message not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    assert message is not None
+    return OutreachMessageOut.model_validate(message)
+
+
+@router.post(
+    "/messages/{message_id}/approve",
+    response_model=OutreachMessageOut,
+    responses={404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
+)
+def approve_message_api(
+    message_id: int = Path(ge=1),
+    ungrounded_acknowledgement: bool = Body(False, embed=True),
+    db: Session = Depends(get_db),
+) -> OutreachMessageOut:
+    """Approve for sending: pending_review → approved (guards applied)."""
+    message, error = outreach_service.approve_message(
+        db,
+        message_id=message_id,
+        ungrounded_acknowledgement=ungrounded_acknowledgement,
+        actor="user",
+    )
+    if error:
+        if error == "Message not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    assert message is not None
+    return OutreachMessageOut.model_validate(message)
+
+
+@router.post(
+    "/messages/{message_id}/open",
+    response_model=MessageOpenOut,
+    responses={404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
+)
+def open_message_api(
+    message_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> MessageOpenOut:
+    """Open in WhatsApp: approved → opened_in_whatsapp, returns wa.me URL."""
+    message, error, wa_me_url = outreach_service.open_message(
+        db, message_id=message_id, actor="user"
+    )
+    if error:
+        if error == "Message not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    assert message is not None
+    return MessageOpenOut(status=message.status, wa_me_url=wa_me_url)
+
+
+@router.post(
+    "/messages/{message_id}/confirm-sent",
+    response_model=MessageConfirmOut,
+    responses={404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
+)
+def confirm_sent_api(
+    message_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> MessageConfirmOut:
+    """Confirm the user sent the message: opened_in_whatsapp → sent_confirmed."""
+    message, error = outreach_service.confirm_sent(db, message_id=message_id, actor="user")
+    if error:
+        if error == "Message not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    assert message is not None
+    return MessageConfirmOut(status=message.status, last_contacted_at=message.sent_confirmed_at)
+
+
+# ===== Follow-ups (Flow 7) =====
+
+
+@router.post(
+    "/prospects/{prospect_id}/follow-ups",
+    response_model=FollowUpOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={404: {"model": ErrorOut}},
+)
+def create_follow_up_api(
+    prospect_id: int = Path(ge=1),
+    payload: FollowUpCreate = Body(...),
+    db: Session = Depends(get_db),
+) -> FollowUpOut:
+    follow_up, error = outreach_service.create_follow_up(
+        db, prospect_id=prospect_id, due_date=payload.due_date, note=payload.note, actor="user"
+    )
+    if error:
+        if error == "Prospect not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    assert follow_up is not None
+    return FollowUpOut.model_validate(follow_up)
+
+
+@router.post(
+    "/follow-ups/{follow_up_id}/complete",
+    response_model=FollowUpOut,
+    responses={404: {"model": ErrorOut}},
+)
+def complete_follow_up_api(
+    follow_up_id: int = Path(ge=1),
+    note: str | None = Body(None, embed=True),
+    db: Session = Depends(get_db),
+) -> FollowUpOut:
+    follow_up = db.get(FollowUp, follow_up_id)
+    if follow_up is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Follow-up not found")
+    follow_up.status = "done"
+    follow_up.completed_at = datetime.now(UTC)
+    db.flush()
+    return FollowUpOut.model_validate(follow_up)
+
+
+@router.post(
+    "/follow-ups/{follow_up_id}/cancel",
+    response_model=FollowUpOut,
+    responses={404: {"model": ErrorOut}},
+)
+def cancel_follow_up_api(
+    follow_up_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> FollowUpOut:
+    follow_up = db.get(FollowUp, follow_up_id)
+    if follow_up is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Follow-up not found")
+    follow_up.status = "cancelled"
+    db.flush()
+    return FollowUpOut.model_validate(follow_up)

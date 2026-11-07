@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -11,11 +12,24 @@ from sqlalchemy.orm import Session
 
 from app.config import BASE_DIR, settings
 from app.db import get_db
-from app.models import Activity, Finding, Prospect, ResearchRun, Source, Tag, WebsiteCheck
+from app.models import (
+    Activity,
+    Finding,
+    FollowUp,
+    OutreachMessage,
+    Prospect,
+    ResearchRun,
+    Source,
+    Tag,
+    WebsiteCheck,
+)
 from app.services import dashboard as dashboard_service
+from app.services import opportunity as opportunity_service
+from app.services import outreach as outreach_service
 from app.services import profile as profile_service
 from app.services import prospect as prospect_service
 from app.services import research as research_service
+from app.services.activity import log_activity
 from app.whatsapp import normalize_phone
 
 router = APIRouter(tags=["pages"])
@@ -249,6 +263,19 @@ def prospect_detail(
         .limit(3)
         .all()
     )
+    active_message = (
+        db.query(OutreachMessage)
+        .filter_by(prospect_id=prospect_id, active=True)
+        .order_by(OutreachMessage.created_at.desc())
+        .first()
+    )
+    follow_ups = (
+        db.query(FollowUp)
+        .filter_by(prospect_id=prospect_id, status="open")
+        .order_by(FollowUp.due_date.asc().nullslast(), FollowUp.created_at.desc())
+        .all()
+    )
+    opportunities = opportunity_service.list_opportunities(db, prospect_id=prospect_id)
     return templates.TemplateResponse(
         request=request,
         name="prospects/detail.html",
@@ -259,6 +286,9 @@ def prospect_detail(
             "latest_run": latest_run,
             "findings": findings,
             "website_checks": website_checks,
+            "active_message": active_message,
+            "follow_ups": follow_ups,
+            "opportunities": opportunities,
         },
     )
 
@@ -497,3 +527,434 @@ def prospect_research_start(
         db.flush()
 
     return RedirectResponse(url=f"/prospects/{prospect_id}/research", status_code=303)
+
+
+# ===== Opportunities (Flow 4) =====
+
+
+@router.post(
+    "/prospects/{prospect_id}/opportunities",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def opportunity_create(
+    request: Request,
+    prospect_id: int,
+    db: Session = Depends(get_db),
+    type: str = Form(...),
+    summary: str = Form(...),
+    rationale: str | None = Form(None),
+) -> HTMLResponse | RedirectResponse:
+    """Human-created opportunity (Flow 4, origin='human' path)."""
+    prospect = db.get(Prospect, prospect_id)
+    if prospect is None:
+        return HTMLResponse("Prospect not found", status_code=404)
+    opportunity, error = opportunity_service.create_opportunity(
+        db,
+        prospect_id=prospect_id,
+        type=type,
+        summary=summary,
+        rationale=rationale,
+        origin="human",
+        actor="user",
+    )
+    if error:
+        return HTMLResponse(error, status_code=409)
+    return RedirectResponse(url=f"/prospects/{prospect_id}", status_code=303)
+
+
+@router.post(
+    "/opportunities/{opportunity_id}/validate",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def opportunity_validate(
+    request: Request,
+    opportunity_id: int,
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    """Validate a proposed opportunity (operator decision, Flow 4)."""
+    opportunity, error = opportunity_service.validate_opportunity(
+        db, opportunity_id=opportunity_id, actor="user"
+    )
+    if error:
+        if error == "Opportunity not found":
+            return HTMLResponse("Opportunity not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    assert opportunity is not None
+    return RedirectResponse(url=f"/prospects/{opportunity.prospect_id}", status_code=303)
+
+
+@router.post(
+    "/opportunities/{opportunity_id}/dismiss",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def opportunity_dismiss(
+    request: Request,
+    opportunity_id: int,
+    db: Session = Depends(get_db),
+    reason: str | None = Form(None),
+) -> HTMLResponse | RedirectResponse:
+    """Dismiss a proposed opportunity (operator decision, Flow 4)."""
+    opportunity, error = opportunity_service.dismiss_opportunity(
+        db, opportunity_id=opportunity_id, reason=reason, actor="user"
+    )
+    if error:
+        if error == "Opportunity not found":
+            return HTMLResponse("Opportunity not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    assert opportunity is not None
+    return RedirectResponse(url=f"/prospects/{opportunity.prospect_id}", status_code=303)
+
+
+# ===== Outreach messages (Flow 5) =====
+
+
+@router.post(
+    "/prospects/{prospect_id}/draft/generate",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def draft_generate(
+    request: Request,
+    prospect_id: int,
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    """Generate a draft from research findings (Flow 5)."""
+    message, error = outreach_service.generate_draft(db, prospect_id=prospect_id, actor="user")
+    if error:
+        if error == "Prospect not found":
+            return HTMLResponse("Prospect not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    return RedirectResponse(url=f"/prospects/{prospect_id}", status_code=303)
+
+
+@router.get("/messages/{message_id}/edit", response_class=HTMLResponse)
+def message_edit_form(
+    request: Request,
+    message_id: int,
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Draft editor + grounding panel + gated action chain (Flow 5)."""
+    message = db.get(OutreachMessage, message_id)
+    if message is None:
+        return HTMLResponse("Message not found", status_code=404)
+    prospect = db.get(Prospect, message.prospect_id)
+    if prospect is None:
+        return HTMLResponse("Prospect not found", status_code=404)
+    findings = (
+        db.query(Finding)
+        .filter_by(prospect_id=message.prospect_id)
+        .order_by(Finding.recorded_at.desc())
+        .all()
+    )
+    grounded_ids = set(message.grounding or [])
+    grounded_findings = [f for f in findings if f.id in grounded_ids]
+    return templates.TemplateResponse(
+        request=request,
+        name="messages/edit.html",
+        context={
+            "app_name": settings.app_name,
+            "prospect": prospect,
+            "message": message,
+            "findings": findings,
+            "grounded_findings": grounded_findings,
+        },
+    )
+
+
+@router.post(
+    "/messages/{message_id}/edit",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def message_edit(
+    request: Request,
+    message_id: int,
+    db: Session = Depends(get_db),
+    current_text: str = Form(...),
+) -> HTMLResponse | RedirectResponse:
+    """Edit draft text — any edit demotes the message back to draft (§3.1)."""
+    message, error = outreach_service.edit_message(
+        db, message_id=message_id, current_text=current_text, actor="user"
+    )
+    if error:
+        if error == "Message not found":
+            return HTMLResponse("Message not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    return RedirectResponse(url=f"/messages/{message_id}/edit", status_code=303)
+
+
+@router.post(
+    "/messages/{message_id}/submit",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def message_submit(
+    request: Request,
+    message_id: int,
+    db: Session = Depends(get_db),
+    current_text: str = Form(...),
+) -> HTMLResponse | RedirectResponse:
+    """Submit a draft for review: draft → pending_review."""
+    message, error = outreach_service.submit_message(
+        db, message_id=message_id, current_text=current_text, actor="user"
+    )
+    if error:
+        if error == "Message not found":
+            return HTMLResponse("Message not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    return RedirectResponse(url=f"/messages/{message_id}/edit", status_code=303)
+
+
+@router.post(
+    "/messages/{message_id}/approve",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def message_approve(
+    request: Request,
+    message_id: int,
+    db: Session = Depends(get_db),
+    ungrounded_acknowledgement: str | None = Form(None),
+) -> HTMLResponse | RedirectResponse:
+    """Approve for sending: pending_review → approved (guards applied)."""
+    message, error = outreach_service.approve_message(
+        db,
+        message_id=message_id,
+        ungrounded_acknowledgement=bool(ungrounded_acknowledgement),
+        actor="user",
+    )
+    if error:
+        if error == "Message not found":
+            return HTMLResponse("Message not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    return RedirectResponse(url=f"/messages/{message_id}/edit", status_code=303)
+
+
+@router.post(
+    "/messages/{message_id}/open",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def message_open(
+    request: Request,
+    message_id: int,
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    """Open in WhatsApp: approved → opened_in_whatsapp, returns wa.me URL."""
+    message, error, wa_me_url = outreach_service.open_message(
+        db, message_id=message_id, actor="user"
+    )
+    if error:
+        if error == "Message not found":
+            return HTMLResponse("Message not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    assert message is not None
+    prospect = db.get(Prospect, message.prospect_id)
+    return templates.TemplateResponse(
+        request=request,
+        name="messages/open.html",
+        context={
+            "app_name": settings.app_name,
+            "prospect": prospect,
+            "message": message,
+            "wa_me_url": wa_me_url,
+        },
+    )
+
+
+@router.post(
+    "/messages/{message_id}/confirm-sent",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def message_confirm_sent(
+    request: Request,
+    message_id: int,
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    """Confirm the user sent the message: opened_in_whatsapp → sent_confirmed."""
+    message, error = outreach_service.confirm_sent(db, message_id=message_id, actor="user")
+    if error:
+        if error == "Message not found":
+            return HTMLResponse("Message not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    assert message is not None
+    return RedirectResponse(url=f"/prospects/{message.prospect_id}", status_code=303)
+
+
+@router.post(
+    "/messages/{message_id}/not-sent",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def message_not_sent(
+    request: Request,
+    message_id: int,
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    """User did not send: opened_in_whatsapp → approved (ready to re-open)."""
+    message, error = outreach_service.not_sent(db, message_id=message_id, actor="user")
+    if error:
+        if error == "Message not found":
+            return HTMLResponse("Message not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    return RedirectResponse(url=f"/messages/{message_id}/edit", status_code=303)
+
+
+@router.post(
+    "/prospects/{prospect_id}/start-new-outreach",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def start_new_outreach(
+    request: Request,
+    prospect_id: int,
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    """Start a new draft after a message is sent_confirmed (Flow 7 guard)."""
+    message, error = outreach_service.start_new_outreach(db, prospect_id=prospect_id, actor="user")
+    if error:
+        if error == "Prospect not found":
+            return HTMLResponse("Prospect not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    assert message is not None
+    return RedirectResponse(url=f"/messages/{message.id}/edit", status_code=303)
+
+
+# ===== Flow 6: Reply =====
+
+
+@router.post(
+    "/prospects/{prospect_id}/reply",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def prospect_reply(
+    request: Request,
+    prospect_id: int,
+    db: Session = Depends(get_db),
+    text: str = Form(...),
+    received_at: str | None = Form(None),
+) -> HTMLResponse | RedirectResponse:
+    """Record an inbound WhatsApp reply: stage → replied (Flow 6)."""
+    parsed = None
+    if received_at:
+        try:
+            parsed = datetime.fromisoformat(received_at)
+        except ValueError:
+            parsed = None
+    prospect, error = outreach_service.record_reply(
+        db, prospect_id=prospect_id, text=text, received_at=parsed, actor="user"
+    )
+    if error:
+        if error == "Prospect not found":
+            return HTMLResponse("Prospect not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    return RedirectResponse(url=f"/prospects/{prospect_id}", status_code=303)
+
+
+# ===== Flow 7: Follow-ups =====
+
+
+@router.post(
+    "/prospects/{prospect_id}/follow-ups",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def follow_up_create(
+    request: Request,
+    prospect_id: int,
+    db: Session = Depends(get_db),
+    due_date: str | None = Form(None),
+    note: str | None = Form(None),
+) -> HTMLResponse | RedirectResponse:
+    parsed_due = None
+    if due_date:
+        try:
+            parsed_due = datetime.fromisoformat(due_date)
+        except ValueError:
+            parsed_due = None
+    follow_up, error = outreach_service.create_follow_up(
+        db, prospect_id=prospect_id, due_date=parsed_due, note=note, actor="user"
+    )
+    if error:
+        if error == "Prospect not found":
+            return HTMLResponse("Prospect not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    return RedirectResponse(url=f"/prospects/{prospect_id}", status_code=303)
+
+
+@router.post(
+    "/follow-ups/{follow_up_id}/complete",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def follow_up_complete(
+    request: Request,
+    follow_up_id: int,
+    db: Session = Depends(get_db),
+    note: str | None = Form(None),
+) -> HTMLResponse | RedirectResponse:
+    follow_up = db.get(FollowUp, follow_up_id)
+    if follow_up is None:
+        return HTMLResponse("Follow-up not found", status_code=404)
+    follow_up.status = "done"
+    follow_up.completed_at = datetime.now(UTC)
+    db.flush()
+    log_activity(
+        db,
+        prospect_id=follow_up.prospect_id,
+        type="follow_up_completed",
+        actor="user",
+        payload={"follow_up_id": follow_up_id, "note": note},
+    )
+    return RedirectResponse(url=f"/prospects/{follow_up.prospect_id}", status_code=303)
+
+
+@router.post(
+    "/follow-ups/{follow_up_id}/cancel",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def follow_up_cancel(
+    request: Request,
+    follow_up_id: int,
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    follow_up = db.get(FollowUp, follow_up_id)
+    if follow_up is None:
+        return HTMLResponse("Follow-up not found", status_code=404)
+    follow_up.status = "cancelled"
+    db.flush()
+    return RedirectResponse(url=f"/prospects/{follow_up.prospect_id}", status_code=303)
+
+
+# ===== Outreach queue (Flow 5 / §2.4) =====
+
+
+@router.get("/outreach", response_class=HTMLResponse)
+def outreach_queue(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Grouped list of messages needing attention: never lose an approved-but-unconfirmed message."""
+    messages = (
+        db.query(OutreachMessage)
+        .join(Prospect)
+        .filter(OutreachMessage.status.in_(("pending_review", "approved", "opened_in_whatsapp")))
+        .order_by(OutreachMessage.updated_at.desc())
+        .all()
+    )
+    groups = {
+        "pending_review": [m for m in messages if m.status == "pending_review"],
+        "approved": [m for m in messages if m.status == "approved"],
+        "opened_in_whatsapp": [m for m in messages if m.status == "opened_in_whatsapp"],
+    }
+    return templates.TemplateResponse(
+        request=request,
+        name="outreach/queue.html",
+        context={"app_name": settings.app_name, "groups": groups},
+    )

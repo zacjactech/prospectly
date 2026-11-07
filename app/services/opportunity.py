@@ -240,6 +240,46 @@ def dismiss_opportunity(
     return opportunity, None
 
 
+def create_opportunity(
+    db: Session,
+    *,
+    prospect_id: int,
+    type: str,
+    summary: str,
+    rationale: str | None = None,
+    origin: str = "human",
+    actor: str = "user",
+) -> tuple[Opportunity | None, str | None]:
+    """Human-created opportunity (Flow 4, origin='human' path).
+
+    Validated-type opportunities still need evidence links before they can be
+    validated (§2.8 guard); proposed ones can be created freely.
+    """
+    prospect = db.get(Prospect, prospect_id)
+    if prospect is None:
+        return None, "Prospect not found"
+
+    opportunity = Opportunity(
+        prospect_id=prospect_id,
+        type=type,
+        summary=summary,
+        rationale=rationale,
+        status="proposed",
+        origin=origin,
+    )
+    db.add(opportunity)
+    db.flush()
+
+    log_activity(
+        db,
+        prospect_id=prospect_id,
+        type="opportunity_created",
+        actor=actor,
+        payload={"opportunity_id": opportunity.id, "type": type, "origin": origin},
+    )
+    return opportunity, None
+
+
 def list_opportunities(db: Session, prospect_id: int) -> list[Opportunity]:
     """All opportunities for a prospect, newest first."""
     return (
