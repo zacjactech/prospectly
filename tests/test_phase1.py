@@ -65,7 +65,9 @@ def test_prospect_crud_lifecycle() -> None:
             follow_redirects=False,
         )
         assert r.status_code in (200, 303), r.text
-        prospect_id = r.headers["location"].split("/")[-1] if r.status_code == 303 else None
+        prospect_id = (
+            r.headers["location"].split("?")[0].split("/")[-1] if r.status_code == 303 else None
+        )
 
         # Fallback: find by name via API
         if prospect_id is None:

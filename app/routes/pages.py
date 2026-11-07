@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -227,7 +228,10 @@ def prospect_create(
         )
 
     assert prospect is not None
-    return RedirectResponse(url=f"/prospects/{prospect.id}", status_code=303)
+    return RedirectResponse(
+        url=f"/prospects/{prospect.id}?flash={quote('Prospect created')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.get("/prospects/{prospect_id}", response_class=HTMLResponse)
@@ -375,7 +379,10 @@ def prospect_update(
             },
             status_code=409,
         )
-    return RedirectResponse(url=f"/prospects/{prospect_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/prospects/{prospect_id}?flash={quote('Prospect updated')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.post("/prospects/{prospect_id}/archive", response_class=HTMLResponse, response_model=None)
@@ -386,7 +393,10 @@ def prospect_archive(
     ok = prospect_service.archive_prospect(db, prospect_id)
     if not ok:
         return HTMLResponse("Prospect not found", status_code=404)
-    return RedirectResponse(url="/prospects", status_code=303)
+    return RedirectResponse(
+        url=f"/prospects?flash={quote('Prospect archived')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.post("/prospects/{prospect_id}/unarchive", response_class=HTMLResponse, response_model=None)
@@ -403,7 +413,10 @@ def prospect_unarchive(
             "Cannot unarchive: a live prospect with the same identity already exists.",
             status_code=409,
         )
-    return RedirectResponse(url=f"/prospects/{prospect_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/prospects/{prospect_id}?flash={quote('Prospect restored')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.post("/prospects/{prospect_id}/stage", response_class=HTMLResponse, response_model=None)
@@ -418,7 +431,10 @@ def prospect_stage(
         if error == "Prospect not found":
             return HTMLResponse("Prospect not found", status_code=404)
         return HTMLResponse(error, status_code=409)
-    return RedirectResponse(url=f"/prospects/{prospect_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/prospects/{prospect_id}?flash={quote('Stage updated')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.get("/settings/profile", response_class=HTMLResponse)
@@ -455,7 +471,10 @@ def profile_update(
         target_locations=_csv_to_list(target_locations),
         ideal_signals=_csv_to_list(ideal_signals),
     )
-    return RedirectResponse(url="/settings/profile", status_code=303)
+    return RedirectResponse(
+        url=f"/settings/profile?flash={quote('Profile saved')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.get("/prospects/{prospect_id}/research", response_class=HTMLResponse)
@@ -563,7 +582,10 @@ def opportunity_create(
     )
     if error:
         return HTMLResponse(error, status_code=409)
-    return RedirectResponse(url=f"/prospects/{prospect_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/prospects/{prospect_id}?flash={quote('Opportunity added')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.post(
@@ -585,7 +607,10 @@ def opportunity_validate(
             return HTMLResponse("Opportunity not found", status_code=404)
         return HTMLResponse(error, status_code=409)
     assert opportunity is not None
-    return RedirectResponse(url=f"/prospects/{opportunity.prospect_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/prospects/{opportunity.prospect_id}?flash={quote('Opportunity validated')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.post(
@@ -608,7 +633,10 @@ def opportunity_dismiss(
             return HTMLResponse("Opportunity not found", status_code=404)
         return HTMLResponse(error, status_code=409)
     assert opportunity is not None
-    return RedirectResponse(url=f"/prospects/{opportunity.prospect_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/prospects/{opportunity.prospect_id}?flash={quote('Opportunity dismissed')}&flash_type=success",
+        status_code=303,
+    )
 
 
 # ===== Outreach messages (Flow 5) =====
@@ -630,7 +658,11 @@ def draft_generate(
         if error == "Prospect not found":
             return HTMLResponse("Prospect not found", status_code=404)
         return HTMLResponse(error, status_code=409)
-    return RedirectResponse(url=f"/prospects/{prospect_id}", status_code=303)
+    assert message is not None
+    return RedirectResponse(
+        url=f"/messages/{message.id}/edit?flash={quote('Draft generated')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.get("/messages/{message_id}/edit", response_class=HTMLResponse)
@@ -686,7 +718,10 @@ def message_edit(
         if error == "Message not found":
             return HTMLResponse("Message not found", status_code=404)
         return HTMLResponse(error, status_code=409)
-    return RedirectResponse(url=f"/messages/{message_id}/edit", status_code=303)
+    return RedirectResponse(
+        url=f"/messages/{message_id}/edit?flash={quote('Draft saved')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.post(
@@ -708,7 +743,10 @@ def message_submit(
         if error == "Message not found":
             return HTMLResponse("Message not found", status_code=404)
         return HTMLResponse(error, status_code=409)
-    return RedirectResponse(url=f"/messages/{message_id}/edit", status_code=303)
+    return RedirectResponse(
+        url=f"/messages/{message_id}/edit?flash={quote('Submitted for review')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.post(
@@ -733,7 +771,10 @@ def message_approve(
         if error == "Message not found":
             return HTMLResponse("Message not found", status_code=404)
         return HTMLResponse(error, status_code=409)
-    return RedirectResponse(url=f"/messages/{message_id}/edit", status_code=303)
+    return RedirectResponse(
+        url=f"/messages/{message_id}/edit?flash={quote('Approved')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.post(
@@ -785,7 +826,10 @@ def message_confirm_sent(
             return HTMLResponse("Message not found", status_code=404)
         return HTMLResponse(error, status_code=409)
     assert message is not None
-    return RedirectResponse(url=f"/prospects/{message.prospect_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/prospects/{message.prospect_id}?flash={quote('Message sent confirmed')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.post(
@@ -804,7 +848,10 @@ def message_not_sent(
         if error == "Message not found":
             return HTMLResponse("Message not found", status_code=404)
         return HTMLResponse(error, status_code=409)
-    return RedirectResponse(url=f"/messages/{message_id}/edit", status_code=303)
+    return RedirectResponse(
+        url=f"/messages/{message_id}/edit?flash={quote('Returned to approved')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.post(
@@ -824,7 +871,10 @@ def start_new_outreach(
             return HTMLResponse("Prospect not found", status_code=404)
         return HTMLResponse(error, status_code=409)
     assert message is not None
-    return RedirectResponse(url=f"/messages/{message.id}/edit", status_code=303)
+    return RedirectResponse(
+        url=f"/messages/{message.id}/edit?flash={quote('New outreach started')}&flash_type=success",
+        status_code=303,
+    )
 
 
 # ===== Flow 6: Reply =====
@@ -856,7 +906,10 @@ def prospect_reply(
         if error == "Prospect not found":
             return HTMLResponse("Prospect not found", status_code=404)
         return HTMLResponse(error, status_code=409)
-    return RedirectResponse(url=f"/prospects/{prospect_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/prospects/{prospect_id}?flash={quote('Reply recorded')}&flash_type=success",
+        status_code=303,
+    )
 
 
 # ===== Flow 7: Follow-ups =====
@@ -887,7 +940,10 @@ def follow_up_create(
         if error == "Prospect not found":
             return HTMLResponse("Prospect not found", status_code=404)
         return HTMLResponse(error, status_code=409)
-    return RedirectResponse(url=f"/prospects/{prospect_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/prospects/{prospect_id}?flash={quote('Follow-up added')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.post(
@@ -914,7 +970,10 @@ def follow_up_complete(
         actor="user",
         payload={"follow_up_id": follow_up_id, "note": note},
     )
-    return RedirectResponse(url=f"/prospects/{follow_up.prospect_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/prospects/{follow_up.prospect_id}?flash={quote('Follow-up completed')}&flash_type=success",
+        status_code=303,
+    )
 
 
 @router.post(
@@ -932,7 +991,10 @@ def follow_up_cancel(
         return HTMLResponse("Follow-up not found", status_code=404)
     follow_up.status = "cancelled"
     db.flush()
-    return RedirectResponse(url=f"/prospects/{follow_up.prospect_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/prospects/{follow_up.prospect_id}?flash={quote('Follow-up cancelled')}&flash_type=success",
+        status_code=303,
+    )
 
 
 # ===== Outreach queue (Flow 5 / §2.4) =====

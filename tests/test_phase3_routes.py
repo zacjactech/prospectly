@@ -51,7 +51,8 @@ def _create_prospect(client: TestClient, db: Session, phone="+442079460958") -> 
         follow_redirects=False,
     )
     assert r.status_code == 303, (r.status_code, r.text)
-    prospect_id = int(r.headers["location"].rsplit("/", 1)[1])
+    location = r.headers["location"].split("?")[0]
+    prospect_id = int(location.rsplit("/", 1)[1])
     assert db.get(Prospect, prospect_id).phone_e164 == "442079460958"
     return prospect_id
 

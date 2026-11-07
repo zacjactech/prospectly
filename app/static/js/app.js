@@ -48,4 +48,15 @@
       window.location.href = row.getAttribute("data-href");
     });
   });
+
+  /* ----- Toast notifications: dismiss + auto-dismiss ----- */
+  document.querySelectorAll("[data-dismiss]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var target = document.getElementById(btn.getAttribute("data-dismiss"));
+      if (target) target.classList.add("dismiss");
+    });
+  });
+  document.querySelectorAll(".toast").forEach(function (toast) {
+    setTimeout(function () { toast.classList.add("dismiss"); }, 6000);
+  });
 })();

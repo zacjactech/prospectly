@@ -1,0 +1,25 @@
+{# Render flash/toast messages. Accepts either a `flashes` list
+   [{type, message}] or the legacy `error`/`message`+`message_type` vars.
+   Types: error, info, success, warn. #}
+{% set flashes = flashes or [] %}
+{% if error %}
+  {% set flashes = flashes + [{"type": "error", "message": error}] %}
+{% endif %}
+{% if message %}
+  {% set flashes = flashes + [{"type": message_type or "info", "message": message}] %}
+{% endif %}
+{# Flash carried across a redirect via URL query params (?flash=...&flash_type=...) #}
+{% set qflash = request.query_params.get("flash") %}
+{% if qflash %}
+  {% set flashes = flashes + [{"type": request.query_params.get("flash_type") or "info", "message": qflash}] %}
+{% endif %}
+{% if flashes %}
+<div class="toasts" aria-live="polite" aria-label="Notifications">
+  {% for flash in flashes %}
+  <div class="toast {{ flash.type }}" id="toast-{{ loop.index0 }}">
+    <span>{{ flash.message }}</span>
+    <button class="toast-close" data-dismiss="toast-{{ loop.index0 }}" aria-label="Dismiss">×</button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
