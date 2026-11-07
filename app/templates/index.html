@@ -24,6 +24,63 @@
     {% endfor %}
   </div>
 </section>
+
+<section aria-label="Metrics">
+  <div class="metrics-strip">
+    <div class="metric-item">
+      <span class="metric-count">{{ metrics.total_prospects }}</span>
+      <span class="metric-label">Total</span>
+    </div>
+    <div class="metric-item">
+      <span class="metric-count">{{ metrics.researched }}</span>
+      <span class="metric-label">Researched</span>
+    </div>
+    <div class="metric-item">
+      <span class="metric-count">{{ metrics.requires_review }}</span>
+      <span class="metric-label">Requires review</span>
+    </div>
+    <div class="metric-item">
+      <span class="metric-count">{{ metrics.approved_messages }}</span>
+      <span class="metric-label">Approved</span>
+    </div>
+    <div class="metric-item">
+      <span class="metric-count">{{ metrics.sent_confirmed }}</span>
+      <span class="metric-label">Sent</span>
+    </div>
+    <div class="metric-item">
+      <span class="metric-count">{{ metrics.replies }}</span>
+      <span class="metric-label">Replies</span>
+    </div>
+    <div class="metric-item">
+      <span class="metric-count">{{ metrics.interested }}</span>
+      <span class="metric-label">Interested</span>
+    </div>
+    <div class="metric-item">
+      <span class="metric-count">{{ metrics.follow_ups_due }}</span>
+      <span class="metric-label">Follow-ups due</span>
+    </div>
+    <div class="metric-item">
+      <span class="metric-count">{{ metrics.converted }}</span>
+      <span class="metric-label">Converted</span>
+    </div>
+  </div>
+</section>
+
+{% if needs_attention %}
+<section class="card">
+  <h3>Needs attention</h3>
+  <ul class="mini-list">
+    {% for item in needs_attention %}
+    <li>
+      <span class="badge">{{ item.count }}</span>
+      <a href="{{ item.href }}">{{ item.label }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% elif total_prospects %}
+<p class="muted">Nothing needs attention.</p>
+{% endif %}
 {% else %}
 <div class="empty">
   <p>No prospects yet. Add one to start building your pipeline.</p>

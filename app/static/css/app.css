@@ -509,6 +509,49 @@ p {
   }
 }
 
+/* ===== Metrics strip (dashboard) =====
+   Nine operational metrics (PRODUCT_BRIEF §8) as compact cells. Auto-fit
+   columns so fewer show on narrow screens, more on wide screens. */
+.metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: var(--sp-4);
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 12px 8px;
+  background: var(--color-surface);
+  text-decoration: none;
+  color: var(--color-text);
+  min-width: 0;
+}
+
+.metric-count {
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.metric-label {
+  font-size: clamp(10px, 0.9vw, 11px);
+  font-weight: var(--fw-medium);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: var(--lh-tight);
+  text-align: center;
+}
+
 /* ===== Buttons ===== */
 .btn {
   display: inline-flex;

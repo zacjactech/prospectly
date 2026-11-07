@@ -109,8 +109,9 @@ def healthz() -> dict[str, str]:
 
 @router.get("/", response_class=HTMLResponse)
 def index(request: Request, db: DbSession) -> HTMLResponse:
-    """Dashboard home page: pipeline strip + quick start."""
+    """Dashboard home page: pipeline strip + operational metrics + quick start."""
     counts = dashboard_service.stage_counts(db)
+    metrics = dashboard_service.dashboard_metrics(db)
     return templates.TemplateResponse(
         request=request,
         name="index.html",
@@ -120,6 +121,8 @@ def index(request: Request, db: DbSession) -> HTMLResponse:
             "pipeline_phases": dashboard_service.PIPELINE_PHASES,
             "stage_label": dashboard_service.stage_label,
             "total_prospects": dashboard_service.total_prospects(db),
+            "metrics": metrics,
+            "needs_attention": dashboard_service.needs_attention(db),
         },
     )
 
