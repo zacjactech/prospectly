@@ -16,6 +16,7 @@ from app.services import dashboard as dashboard_service
 from app.services import profile as profile_service
 from app.services import prospect as prospect_service
 from app.services import research as research_service
+from app.whatsapp import normalize_phone
 
 router = APIRouter(tags=["pages"])
 
@@ -164,6 +165,10 @@ def prospect_create(
         db.add(source)
         db.flush()
 
+    # Normalize the raw phone to E.164 for dedupe + WhatsApp (D9). Invalid
+    # numbers stay in phone_raw only and never produce a wa.me recipient.
+    phone_e164 = normalize_phone(phone_raw, settings.phone_default_country) if phone_raw else None
+
     prospect, error = prospect_service.create_prospect(
         db,
         business_name=business_name,
@@ -174,7 +179,7 @@ def prospect_create(
         location_state=location_state or None,
         location_country=location_country or None,
         address=address or None,
-        phone_e164=None,  # normalization happens via whatsapp.py in Phase 2
+        phone_e164=phone_e164,
         phone_raw=phone_raw or None,
         email=email or None,
         website_url=website_url or None,
@@ -304,6 +309,9 @@ def prospect_update(
         location_state=location_state or None,
         location_country=location_country or None,
         address=address or None,
+        phone_e164=normalize_phone(phone_raw, settings.phone_default_country)
+        if phone_raw
+        else None,
         phone_raw=phone_raw or None,
         email=email or None,
         website_url=website_url or None,

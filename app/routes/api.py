@@ -11,6 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import get_db
 from app.models import Activity, Finding, Prospect, ResearchRun, Source, WebsiteCheck
 from app.schemas import (
@@ -32,6 +33,7 @@ from app.schemas import (
 from app.services import profile as profile_service
 from app.services import prospect as prospect_service
 from app.services import research as research_service
+from app.whatsapp import normalize_phone
 
 router = APIRouter(tags=["api"])
 
@@ -87,6 +89,12 @@ def create_prospect(
         db.add(source)
         db.flush()
 
+    # Normalize the raw phone to E.164 for dedupe + WhatsApp (D9). An explicit
+    # phone_e164 from the client is trusted; otherwise normalize phone_raw.
+    phone_e164 = payload.phone_e164
+    if phone_e164 is None and payload.phone_raw:
+        phone_e164 = normalize_phone(payload.phone_raw, settings.phone_default_country)
+
     prospect, error = prospect_service.create_prospect(
         db,
         business_name=payload.business_name,
@@ -97,7 +105,7 @@ def create_prospect(
         location_state=payload.location_state,
         location_country=payload.location_country,
         address=payload.address,
-        phone_e164=payload.phone_e164,
+        phone_e164=phone_e164,
         phone_raw=payload.phone_raw,
         email=str(payload.email) if payload.email else None,
         website_url=payload.website_url,
