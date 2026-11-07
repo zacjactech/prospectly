@@ -49,6 +49,7 @@
   --fs-lg: 1.0625rem;    /* 17px */
   --fs-xl: 1.125rem;     /* 18px */
   --fs-2xl: 1.3125rem;   /* 21px: prospect name */
+  --fs-3xl: 1.75rem;     /* 28px: pipeline counts */
 
   --fw-normal: 400;
   --fw-medium: 500;
@@ -389,19 +390,20 @@ p {
 /* ===== Pipeline strip (dashboard) ===== */
 .pipeline-strip {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1px;
   background: var(--color-border);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  margin-bottom: var(--sp-4);
 }
 
 .pipeline-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px;
+  gap: 3px;
+  padding: 10px 6px;
   background: var(--color-surface);
   color: var(--color-text);
   text-decoration: none;
@@ -415,7 +417,7 @@ p {
 }
 
 .pipeline-count {
-  font-size: var(--fs-2xl);
+  font-size: var(--fs-3xl);
   font-weight: var(--fw-semibold);
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
@@ -426,25 +428,22 @@ p {
 }
 
 .pipeline-label {
-  font-size: 10px;
+  /* Fluid so the longest stage label ("Opportunity") fits a 9-across row from
+     768px up instead of ellipsising at the narrow end. */
+  font-size: clamp(8px, 1vw, 9px);
   font-weight: var(--fw-medium);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 768px) {
   .pipeline-strip {
-    grid-template-columns: repeat(9, 1fr);
+    grid-template-columns: repeat(9, minmax(0, 1fr));
   }
-}
-
-.pipeline-strip + p {
-  margin-top: var(--sp-2);
-  margin-bottom: var(--sp-4);
 }
 
 /* ===== Buttons ===== */
