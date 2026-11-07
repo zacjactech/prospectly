@@ -177,6 +177,21 @@ def converted_prospects(db: Session) -> int:
     )
 
 
+def dashboard_metrics(db: Session) -> dict[str, int]:
+    """All PRODUCT_BRIEF §8 operational metrics in one dict."""
+    return {
+        "total_prospects": total_prospects(db),
+        "researched": researched_prospects(db),
+        "requires_review": requires_review_prospects(db),
+        "approved_messages": approved_messages(db),
+        "sent_confirmed": sent_confirmed_messages(db),
+        "replies": replied_prospects(db),
+        "interested": interested_prospects(db),
+        "follow_ups_due": follow_ups_due(db),
+        "converted": converted_prospects(db),
+    }
+
+
 # --- "Needs attention" queue (UI/UX spec §2.1) ---
 
 
