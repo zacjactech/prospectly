@@ -2,7 +2,6 @@
 {% block content %}
 <div class="page-bar">
   <span class="muted">Profile</span>
-  <a href="/" class="btn ghost">Back to dashboard</a>
 </div>
 
 {% if error %}
@@ -15,26 +14,22 @@
       <div class="field full">
         <label>What you offer</label>
         <textarea name="offer" rows="4" placeholder="I build affordable websites for local businesses">{{ profile.offer or '' }}</textarea>
-        <p class="hint">Describe your offer in one or two sentences. It shapes every draft.</p>
       </div>
     </div>
     <div class="form-section">
       <div class="field">
         <label>Target industries</label>
-        <input type="text" name="target_industries" value="{{ (profile.target_industries or [] )|join(', ') }}" placeholder="hotel, event planner, restaurant, retail">
-        <p class="hint">Comma-separated.</p>
+        <input type="text" name="target_industries" value="{{ (profile.target_industries or [] )|join(', ') }}" placeholder="hotel, event planner, restaurant">
       </div>
       <div class="field">
         <label>Target locations</label>
         <input type="text" name="target_locations" value="{{ (profile.target_locations or [] )|join(', ') }}" placeholder="city, area, region">
-        <p class="hint">Comma-separated cities or areas.</p>
       </div>
     </div>
     <div class="form-section full-width">
       <div class="field full">
         <label>Ideal-client signals</label>
         <input type="text" name="ideal_signals" value="{{ (profile.ideal_signals or [] )|join(', ') }}" placeholder="no website, outdated site, no contact form">
-        <p class="hint">Signals that mark a good prospect for automated discovery.</p>
       </div>
     </div>
   </div>

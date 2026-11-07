@@ -49,7 +49,6 @@
   --fs-lg: 1.0625rem;    /* 17px */
   --fs-xl: 1.125rem;     /* 18px */
   --fs-2xl: 1.3125rem;   /* 21px: prospect name */
-  --fs-3xl: 1.75rem;     /* 28px: metric numbers */
 
   --fw-normal: 400;
   --fw-medium: 500;
@@ -349,49 +348,6 @@ p {
   margin-bottom: 0;
 }
 
-/* ===== Metric cards ===== */
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-3);
-}
-
-.metric-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-}
-
-.metric-label {
-  font-size: 10px;
-  font-weight: var(--fw-semibold);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 4px;
-}
-
-.metric-value {
-  font-size: var(--fs-3xl);
-  font-weight: var(--fw-semibold);
-  color: var(--color-text);
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-
-.metric-card .badge {
-  font-size: 12px;
-  padding: 2px 8px;
-}
-
-.metric-hint {
-  font-size: var(--fs-xs);
-  color: var(--color-text-muted);
-  margin-top: 4px;
-}
-
 /* ===== Pipeline strip (dashboard) ===== */
 .pipeline-strip {
   display: grid;
@@ -595,12 +551,6 @@ p {
 .field .required {
   color: var(--color-danger);
   margin-left: 2px;
-}
-
-.field .hint {
-  font-size: var(--fs-xs);
-  color: var(--color-text-muted);
-  margin-top: var(--sp-1);
 }
 
 .field.full {
