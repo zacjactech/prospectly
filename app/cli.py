@@ -20,20 +20,34 @@ def _sqlite_file_from_url(url: str) -> Path | None:
     return Path(urllib.parse.unquote(path))
 
 
-def backup() -> int:
-    """Consistent snapshot via SQLite `VACUUM INTO` (DATABASE_DESIGN §6)."""
+def perform_backup() -> Path | None:
+    """Consistent snapshot via SQLite `VACUUM INTO` (DATABASE_DESIGN §6).
+
+    Returns the backup path, or None when the DB isn't SQLite / doesn't exist.
+    """
     settings.ensure_dirs()
     db_file = _sqlite_file_from_url(settings.database_url)
     if db_file is None:
-        print("Backup supports the SQLite database only (DATABASE_URL is not sqlite).")
-        return 1
+        return None
     if not db_file.exists():
-        print(f"No database yet at {db_file} — nothing to back up.")
-        return 0
+        return None
     stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     target = settings.backups_dir / f"prospectly-{stamp}.db"
     with sqlite3.connect(db_file) as conn:
         conn.execute("VACUUM INTO ?", (str(target),))
+    return target
+
+
+def backup() -> int:
+    """CLI entry point for `prospectly backup`."""
+    target = perform_backup()
+    if target is None:
+        db_file = _sqlite_file_from_url(settings.database_url)
+        if db_file is None:
+            print("Backup supports the SQLite database only (DATABASE_URL is not sqlite).")
+        else:
+            print(f"No database yet at {db_file} — nothing to back up.")
+        return 1
     print(f"Backup written: {target}")
     return 0
 

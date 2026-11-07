@@ -11,7 +11,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.config import BASE_DIR, settings
+from app.cli import perform_backup
+from app.config import BASE_DIR, save_settings, settings
 from app.db import get_db
 from app.models import (
     Activity,
@@ -489,6 +490,80 @@ def usage_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
             "providers": stats["providers"],
             "ai": stats["ai"],
         },
+    )
+
+
+@router.get("/settings/general", response_class=HTMLResponse)
+def general_settings_form(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    """Settings → General: vocabulary, defaults, caps, backup (§2.7)."""
+    return templates.TemplateResponse(
+        request=request,
+        name="settings/general.html",
+        context={
+            "app_name": settings.app_name,
+            "settings": settings,
+        },
+    )
+
+
+@router.post("/settings/general", response_class=HTMLResponse, response_model=None)
+def general_settings_update(
+    request: Request,
+    db: Session = Depends(get_db),
+    default_follow_up_days: str | None = Form(None),
+    category_vocabulary: str | None = Form(None),
+    backup: str | None = Form(None),
+) -> HTMLResponse | RedirectResponse:
+    """Update general settings or trigger a database backup."""
+    if backup:
+        target = perform_backup()
+        if target is None:
+            return templates.TemplateResponse(
+                request=request,
+                name="settings/general.html",
+                context={
+                    "app_name": settings.app_name,
+                    "settings": settings,
+                    "error": "Backup failed — is the database a SQLite file?",
+                },
+            )
+        return RedirectResponse(
+            url=f"/settings/general?flash={quote('Backup created')}&flash_type=success",
+            status_code=303,
+        )
+
+    days: int | None = None
+    if default_follow_up_days is not None and default_follow_up_days.strip():
+        try:
+            days = int(default_follow_up_days)
+        except ValueError:
+            return templates.TemplateResponse(
+                request=request,
+                name="settings/general.html",
+                context={
+                    "app_name": settings.app_name,
+                    "settings": settings,
+                    "error": "Default follow-up days must be a number.",
+                },
+            )
+
+    vocab: list[str] | None = None
+    if category_vocabulary is not None:
+        vocab = [v.strip() for v in category_vocabulary.split(",") if v.strip()]
+
+    save_settings(
+        **{
+            k: v
+            for k, v in {
+                "default_follow_up_days": days,
+                "category_vocabulary": vocab,
+            }.items()
+            if v is not None
+        }
+    )
+    return RedirectResponse(
+        url=f"/settings/general?flash={quote('Settings saved')}&flash_type=success",
+        status_code=303,
     )
 
 

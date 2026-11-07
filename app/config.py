@@ -7,6 +7,7 @@ Provider keys are optional: presence of a key is what "configured" means (D6/D7)
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -57,6 +58,10 @@ class Settings(BaseSettings):
     serper_daily_cap: int = 500
     ai_daily_cap: int = 200
 
+    # --- General settings ---
+    default_follow_up_days: int = 3
+    category_vocabulary: list[str] = []
+
     # --- Safety limits (SECURITY_AND_PRIVACY §5) ---
     http_timeout_seconds: int = 30
     http_connect_timeout_seconds: int = 10
@@ -102,3 +107,37 @@ settings = Settings()
 
 def get_settings() -> Settings:
     return settings
+
+
+def save_settings(**updates: Any) -> None:
+    """Persist setting changes to .env and update the live instance.
+
+    Values take effect immediately (in-memory) and survive restart (written to
+    .env). Unknown keys are ignored.
+    """
+    env_path = BASE_DIR / ".env"
+    existing: dict[str, str] = {}
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            existing[k.strip()] = v.strip()
+
+    for key, value in updates.items():
+        if not hasattr(settings, key):
+            continue  # ignore unknown keys
+        setattr(settings, key, value)
+        existing[key] = _env_value(value)
+
+    lines = [f"{k}={v}" for k, v in existing.items()]
+    env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _env_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, list):
+        return ",".join(str(v) for v in value)
+    return str(value)

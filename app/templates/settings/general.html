@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block content %}
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<section class="card">
+  <div class="header-row">
+    <div class="grow">
+      <div class="prospect-name">General settings</div>
+      <div class="badge-row">
+        <span class="badge muted">Defaults, vocabulary, caps, backup</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a href="/settings/profile" class="btn ghost">Profile</a>
+      <a href="/settings/usage" class="btn ghost">Usage</a>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Defaults</h3>
+  <form method="post" action="/settings/general">
+    <div class="form-section">
+      <div class="field">
+        <label>Default follow-up days</label>
+        <input
+          type="number"
+          name="default_follow_up_days"
+          value="{{ settings.default_follow_up_days }}"
+          min="1"
+          placeholder="3"
+        >
+        <span class="muted small">Days after a sent message before a follow-up is suggested.</span>
+      </div>
+    </div>
+    <div class="form-section">
+      <div class="field">
+        <label>Category vocabulary</label>
+        <input
+          type="text"
+          name="category_vocabulary"
+          value="{{ settings.category_vocabulary | join(', ') if settings.category_vocabulary else '' }}"
+          placeholder="hotel, event planner, restaurant"
+        >
+        <span class="muted small">Comma-separated list used to categorize discovered prospects.</span>
+      </div>
+    </div>
+    <div class="action-group">
+      <button class="btn primary" type="submit">Save defaults</button>
+      <a href="/settings/general" class="btn ghost">Cancel</a>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Daily caps</h3>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Provider</th><th>Daily cap</th><th>Configured</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Tavily</td>
+        <td>{{ settings.tavily_daily_cap }}</td>
+        <td><span class="badge {% if settings.tavily_api_key %}stage-success{% else %}stage-muted{% endif %}">{{ 'yes' if settings.tavily_api_key else 'no' }}</span></td>
+      </tr>
+      <tr>
+        <td>Serper</td>
+        <td>{{ settings.serper_daily_cap }}</td>
+        <td><span class="badge {% if settings.serper_api_key %}stage-success{% else %}stage-muted{% endif %}">{{ 'yes' if settings.serper_api_key else 'no' }}</span></td>
+      </tr>
+      <tr>
+        <td>Brave</td>
+        <td><span class="muted">—</span></td>
+        <td><span class="badge muted">{{ 'yes' if settings.brave_api_key else 'no' }}</span></td>
+      </tr>
+      <tr>
+        <td>AI</td>
+        <td>{{ settings.ai_daily_cap }}</td>
+        <td><span class="badge {% if settings.ai_provider == 'template' %}stage-muted{% else %}stage-success{% endif %}">{{ settings.ai_provider }}</span></td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="muted small">Caps are read from environment (.env / env vars). Edit .env to change them, then restart.</p>
+</section>
+
+<section class="card">
+  <h3>Backup</h3>
+  <p class="muted small">Snapshots the SQLite database to <code>backups/</code> via VACUUM INTO.</p>
+  <div class="action-group">
+    <form method="post" action="/settings/general" data-confirm="Run a database backup now?">
+      <input type="hidden" name="backup" value="1">
+      <button class="btn primary" type="submit">Create backup</button>
+    </form>
+  </div>
+</section>
+{% endblock %}
