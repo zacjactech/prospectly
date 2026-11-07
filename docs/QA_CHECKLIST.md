@@ -89,7 +89,7 @@ Run the app: `py -m uv run uvicorn app.main:app --host 127.0.0.1 --port 8000`
 | Step | Check | Status |
 |------|-------|--------|
 | Set do_not_contact | suppression banner shown | pass |
-| Draft / approve / open blocked while suppressed | 409 on all outbound paths | pass |
+| Draft / approve / open blocked while suppressed | 403 on all outbound paths | pass |
 | Clear requires explicit action + reason | audited | pass |
 
 ## Flow 9 — Conversion
@@ -137,13 +137,13 @@ Run the app: `py -m uv run uvicorn app.main:app --host 127.0.0.1 --port 8000`
 
 ---
 
-## Guards (enforced in code, 409 on violation)
+## Guards (enforced in code)
 
 | Guard | Status |
 |-------|--------|
 | No auto-send / bulk WhatsApp | pass (wa.me URL only, human presses Send) |
 | Human approval before outbound | pass (state machine, confirm-sent sole writer) |
-| Suppression blocks all outbound | pass (draft / approve / open blocked) |
+| Suppression blocks all outbound | pass (draft / approve / open blocked, 403) |
 | No invented facts | pass (AI origin = unverified, low confidence) |
 | No duplicates | pass (partial unique indexes) |
 | Illegal stage / message transitions | 409 |
@@ -152,11 +152,13 @@ Run the app: `py -m uv run uvicorn app.main:app --host 127.0.0.1 --port 8000`
 
 ## Test suite
 
-`py -m uv run pytest` — **94 tests pass** (ruff, ruff format, mypy all clean).
+`py -m uv run pytest` — **104 tests pass** (ruff, ruff format, mypy all clean).
 
 Regression coverage added this phase:
 - `tests/test_dashboard_metrics.py` — 11 metric-definition tests incl. timezone-tested overdue
-- `tests/test_phase3_routes.py` — outreach golden path, suppression 409, illegal-transition 409
+- `tests/test_phase3_routes.py` — outreach golden path, suppression 403, illegal-transition 409
 - `tests/test_whatsapp.py` — 38 phone normalization + wa.me URL cases
 - `tests/test_opportunity.py` — 9 rule engine + validation tests
 - `tests/test_outreach.py` — 9 state machine tests
+- `tests/test_phase5_security.py` — 7 security abuse-case tests (SSRF, XSS, log redaction, non-loopback bind)
+- `tests/test_phase5_performance.py` — 3 performance tests (5,000-prospect list <200ms, index usage)

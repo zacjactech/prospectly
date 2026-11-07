@@ -6,7 +6,7 @@ Discover prospects → research them with evidence → identify outreach opportu
 
 Default path: **configure your profile first** (what you sell, who you target, where), then run automated discovery jobs to find prospects — no CSV required to start.
 
-> **Status: Phase 0 complete — application scaffold runs and passes its quality gate.** Requirements, research, and architecture decisions live in [`docs/`](docs/); work proceeds phase-by-phase against the exit criteria in `docs/IMPLEMENTATION_ROADMAP.md`.
+> **Status: Phase 5 complete — hardening & release candidate.** Requirements, research, and architecture decisions live in [`docs/`](docs/); work proceeds phase-by-phase against the exit criteria in `docs/IMPLEMENTATION_ROADMAP.md`.
 
 ## Product principles (non-negotiable)
 
