@@ -83,7 +83,7 @@
     <tbody>
       {% for p in prospects %}
       <tr data-href="/prospects/{{ p.id }}">
-        <td>
+        <td data-label="Name">
           <div class="prospect-name"><a href="/prospects/{{ p.id }}">{{ p.business_name }}</a></div>
           {% if p.do_not_contact or p.archived_at %}
           <div class="badge-row">
@@ -92,22 +92,22 @@
           </div>
           {% endif %}
         </td>
-        <td>{{ p.category or "none" }}</td>
-        <td>{{ p.location_city or p.location_area or "none" }}</td>
-        <td>
+        <td data-label="Category">{{ p.category or "none" }}</td>
+        <td data-label="Location">{{ p.location_city or p.location_area or "none" }}</td>
+        <td data-label="Website status">
           {% if p.website_url %}
           <span class="badge stage-{{ p.website_status|replace('_','-') }}">{{ p.website_status|replace('_',' ') }}</span>
           {% else %}
           <span class="muted">none</span>
           {% endif %}
         </td>
-        <td><span class="badge stage-{{ p.stage|replace('_','-') }}">{{ p.stage|replace('_',' ') }}</span></td>
-        <td>{% if p.last_contacted_at %}{{ p.last_contacted_at.strftime('%b %d, %Y') }}{% else %}<span class="muted">none</span>{% endif %}</td>
-        <td>
+        <td data-label="Stage"><span class="badge stage-{{ p.stage|replace('_','-') }}">{{ p.stage|replace('_',' ') }}</span></td>
+        <td data-label="Last contact">{% if p.last_contacted_at %}{{ p.last_contacted_at.strftime('%b %d, %Y') }}{% else %}<span class="muted">none</span>{% endif %}</td>
+        <td data-label="Tags">
           {% for t in p.tags %}<span class="badge tag">{{ t.name }}</span>{% endfor %}
           {% if not p.tags %}<span class="muted">none</span>{% endif %}
         </td>
-        <td>
+        <td data-label="Actions">
           <div class="row-actions">
             {% if p.archived_at %}
             <form method="post" action="/prospects/{{ p.id }}/unarchive" data-confirm="Restore this prospect to your active pipeline?">

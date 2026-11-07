@@ -1169,6 +1169,98 @@ table.prospects td a:not(.btn):hover {
   text-decoration: underline;
 }
 
+/* ----- Responsive: stacked cards of rows on mobile (UI spec §7) -----
+   Below 640px each table row becomes a card: header row hidden, each cell
+   shows a label (from data-label) above its value. Dense, not decorative. */
+@media (max-width: 639px) {
+  table.prospects thead {
+    display: none;
+  }
+
+  table.prospects tbody tr {
+    display: block;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--sp-3);
+    overflow: hidden;
+    background: var(--color-surface);
+  }
+
+  table.prospects tbody tr[data-href] {
+    cursor: pointer;
+  }
+
+  table.prospects tbody tr td {
+    display: block;
+    border: none;
+    border-bottom: 1px solid var(--color-border);
+    padding: 8px 12px;
+    height: auto;
+  }
+
+  table.prospects tbody tr td:last-child {
+    border-bottom: none;
+  }
+
+  table.prospects tbody tr td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+  }
+
+  /* Actions row: keep buttons inline, full-width on mobile */
+  table.prospects tbody tr td[data-label="Actions"] .row-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    border-top: 1px solid var(--color-border);
+    padding-top: 8px;
+    margin-top: 0;
+  }
+
+  /* Generic data tables also stack */
+  table.data-table thead {
+    display: none;
+  }
+
+  table.data-table tbody tr {
+    display: block;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--sp-3);
+    overflow: hidden;
+    background: var(--color-surface);
+  }
+
+  table.data-table tbody tr td {
+    display: block;
+    border: none;
+    border-bottom: 1px solid var(--color-border);
+    padding: 8px 12px;
+    height: auto;
+  }
+
+  table.data-table tbody tr td:last-child {
+    border-bottom: none;
+  }
+
+  table.data-table tbody tr td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+  }
+}
+
 /* Generic data table used by usage + follow-ups lists. Reuses the prospects
    table sizing so all tables read consistently. */
 table.data-table {
