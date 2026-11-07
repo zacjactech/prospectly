@@ -165,3 +165,40 @@ class FindingOut(BaseModel):
     recorded_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class OutreachMessageOut(BaseModel):
+    id: int
+    prospect_id: int
+    status: str
+    active: bool
+    current_text: str
+    generated_text: str | None
+    origin: str
+    grounding: list[int] | None
+    ungrounded_acknowledgement: bool
+    approved_at: datetime | None
+    opened_at: datetime | None
+    sent_confirmed_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class MessageGenerateIn(BaseModel):
+    pass
+
+
+class MessageApproveIn(BaseModel):
+    ungrounded_acknowledgement: bool = False
+
+
+class MessageOpenOut(BaseModel):
+    status: str
+    wa_me_url: str | None
+
+
+class MessageConfirmOut(BaseModel):
+    status: str
+    last_contacted_at: datetime | None

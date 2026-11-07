@@ -329,6 +329,12 @@ def run_research(
     if prospect.stage == "new":
         prospect.stage = "researched"
 
+    # Flow 4: after research, the rule engine proposes evidence-backed
+    # opportunities for the operator to validate or dismiss.
+    from app.services.opportunity import propose_opportunities
+
+    propose_opportunities(db, prospect_id=prospect_id, research_run_id=research_run.id)
+
     db.flush()
 
     log_activity(
