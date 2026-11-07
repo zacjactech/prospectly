@@ -31,6 +31,25 @@
         {% include "partials/flashes.html" %}
         {% block content %}{% endblock %}
       </div>
+
+      <!-- Keyboard shortcuts help (shown with '?') -->
+      <div id="shortcuts-help" class="hidden">
+        <div class="help-panel">
+          <h3>Keyboard shortcuts</h3>
+          <table class="data-table">
+            <thead><tr><th>Key</th><th>Action</th></tr></thead>
+            <tbody>
+              <tr><td><kbd>?</kbd></td><td>Show / hide this help</td></tr>
+              <tr><td><kbd>/</kbd></td><td>Focus search</td></tr>
+              <tr><td><kbd>j</kbd> / <kbd>k</kbd></td><td>Move highlight down / up in lists</td></tr>
+              <tr><td><kbd>g</kbd> then <kbd>d</kbd></td><td>Go to dashboard</td></tr>
+              <tr><td><kbd>Escape</kbd></td><td>Close help / close nav menu</td></tr>
+            </tbody>
+          </table>
+          <button class="btn" data-dismiss="shortcuts-help">Close</button>
+        </div>
+        <div class="help-backdrop" onclick="document.getElementById('shortcuts-help').classList.add('hidden')"></div>
+      </div>
     </main>
   </div>
 </body>

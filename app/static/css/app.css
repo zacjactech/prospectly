@@ -1508,3 +1508,61 @@ ul.spaced li .muted {
     display: none;
   }
 }
+
+/* ----- Keyboard shortcuts help panel ----- */
+.hidden {
+  display: none !important;
+}
+
+#shortcuts-help {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.help-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.help-panel {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-6);
+  width: min(560px, 92vw);
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+}
+
+.help-panel h3 {
+  margin: 0 0 var(--sp-4) 0;
+  font-size: var(--fs-lg);
+  letter-spacing: -0.02em;
+}
+
+.help-panel .data-table {
+  margin-bottom: var(--sp-4);
+}
+
+.help-panel .data-table td:first-child,
+.help-panel .data-table th:first-child {
+  width: 110px;
+}
+
+kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-weight: var(--fw-medium);
+}
