@@ -13,6 +13,8 @@ class TavilySearchProvider:
     Free tier: 1,000 credits/month. Requires TAVILY_API_KEY.
     """
 
+    provider_name = "tavily"
+
     def __init__(self, api_key: str, *, base_url: str = "https://api.tavily.com") -> None:
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")

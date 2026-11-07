@@ -20,7 +20,7 @@ Single-process local web application:
 │                          │                      │               │
 │  ┌───────────────────────▼──────────────────────▼────────────┐  │
 │  │ providers/                 app/ai/                        │  │
-│  │  discovery (osm, places)   summarizer / analyzer /        │  │
+│  │  discovery (bizdata, osm)   summarizer / analyzer /        │  │
 │  │  search (tavily, serper,   generator adapters            │  │
 │  │          brave, ddgs)      (gemini/groq/openrouter/      │  │
 │  │  inspect (httpx)           ollama/template)              │  │

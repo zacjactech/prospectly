@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from app.config import settings
 from app.providers.base import DiscoveryProvider, SearchProvider
+from app.providers.bizdata import BizDataDiscoveryProvider
 from app.providers.ddgs import DuckDuckGoSearchProvider
 from app.providers.osm import OverpassDiscoveryProvider
 from app.providers.serper import SerperSearchProvider
@@ -28,10 +29,21 @@ def get_search_provider() -> SearchProvider | None:
 
 
 def get_discovery_provider() -> DiscoveryProvider | None:
-    """Return the discovery provider if OSM is enabled."""
+    """Return the best available discovery provider, or None if none enabled.
+
+    Priority: BizData (free, no key) → OpenStreetMap Overpass (no key).
+    """
+    if settings.bizdata_enabled:
+        return BizDataDiscoveryProvider()
     if settings.osm_enabled:
         return OverpassDiscoveryProvider()
     return None
 
 
-__all__ = ["get_search_provider", "get_discovery_provider", "SearchProvider", "DiscoveryProvider"]
+__all__ = [
+    "get_search_provider",
+    "get_discovery_provider",
+    "SearchProvider",
+    "DiscoveryProvider",
+    "BizDataDiscoveryProvider",
+]

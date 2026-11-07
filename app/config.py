@@ -41,6 +41,7 @@ class Settings(BaseSettings):
 
     # --- Discovery / search providers (keys optional) ---
     osm_enabled: bool = True
+    bizdata_enabled: bool = True
     tavily_api_key: str | None = None
     serper_api_key: str | None = None
     brave_api_key: str | None = None
@@ -86,6 +87,7 @@ class Settings(BaseSettings):
         """True when the provider can be used with current configuration."""
         checks: dict[str, bool] = {
             "osm": self.osm_enabled,
+            "bizdata": self.bizdata_enabled,
             "tavily": bool(self.tavily_api_key),
             "serper": bool(self.serper_api_key),
             "brave": bool(self.brave_api_key),

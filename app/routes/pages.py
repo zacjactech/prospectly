@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import os
 from datetime import UTC, datetime
 from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -14,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.cli import perform_backup
 from app.config import BASE_DIR, save_settings, settings
 from app.db import get_db
+from app.jobs.worker import queue_research_job
 from app.models import (
     Activity,
     Finding,
@@ -26,11 +30,13 @@ from app.models import (
     WebsiteCheck,
 )
 from app.services import dashboard as dashboard_service
+from app.services import import_service, merge_service
 from app.services import opportunity as opportunity_service
 from app.services import outreach as outreach_service
 from app.services import profile as profile_service
 from app.services import prospect as prospect_service
-from app.services import research as research_service
+from app.services import retention as retention_service
+from app.services import saved_views as saved_views_service
 from app.services.activity import log_activity
 from app.validation import (
     FollowUpFormData,
@@ -673,6 +679,314 @@ def general_settings_update(
     )
 
 
+# ===== CSV import (Flow 10) =====
+
+
+@router.get("/settings/import", response_class=HTMLResponse)
+def import_form(request: Request) -> HTMLResponse:
+    """CSV import wizard step 1: upload form."""
+    return templates.TemplateResponse(
+        request=request,
+        name="settings/import.html",
+        context={
+            "app_name": settings.app_name,
+            "settings": settings,
+            "step": 1,
+        },
+    )
+
+
+@router.post("/settings/import", response_class=HTMLResponse, response_model=None)
+def import_preview_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    file: UploadFile | None = File(None),
+    import_token: str | None = Form(None),
+) -> HTMLResponse:
+    """CSV import wizard step 2: parse file and show preview (or re-show preview)."""
+
+    # If we already have a token (re-display), load the stashed preview.
+    preview = None
+    if import_token:
+        preview = import_service.load_import_session(import_token)
+
+    if file is not None:
+        content = file.file.read()
+        try:
+            preview = import_service.parse_csv(
+                content, default_country=settings.phone_default_country
+            )
+        except ImportError as exc:
+            return templates.TemplateResponse(
+                request=request,
+                name="settings/import.html",
+                context={
+                    "app_name": settings.app_name,
+                    "step": 1,
+                    "error": str(exc),
+                },
+                status_code=400,
+            )
+
+    if preview is None:
+        return templates.TemplateResponse(
+            request=request,
+            name="settings/import.html",
+            context={
+                "app_name": settings.app_name,
+                "step": 1,
+                "error": "No CSV file provided.",
+            },
+            status_code=400,
+        )
+
+    # Run dedupe against live DB so the preview flags duplicates.
+    _, dedupe_counts = import_service.assess_duplicates(
+        db, preview["rows"], default_country=settings.phone_default_country
+    )
+    preview["valid_count"] = dedupe_counts["valid"]
+    preview["duplicate_count"] = dedupe_counts["duplicate"]
+
+    # Stash parsed (+deduped) data for the commit step.
+    session_token = hashlib.sha256(os.urandom(16)).hexdigest()[:24]
+    import_service.save_import_session(session_token, preview)
+
+    rows = []
+    for r in preview["rows"]:
+        rows.append(
+            {
+                "index": r["index"],
+                "business_name": r["fields"].get("business_name", ""),
+                "category": r["fields"].get("category") or "",
+                "location_city": r["fields"].get("location_city") or "",
+                "phone_raw": r["fields"].get("phone_raw") or "",
+                "phone_e164": r["fields"].get("phone_e164") or "",
+                "email": r["fields"].get("email") or "",
+                "website_url": r["fields"].get("website_url") or "",
+                "status": r["status"],
+                "reason": r["reason"] or "",
+                "fuzzy": r["fuzzy"],
+                "matched_prospect_name": r["matched_prospect_name"] or "",
+                "selected": True,
+            }
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="settings/import.html",
+        context={
+            "app_name": settings.app_name,
+            "step": 2,
+            "import_token": session_token,
+            "total_rows": preview["total_rows"],
+            "valid_count": preview["valid_count"],
+            "duplicate_count": preview["duplicate_count"],
+            "error_count": preview["error_count"],
+            "columns_detected": preview["columns_detected"],
+            "column_mapping": preview["column_mapping"],
+            "rows": rows,
+        },
+    )
+
+
+@router.post("/settings/import/commit", response_class=HTMLResponse, response_model=None)
+def import_commit_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    import_token: str = Form(...),
+    row_indices: list[int] = Form([]),
+) -> HTMLResponse:
+    """CSV import wizard step 3: commit selected rows and show results."""
+    preview = import_service.load_import_session(import_token)
+    if preview is None:
+        return templates.TemplateResponse(
+            request=request,
+            name="settings/import.html",
+            context={
+                "app_name": settings.app_name,
+                "step": 1,
+                "error": "Import session expired or not found. Please re-upload.",
+            },
+            status_code=404,
+        )
+
+    result = import_service.commit_import(
+        db,
+        row_indices=row_indices,
+        all_rows=preview["rows"],
+        default_country=settings.phone_default_country,
+    )
+
+    import_service.delete_import_session(import_token)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="settings/import.html",
+        context={
+            "app_name": settings.app_name,
+            "step": 3,
+            "result": result,
+            "total_rows": preview["total_rows"],
+        },
+    )
+
+
+# ===== Saved views (Phase 6+ free feature) =====
+
+
+@router.get("/settings/saved-views", response_class=HTMLResponse)
+def saved_views_list(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Saved views list page."""
+    views = saved_views_service.list_saved_views(db)
+    return templates.TemplateResponse(
+        request=request,
+        name="settings/saved_views.html",
+        context={
+            "app_name": settings.app_name,
+            "settings": settings,
+            "views": views,
+        },
+    )
+
+
+@router.post("/settings/saved-views", response_class=HTMLResponse, response_model=None)
+def saved_views_create(
+    request: Request,
+    db: Session = Depends(get_db),
+    name: str = Form(...),
+    filters: str | None = Form(None),
+) -> HTMLResponse | RedirectResponse:
+    """Create a saved view from the HTML form."""
+
+    filters_dict = None
+    if filters and filters.strip():
+        try:
+            filters_dict = json.loads(filters)
+        except json.JSONDecodeError:
+            return HTMLResponse("Invalid JSON in filters field.", status_code=400)
+
+    saved_views_service.create_saved_view(db, name=name, filters=filters_dict)
+    return RedirectResponse(
+        url=f"/settings/saved-views?flash={quote('View saved')}&flash_type=success",
+        status_code=303,
+    )
+
+
+@router.post(
+    "/settings/saved-views/{view_id}/delete", response_class=HTMLResponse, response_model=None
+)
+def saved_views_delete(
+    request: Request,
+    view_id: int,
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    """Delete a saved view."""
+    ok = saved_views_service.delete_saved_view(db, view_id=view_id)
+    if not ok:
+        return HTMLResponse("Saved view not found", status_code=404)
+    return RedirectResponse(
+        url=f"/settings/saved-views?flash={quote('View deleted')}&flash_type=success",
+        status_code=303,
+    )
+
+
+# ===== Merge (Phase 6+ free feature) =====
+
+
+@router.get("/merge/duplicates", response_class=HTMLResponse)
+def merge_duplicates_list(
+    request: Request,
+    db: Session = Depends(get_db),
+    min_score: float = 0.85,
+) -> HTMLResponse:
+    """Fuzzy duplicate review page."""
+    pairs = merge_service.find_fuzzy_duplicates(db, min_score=min_score)
+    return templates.TemplateResponse(
+        request=request,
+        name="merge/duplicates.html",
+        context={
+            "app_name": settings.app_name,
+            "settings": settings,
+            "pairs": pairs,
+            "min_score": min_score,
+        },
+    )
+
+
+@router.post("/merge", response_class=HTMLResponse, response_model=None)
+def merge_prospects_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    source_id: int = Form(...),
+    target_id: int = Form(...),
+) -> HTMLResponse | RedirectResponse:
+    """Merge source prospect into target prospect from HTML form."""
+    target, error = merge_service.merge_prospects(
+        db, source_id=source_id, target_id=target_id, actor="user"
+    )
+    if error:
+        return HTMLResponse(error, status_code=409)
+    return RedirectResponse(
+        url=f"/merge/duplicates?flash={quote('Prospects merged')}&flash_type=success",
+        status_code=303,
+    )
+
+
+# ===== Retention sweep (Phase 6+ free feature) =====
+
+
+@router.get("/settings/retention", response_class=HTMLResponse)
+def retention_sweep_page(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Retention sweep page - flag inactive prospects for review."""
+    flagged = retention_service.list_retention_flagged(db)
+    return templates.TemplateResponse(
+        request=request,
+        name="settings/retention.html",
+        context={
+            "app_name": settings.app_name,
+            "settings": settings,
+            "flagged": flagged,
+        },
+    )
+
+
+@router.post("/settings/retention/sweep", response_class=HTMLResponse, response_model=None)
+def retention_sweep_run(
+    request: Request,
+    db: Session = Depends(get_db),
+    months: int = Form(12),
+) -> HTMLResponse | RedirectResponse:
+    """Run retention sweep from HTML form."""
+    result = retention_service.sweep_inactive_prospects(db, months=months, actor="user")
+    flash_msg = f"Sweep complete: {result['flagged']} flagged"
+    return RedirectResponse(
+        url=f"/settings/retention?flash={quote(flash_msg)}&flash_type=success",
+        status_code=303,
+    )
+
+
+@router.post("/retention/{prospect_id}/clear", response_class=HTMLResponse, response_model=None)
+def retention_clear_flag(
+    request: Request,
+    prospect_id: int,
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    """Clear retention-review flag from a prospect."""
+    ok = retention_service.clear_retention_flag(db, prospect_id=prospect_id, actor="user")
+    if not ok:
+        return HTMLResponse("Prospect not found or not flagged", status_code=404)
+    return RedirectResponse(
+        url=f"/settings/retention?flash={quote('Retention flag cleared')}&flash_type=success",
+        status_code=303,
+    )
+
+
 @router.get("/prospects/{prospect_id}/research", response_class=HTMLResponse)
 def prospect_research(
     request: Request,
@@ -736,13 +1050,8 @@ def prospect_research_start(
     db.add(run)
     db.flush()
 
-    try:
-        research_service.run_research(db, prospect_id=prospect_id, research_run=run)
-    except Exception as exc:  # pragma: no cover - defensive
-        run.status = "failed"
-        run.error = str(exc)
-        run.finished_at = research_service._now()
-        db.flush()
+    # Queue a background job instead of running research synchronously.
+    queue_research_job(db, prospect_id=prospect_id, research_run_id=run.id)
 
     return RedirectResponse(url=f"/prospects/{prospect_id}/research", status_code=303)
 

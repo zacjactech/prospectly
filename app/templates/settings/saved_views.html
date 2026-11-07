@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+{% include "partials/flashes.html" %}
+
+<div class="page-bar">
+  <div>
+    <h1>Saved Views</h1>
+    <p class="muted small">Save and reload filtered views of your prospects list.</p>
+  </div>
+  <a href="/settings/general" class="btn ghost">Back to settings</a>
+</div>
+
+{% if not views %}
+<section class="card">
+  <div class="header-row">
+    <div class="grow">
+      <h3>No saved views yet</h3>
+      <p class="muted small">Save a filtered Prospects list view to come back to it later.</p>
+    </div>
+  </div>
+  <div class="muted small">Go to the Prospects list, apply your filters, then save the current view.</div>
+</section>
+{% else %}
+<section class="card">
+  <div class="header-row">
+    <div class="grow">
+      <h3>Saved Views</h3>
+      <p class="muted small">Click a view to load its filters on the Prospects list.</p>
+    </div>
+  </div>
+
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Filters</th>
+        <th>Created</th>
+        <th class="text-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for view in views %}
+      <tr>
+        <td><strong>{{ view.name }}</strong></td>
+        <td class="muted small">{{ view.filters | tojson if view.filters else "—" }}</td>
+        <td class="muted small">{{ view.created_at }}</td>
+        <td class="text-right small">
+          <form method="post" action="/settings/saved-views/{{ view.id }}/delete" style="display:inline;">
+            {{ csrf_field() }}
+            <button class="btn danger small" type="submit" data-confirm="Delete this saved view?">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <div class="header-row">
+    <div class="grow">
+      <h3>Create a Saved View</h3>
+      <p class="muted small">Save the current Prospects list filters as a named view.</p>
+    </div>
+  </div>
+
+  <form method="post" action="/settings/saved-views">
+    {{ csrf_field() }}
+    <div class="field full">
+      <label>View name</label>
+      <input type="text" name="name" required placeholder="e.g. Hotels in Lagos needing research">
+      <span class="muted small">Give your view a descriptive name.</span>
+    </div>
+    <div class="field full">
+      <label>Filters (JSON)</label>
+      <textarea name="filters" rows="4" placeholder='{"stage": "new", "category": "hotel"}'></textarea>
+      <span class="muted small">Optional JSON filter object matching Prospects list query parameters: stage, category, location, tag, q, include_archived, do_not_contact_only.</span>
+    </div>
+    <div class="action-group">
+      <button class="btn primary" type="submit">Save view</button>
+      <a href="/settings/saved-views" class="btn ghost">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

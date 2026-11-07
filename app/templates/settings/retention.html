@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+{% include "partials/flashes.html" %}
+
+<div class="page-bar">
+  <div>
+    <h1>Retention Sweep</h1>
+    <p class="muted small">Flag prospects inactive for more than N months for review.</p>
+  </div>
+  <a href="/settings/general" class="btn ghost">Back to settings</a>
+</div>
+
+<section class="card">
+  <div class="header-row">
+    <div class="grow">
+      <h3>Run Retention Sweep</h3>
+      <p class="muted small">Prospects inactive for more than the threshold will be tagged <code>retention-review</code>.</p>
+    </div>
+  </div>
+
+  <form method="post" action="/settings/retention/sweep">
+    {{ csrf_field() }}
+    <div class="field">
+      <label>Inactive threshold (months)</label>
+      <input type="number" name="months" value="12" min="1" max="60">
+      <span class="muted small">Prospects with no activity for more than this many months will be flagged.</span>
+    </div>
+    <div class="action-group">
+      <button class="btn primary" type="submit">Run sweep</button>
+    </div>
+  </form>
+</section>
+
+{% if flagged %}
+<section class="card">
+  <div class="header-row">
+    <div class="grow">
+      <h3>Flagged for retention review ({{ flagged|length }})</h3>
+      <p class="muted small">These prospects have been inactive for over 12 months. Review and clear the flag or archive them.</p>
+    </div>
+  </div>
+
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Prospect</th>
+        <th>Stage</th>
+        <th>Last activity</th>
+        <th class="text-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in flagged %}
+      <tr>
+        <td><strong>{{ p.business_name }}</strong></td>
+        <td><span class="badge stage-{{ p.stage }}">{{ p.stage }}</span></td>
+        <td class="muted small">{{ p.updated_at }}</td>
+        <td class="text-right small">
+          <form method="post" action="/retention/{{ p.id }}/clear" style="display:inline;">
+            {{ csrf_field() }}
+            <button class="btn ghost small" type="submit">Clear flag</button>
+          </form>
+          <a href="/prospects/{{ p.id }}" class="btn ghost small">View</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<section class="card">
+  <div class="header-row">
+    <div class="grow">
+      <h3>No flagged prospects</h3>
+      <p class="muted small">No prospects are currently flagged for retention review.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

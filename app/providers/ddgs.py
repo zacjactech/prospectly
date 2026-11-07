@@ -12,6 +12,8 @@ import httpx
 class DuckDuckGoSearchProvider:
     """Best-effort DDG HTML scraping fallback."""
 
+    provider_name = "ddgs"
+
     def __init__(self, *, base_url: str = "https://html.duckduckgo.com/html/") -> None:
         self.base_url = base_url.rstrip("/")
 

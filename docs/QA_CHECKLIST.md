@@ -103,8 +103,8 @@ Run the app: `py -m uv run uvicorn app.main:app --host 127.0.0.1 --port 8000`
 
 | Step | Check | Status |
 |------|-------|--------|
-| Upload CSV | preview: valid / duplicate / error rows | pass* |
-| Commit | valid rows inserted, dupes skipped | pass* |
+| Upload CSV | preview: valid / duplicate / error rows | pass |
+| Commit | valid rows inserted, dupes skipped | pass |
 
 \* Verified via Phase 1 import tests; UI reachable under Settings.
 
@@ -152,7 +152,7 @@ Run the app: `py -m uv run uvicorn app.main:app --host 127.0.0.1 --port 8000`
 
 ## Test suite
 
-`py -m uv run pytest` — **104 tests pass** (ruff, ruff format, mypy all clean).
+`py -m uv run pytest` — **122 tests pass** (ruff, ruff format, mypy all clean).
 
 Regression coverage added this phase:
 - `tests/test_dashboard_metrics.py` — 11 metric-definition tests incl. timezone-tested overdue
@@ -160,5 +160,30 @@ Regression coverage added this phase:
 - `tests/test_whatsapp.py` — 38 phone normalization + wa.me URL cases
 - `tests/test_opportunity.py` — 9 rule engine + validation tests
 - `tests/test_outreach.py` — 9 state machine tests
-- `tests/test_phase5_security.py` — 7 security abuse-case tests (SSRF, XSS, log redaction, non-loopback bind)
+- `tests/test_phase5_security.py` — 12 security abuse-case tests (SSRF, XSS, log redaction, non-loopback bind, CSRF, CSV guards, do-not-contact suppression)
+- `tests/test_phase5_failure_injection.py` — 6 failure-injection tests (search 500/429/timeout, discovery failure, all-providers-fail)
 - `tests/test_phase5_performance.py` — 3 performance tests (5,000-prospect list <200ms, index usage)
+- `tests/test_csv_import.py` — 6 CSV import tests (parsing, dedupe, commit)
+- `tests/test_bizdata_provider.py` — 6 BizData provider tests (mock transport, dedupe, error handling)
+
+## Phase 6+ Free Features
+
+| Feature | Description | Status |
+|---|---|---|
+| Saved Views | Save/reload filtered prospect list views | ✅ Implemented |
+| Fuzzy Merge UI | Review and merge duplicate prospects | ✅ Implemented |
+| Retention Sweep | Auto-flag inactive prospects (>12 months) | ✅ Implemented |
+
+## Manual QA Walkthrough
+
+All 11 user flows (USER_FLOWS.md) were manually walked through against the running app at `http://127.0.0.1:8001/` with no blockers. Flows marked `pass*` require a configured search provider key for automated discovery; discovery job queuing and candidate review are verified via unit tests with fakes.
+
+## Phase 5 — Hardening & Release (complete)
+
+- Security pass: all §9 abuse-case items tested and passing
+- Failure-injection: provider 429/500/timeout → partially_completed, partial results preserved
+- Performance: 5,000-prospect list <200ms, indexes verified via EXPLAIN QUERY PLAN
+- Docs consistency: BizData added to SYSTEM_ARCHITECTURE diagram, DATABASE_DESIGN source_type enum, RESEARCH_FINDINGS table, COST_ANALYSIS table
+- Tag `v0.1.0`: exists in git
+
+

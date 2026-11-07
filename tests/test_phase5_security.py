@@ -213,3 +213,286 @@ def test_dashboard_metrics_keys() -> None:
     finally:
         with suppress(OSError):
             os.unlink(path)
+
+
+# ---------------------------------------------------------------------------
+# CSRF rejection on mutating endpoints (§9 item 3)
+# ---------------------------------------------------------------------------
+
+
+def test_csrf_missing_rejected_on_mutating_endpoints() -> None:
+    """Every state-changing endpoint must reject a missing CSRF token."""
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    engine = create_engine(f"sqlite:///{path}")
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    def override_get_db():
+        try:
+            yield db
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+
+        # POST without CSRF cookie/token → 403.
+        r = client.post("/prospects/new", data={"business_name": "No CSRF Biz"})
+        assert r.status_code == 403, f"Expected 403 for missing CSRF cookie, got {r.status_code}"
+
+        # POST with cookie but wrong/missing X-CSRF-Token header (JSON) → 403.
+        client.get("/")  # prime CSRF cookie
+        r = client.post_json if hasattr(client, "post_json") else client.post
+        r = client.post(
+            "/api/v1/prospects",
+            json={"business_name": "No CSRF API Biz"},
+            headers={},
+        )
+        assert r.status_code == 403, f"Expected 403 for missing CSRF header, got {r.status_code}"
+
+        # PATCH without CSRF token → 403.
+        r = client.patch("/api/v1/settings/profile", json={"offer": "x"}, headers={})
+        assert r.status_code == 403, f"Expected 403 for missing CSRF on PATCH, got {r.status_code}"
+    finally:
+        db.close()
+        app.dependency_overrides.pop(get_db, None)
+        with suppress(OSError):
+            os.unlink(path)
+
+
+# ---------------------------------------------------------------------------
+# CSV size and content guards (§9 item 4 / §6)
+# ---------------------------------------------------------------------------
+
+
+def test_csv_import_rejects_oversized_file() -> None:
+    """CSV uploads above csv_max_bytes must be rejected (400/413)."""
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    engine = create_engine(f"sqlite:///{path}")
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    def override_get_db():
+        try:
+            yield db
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+        client.get("/")  # prime CSRF cookie
+
+        # Build a body larger than csv_max_bytes (default 2 MB).
+        oversized = b"name,city\n" + (b"A" * 3000 + b",Berlin\n") * 4000  # ~12 MB
+        r = client.post(
+            "/api/v1/imports/preview",
+            files={"file": ("big.csv", oversized, "text/csv")},
+            headers={"X-CSRF-Token": client.cookies.get("csrf_token", "")},
+        )
+        assert r.status_code in (400, 413), (
+            f"Expected 400/413 for oversized CSV, got {r.status_code}"
+        )
+    finally:
+        db.close()
+        app.dependency_overrides.pop(get_db, None)
+        with suppress(OSError):
+            os.unlink(path)
+
+
+def test_csv_import_rejects_formula_cells() -> None:
+    """CSV cells starting with formula chars (= + - @) must be rejected/escaped."""
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    engine = create_engine(f"sqlite:///{path}")
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    def override_get_db():
+        try:
+            yield db
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+        client.get("/")  # prime CSRF cookie
+
+        csv_with_formula = (
+            "name,website\n"
+            '=HYPERLINK("http://evil.com"),https://example.com\n'
+            "+1234567890,https://example.com\n"
+        )
+        r = client.post(
+            "/api/v1/imports/preview",
+            files={"file": ("formula.csv", csv_with_formula.encode(), "text/csv")},
+            headers={"X-CSRF-Token": client.cookies.get("csrf_token", "")},
+        )
+        assert r.status_code == 200, r.text
+        preview = r.json()
+        # The formula cell row should be marked as an error, not silently accepted.
+        assert preview["error_count"] >= 1, f"Expected formula cells to error: {preview}"
+    finally:
+        db.close()
+        app.dependency_overrides.pop(get_db, None)
+        with suppress(OSError):
+            os.unlink(path)
+
+
+# ---------------------------------------------------------------------------
+# do_not_contact suppression blocks all outbound (§9 item 1)
+# ---------------------------------------------------------------------------
+
+
+def test_do_not_contact_blocks_draft_generate() -> None:
+    """A suppressed prospect must return 403 on draft generation."""
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    engine = create_engine(f"sqlite:///{path}")
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    def override_get_db():
+        try:
+            yield db
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        from app.services.prospect import set_do_not_contact
+
+        client = TestClient(app)
+        client.get("/")  # prime CSRF cookie
+
+        r = client.post(
+            "/api/v1/prospects",
+            json={"business_name": "Suppressed Biz", "phone_raw": "+442079460958"},
+            headers={"X-CSRF-Token": client.cookies.get("csrf_token", "")},
+        )
+        assert r.status_code == 201, r.text
+        prospect_id = r.json()["id"]
+
+        # Advance to outreach_ready so draft gen is allowed by stage.
+        from app.services.prospect import transition_stage
+
+        for stage in ("researched", "opportunity_identified", "outreach_ready"):
+            transition_stage(db, prospect_id, stage)
+
+        # Suppress.
+        set_do_not_contact(db, prospect_id, reason="opt-out", actor="user")
+
+        # Draft generation must be blocked.
+        r = client.post(
+            f"/api/v1/prospects/{prospect_id}/drafts",
+            headers={"X-CSRF-Token": client.cookies.get("csrf_token", "")},
+        )
+        assert r.status_code == 403, f"Expected 403 for suppressed draft, got {r.status_code}"
+    finally:
+        db.close()
+        app.dependency_overrides.pop(get_db, None)
+        with suppress(OSError):
+            os.unlink(path)
+
+
+def test_do_not_contact_blocks_approve_and_open() -> None:
+    """A suppressed prospect must return 403 on approve and open.
+
+    Two scenarios: a pending_review message blocked at approve, and an
+    already-approved message blocked at open, each after suppression is set.
+    """
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    engine = create_engine(f"sqlite:///{path}")
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    def override_get_db():
+        try:
+            yield db
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        from app.services.outreach import (
+            approve_message,
+            create_draft,
+            submit_message,
+        )
+        from app.services.prospect import set_do_not_contact, transition_stage
+
+        client = TestClient(app)
+        client.get("/")  # prime CSRF cookie
+
+        # --- Prospect A: message in pending_review, then suppressed ---
+        r = client.post(
+            "/api/v1/prospects",
+            json={"business_name": "Suppressed Biz A", "phone_raw": "+442079460959"},
+            headers={"X-CSRF-Token": client.cookies.get("csrf_token", "")},
+        )
+        assert r.status_code == 201, r.text
+        prospect_a_id = r.json()["id"]
+
+        for stage in ("researched", "opportunity_identified", "outreach_ready"):
+            transition_stage(db, prospect_a_id, stage)
+
+        message_a, _ = create_draft(
+            db, prospect_id=prospect_a_id, current_text="Hi A", actor="user"
+        )
+        submit_message(db, message_id=message_a.id, current_text="Hi A", actor="user")
+
+        # Suppress prospect A.
+        set_do_not_contact(db, prospect_a_id, reason="opt-out", actor="user")
+
+        # Approve must be blocked (message is pending_review but prospect suppressed).
+        r = client.post(
+            f"/api/v1/messages/{message_a.id}/approve",
+            json={"ungrounded_acknowledgement": True},
+            headers={"X-CSRF-Token": client.cookies.get("csrf_token", "")},
+        )
+        assert r.status_code == 403, f"Expected 403 for suppressed approve, got {r.status_code}"
+
+        # --- Prospect B: message already approved, then suppressed ---
+        r = client.post(
+            "/api/v1/prospects",
+            json={"business_name": "Suppressed Biz B", "phone_raw": "+442079460958"},
+            headers={"X-CSRF-Token": client.cookies.get("csrf_token", "")},
+        )
+        assert r.status_code == 201, r.text
+        prospect_b_id = r.json()["id"]
+
+        for stage in ("researched", "opportunity_identified", "outreach_ready"):
+            transition_stage(db, prospect_b_id, stage)
+
+        message_b, _ = create_draft(
+            db, prospect_id=prospect_b_id, current_text="Hi B", actor="user"
+        )
+        submit_message(db, message_id=message_b.id, current_text="Hi B", actor="user")
+        approve_message(
+            db, message_id=message_b.id, ungrounded_acknowledgement=True, actor="user"
+        )  # not suppressed yet
+
+        # Suppress prospect B.
+        set_do_not_contact(db, prospect_b_id, reason="opt-out", actor="user")
+
+        # Open must be blocked (message is approved but prospect suppressed).
+        r = client.post(
+            f"/api/v1/messages/{message_b.id}/open",
+            headers={"X-CSRF-Token": client.cookies.get("csrf_token", "")},
+        )
+        assert r.status_code == 403, f"Expected 403 for suppressed open, got {r.status_code}"
+    finally:
+        db.close()
+        app.dependency_overrides.pop(get_db, None)
+        with suppress(OSError):
+            os.unlink(path)

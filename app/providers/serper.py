@@ -13,6 +13,8 @@ class SerperSearchProvider:
     Requires SERPER_API_KEY.
     """
 
+    provider_name = "serper"
+
     def __init__(self, api_key: str, *, base_url: str = "https://google.serper.dev") -> None:
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")

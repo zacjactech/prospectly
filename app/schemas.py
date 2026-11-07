@@ -240,3 +240,116 @@ class FollowUpOut(BaseModel):
 class FollowUpCreate(BaseModel):
     due_date: datetime | None = None
     note: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# CSV import (Flow 10)
+# ---------------------------------------------------------------------------
+
+
+class ImportRow(BaseModel):
+    index: int
+    business_name: str
+    category: str | None = None
+    location_area: str | None = None
+    location_city: str | None = None
+    location_state: str | None = None
+    location_country: str | None = None
+    address: str | None = None
+    phone_raw: str | None = None
+    email: str | None = None
+    website_url: str | None = None
+    status: str  # "valid" | "duplicate" | "error"
+    reason: str | None = None
+    fuzzy: bool = False
+    matched_prospect_id: int | None = None
+    matched_prospect_name: str | None = None
+    selected: bool = True
+
+
+class ImportPreview(BaseModel):
+    import_token: str
+    total_rows: int
+    valid_count: int
+    duplicate_count: int
+    error_count: int
+    columns_detected: list[str]
+    column_mapping: dict[str, str | None]
+    rows: list[ImportRow]
+
+
+class ImportCommitIn(BaseModel):
+    import_token: str
+    row_indices: list[int]
+
+
+class ImportResult(BaseModel):
+    created: int
+    skipped_duplicates: int
+    flagged_for_review: int
+    errors: int
+    created_ids: list[int]
+
+
+# ---------------------------------------------------------------------------
+# Saved views (Phase 6+ free feature)
+# ---------------------------------------------------------------------------
+
+
+class SavedViewBase(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    filters: dict[str, Any] | None = None
+
+
+class SavedViewCreate(SavedViewBase):
+    pass
+
+
+class SavedViewUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    filters: dict[str, Any] | None = None
+
+
+class SavedViewOut(SavedViewBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ---------------------------------------------------------------------------
+# Merge (Phase 6+ free feature)
+# ---------------------------------------------------------------------------
+
+
+class DuplicatePairOut(BaseModel):
+    source_id: int
+    source_name: str
+    target_id: int
+    target_name: str
+    score: float
+    reason: str
+
+
+class MergeIn(BaseModel):
+    source_id: int
+    target_id: int
+
+
+# ---------------------------------------------------------------------------
+# Retention sweep (Phase 6+ free feature)
+# ---------------------------------------------------------------------------
+
+
+class RetentionSweepOut(BaseModel):
+    flagged: int
+    already_flagged: int
+    skipped: int
+    flagged_ids: list[int]
+    months: int
+    cutoff: str
+
+
+class RetentionSweepIn(BaseModel):
+    months: int = Field(default=12, ge=1, le=60)

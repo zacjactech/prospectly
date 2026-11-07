@@ -18,6 +18,8 @@ class SearchProvider(Protocol):
 class DiscoveryProvider(Protocol):
     """Discover candidate businesses from a target profile."""
 
+    provider_name: str = "discovery"
+
     async def discover(
         self,
         *,

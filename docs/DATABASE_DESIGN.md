@@ -76,7 +76,7 @@ Add/import flow: candidate keys are checked → exact match blocks with "existin
 | statement | TEXT — the claim, one sentence |
 | detail | TEXT NULL — elaboration |
 | source_url | TEXT NULL — required unless `source_type='user'` |
-| source_type | `website_fetch`, `search_result`, `directory_listing`, `social_profile`, `osm`, `places_api`, `ai_inference`, `user` |
+| source_type | `website_fetch`, `search_result`, `directory_listing`, `social_profile`, `osm_overpass`, `bizdata`, `places_api`, `ai_inference`, `user` |
 | retrieved_at | DATETIME — when the evidence was seen |
 | recorded_at | DATETIME — when we stored it |
 | verification_status | `verified`, `unverified`, `contradicted`, `not_found` |

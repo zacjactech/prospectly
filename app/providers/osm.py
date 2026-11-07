@@ -12,6 +12,8 @@ import httpx
 class OverpassDiscoveryProvider:
     """OSM Overpass API discovery."""
 
+    provider_name = "osm_overpass"
+
     def __init__(
         self,
         *,

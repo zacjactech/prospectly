@@ -553,3 +553,27 @@ class AIUsage(Base):
     )
 
     __table_args__ = (Index("ux_ai_usage", "provider", "model", "task", "period", unique=True),)
+
+
+class SavedView(Base):
+    """Saved prospect list filter (Phase 6+ free feature).
+
+    Stores a named set of filter criteria so the operator can quickly
+    reload a view of the prospects list (e.g. "hotels in Lagos needing
+    research", "do-not-contact prospects").
+    """
+
+    __tablename__ = "saved_views"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
+    filters: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )

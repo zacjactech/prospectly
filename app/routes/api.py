@@ -6,14 +6,17 @@ and the user profile. Routes stay thin; logic lives in `app/services`.
 
 from __future__ import annotations
 
+import hashlib
+import os
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Path, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db
+from app.jobs.worker import queue_research_job
 from app.models import (
     Activity,
     Finding,
@@ -26,10 +29,16 @@ from app.models import (
 from app.schemas import (
     ActivityOut,
     DedupeCheckOut,
+    DuplicatePairOut,
     ErrorOut,
     FindingOut,
     FollowUpCreate,
     FollowUpOut,
+    ImportCommitIn,
+    ImportPreview,
+    ImportResult,
+    ImportRow,
+    MergeIn,
     MessageConfirmOut,
     MessageOpenOut,
     OpportunityCreate,
@@ -42,15 +51,23 @@ from app.schemas import (
     ProspectPatch,
     ResearchRunOut,
     ResearchStartOut,
+    RetentionSweepIn,
+    RetentionSweepOut,
+    SavedViewCreate,
+    SavedViewOut,
+    SavedViewUpdate,
     StageTransitionIn,
     StageTransitionOut,
     WebsiteCheckOut,
 )
+from app.services import import_service, merge_service
 from app.services import opportunity as opportunity_service
 from app.services import outreach as outreach_service
 from app.services import profile as profile_service
 from app.services import prospect as prospect_service
-from app.services import research as research_service
+from app.services import retention as retention_service
+from app.services import saved_views as saved_views_service
+from app.services.import_service import ImportError as ImportServiceError
 from app.whatsapp import normalize_phone
 
 router = APIRouter(tags=["api"])
@@ -317,18 +334,13 @@ def start_research(
     db.add(run)
     db.flush()
 
-    try:
-        research_service.run_research(db, prospect_id=prospect_id, research_run=run)
-    except Exception as exc:  # pragma: no cover - defensive
-        run.status = "failed"
-        run.error = str(exc)
-        run.finished_at = research_service._now()
-        db.flush()
+    # Queue a background job instead of running research synchronously.
+    job = queue_research_job(db, prospect_id=prospect_id, research_run_id=run.id)
 
     return ResearchStartOut(
         run_id=run.id,
-        job_id=None,
-        status=run.status,
+        job_id=job.id,
+        status="queued",
     )
 
 
@@ -673,3 +685,297 @@ def cancel_follow_up_api(
     follow_up.status = "cancelled"
     db.flush()
     return FollowUpOut.model_validate(follow_up)
+
+
+# ===== CSV import (Flow 10) =====
+
+
+@router.post(
+    "/imports/preview",
+    response_model=ImportPreview,
+    responses={400: {"model": ErrorOut}, 413: {"model": ErrorOut}},
+)
+def import_preview(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> ImportPreview:
+    """Parse an uploaded CSV and return a preview (valid / duplicate / error rows).
+
+    No rows are written to the database. Parsed data is stashed under a token
+    for the subsequent commit step.
+    """
+    content = file.file.read()
+    try:
+        preview = import_service.parse_csv(content, default_country=settings.phone_default_country)
+    except ImportServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    # Stash parsed data for commit step.
+    import_token = hashlib.sha256(os.urandom(16)).hexdigest()[:24]
+    import_service.save_import_session(import_token, preview)
+
+    # Run dedupe against live DB so preview shows duplicates up front.
+    _, dedupe_counts = import_service.assess_duplicates(
+        db, preview["rows"], default_country=settings.phone_default_country
+    )
+    preview["valid_count"] = dedupe_counts["valid"]
+    preview["duplicate_count"] = dedupe_counts["duplicate"]
+
+    # Re-stash with dedupe results.
+    import_service.save_import_session(import_token, preview)
+
+    # Flatten each row: merge canonical fields into the top level so
+    # ImportRow (a flat Pydantic model) can validate it.
+    flat_rows = []
+    for r in preview["rows"]:
+        flat = {
+            "index": r["index"],
+            "status": r["status"],
+            "reason": r["reason"],
+            "fuzzy": r["fuzzy"],
+            "matched_prospect_id": r["matched_prospect_id"],
+            "matched_prospect_name": r["matched_prospect_name"],
+        }
+        flat.update(r["fields"])
+        flat_rows.append(flat)
+
+    rows = [ImportRow.model_validate(fr) for fr in flat_rows]
+    return ImportPreview(
+        import_token=import_token,
+        total_rows=preview["total_rows"],
+        valid_count=preview["valid_count"],
+        duplicate_count=preview["duplicate_count"],
+        error_count=preview["error_count"],
+        columns_detected=preview["columns_detected"],
+        column_mapping=preview["column_mapping"],
+        rows=rows,
+    )
+
+
+@router.post(
+    "/imports/commit",
+    response_model=ImportResult,
+    responses={400: {"model": ErrorOut}, 404: {"model": ErrorOut}},
+)
+def import_commit(
+    payload: ImportCommitIn,
+    db: Session = Depends(get_db),
+) -> ImportResult:
+    """Commit selected preview rows as new prospects under the csv_import source."""
+    preview = import_service.load_import_session(payload.import_token)
+    if preview is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Import session expired or not found"
+        )
+
+    result = import_service.commit_import(
+        db,
+        row_indices=payload.row_indices,
+        all_rows=preview["rows"],
+        default_country=settings.phone_default_country,
+    )
+
+    # Clean up the temp session file.
+    import_service.delete_import_session(payload.import_token)
+
+    return ImportResult(
+        created=result["created"],
+        skipped_duplicates=result["skipped_duplicates"],
+        flagged_for_review=result["flagged_for_review"],
+        errors=result["errors"],
+        created_ids=result["created_ids"],
+    )
+
+
+# ===== Saved views (Phase 6+ free feature) =====
+
+
+@router.get(
+    "/saved-views",
+    response_model=list[SavedViewOut],
+)
+def list_saved_views_api(
+    db: Session = Depends(get_db),
+) -> list[SavedViewOut]:
+    """List all saved views."""
+    rows = saved_views_service.list_saved_views(db)
+    return [SavedViewOut.model_validate(r) for r in rows]
+
+
+@router.post(
+    "/saved-views",
+    response_model=SavedViewOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_saved_view_api(
+    payload: SavedViewCreate,
+    db: Session = Depends(get_db),
+) -> SavedViewOut:
+    """Create a saved view."""
+    view = saved_views_service.create_saved_view(db, name=payload.name, filters=payload.filters)
+    return SavedViewOut.model_validate(view)
+
+
+@router.get(
+    "/saved-views/{view_id}",
+    response_model=SavedViewOut,
+    responses={404: {"model": ErrorOut}},
+)
+def get_saved_view_api(
+    view_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> SavedViewOut:
+    """Get a saved view by ID."""
+    view = saved_views_service.get_saved_view(db, view_id=view_id)
+    if view is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Saved view not found")
+    return SavedViewOut.model_validate(view)
+
+
+@router.patch(
+    "/saved-views/{view_id}",
+    response_model=SavedViewOut,
+    responses={404: {"model": ErrorOut}},
+)
+def update_saved_view_api(
+    view_id: int = Path(ge=1),
+    payload: SavedViewUpdate = Body(...),
+    db: Session = Depends(get_db),
+) -> SavedViewOut:
+    """Update a saved view."""
+    view = saved_views_service.update_saved_view(
+        db,
+        view_id=view_id,
+        name=payload.name,
+        filters=payload.filters,
+    )
+    if view is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Saved view not found")
+    return SavedViewOut.model_validate(view)
+
+
+@router.delete(
+    "/saved-views/{view_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={404: {"model": ErrorOut}},
+)
+def delete_saved_view_api(
+    view_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> None:
+    """Delete a saved view."""
+    ok = saved_views_service.delete_saved_view(db, view_id=view_id)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Saved view not found")
+
+
+# ===== Merge (Phase 6+ free feature) =====
+
+
+@router.get(
+    "/merge/duplicates",
+    response_model=list[DuplicatePairOut],
+)
+def list_fuzzy_duplicates_api(
+    min_score: float = Query(0.85, ge=0.0, le=1.0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> list[DuplicatePairOut]:
+    """List fuzzy duplicate prospect pairs for manual merge review."""
+    pairs = merge_service.find_fuzzy_duplicates(db, min_score=min_score, limit=limit)
+    return [
+        DuplicatePairOut(
+            source_id=p["source"].id,
+            source_name=p["source"].business_name,
+            target_id=p["target"].id,
+            target_name=p["target"].business_name,
+            score=p["score"],
+            reason=p["reason"],
+        )
+        for p in pairs
+    ]
+
+
+@router.post(
+    "/merge",
+    response_model=DuplicatePairOut,
+    responses={409: {"model": ErrorOut}, 404: {"model": ErrorOut}},
+)
+def merge_prospects_api(
+    payload: MergeIn,
+    db: Session = Depends(get_db),
+) -> DuplicatePairOut:
+    """Merge source prospect into target prospect."""
+    target, error = merge_service.merge_prospects(
+        db, source_id=payload.source_id, target_id=payload.target_id, actor="user"
+    )
+    if error:
+        if error == "Prospect not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+
+    assert target is not None
+    source = db.get(Prospect, payload.source_id)
+    return DuplicatePairOut(
+        source_id=payload.source_id,
+        source_name=source.business_name if source else "",
+        target_id=target.id,
+        target_name=target.business_name,
+        score=0.0,
+        reason="merged",
+    )
+
+
+# ===== Retention sweep (Phase 6+ free feature) =====
+
+
+@router.post(
+    "/retention/sweep",
+    response_model=RetentionSweepOut,
+)
+def retention_sweep_api(
+    payload: RetentionSweepIn,
+    db: Session = Depends(get_db),
+) -> RetentionSweepOut:
+    """Run a retention sweep to flag inactive prospects for review."""
+    result = retention_service.sweep_inactive_prospects(db, months=payload.months, actor="user")
+    return RetentionSweepOut(
+        flagged=result["flagged"],
+        already_flagged=result["already_flagged"],
+        skipped=result["skipped"],
+        flagged_ids=result["flagged_ids"],
+        months=result["months"],
+        cutoff=result["cutoff"],
+    )
+
+
+@router.get(
+    "/retention/flagged",
+    response_model=list[ProspectOut],
+)
+def list_retention_flagged_api(
+    db: Session = Depends(get_db),
+) -> list[ProspectOut]:
+    """List all prospects flagged for retention review."""
+    rows = retention_service.list_retention_flagged(db)
+    return [ProspectOut.model_validate(r) for r in rows]
+
+
+@router.post(
+    "/retention/{prospect_id}/clear",
+    response_model=ProspectOut,
+    responses={404: {"model": ErrorOut}},
+)
+def clear_retention_flag_api(
+    prospect_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> ProspectOut:
+    """Clear the retention-review flag from a prospect."""
+    ok = retention_service.clear_retention_flag(db, prospect_id=prospect_id, actor="user")
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Prospect not found or not flagged"
+        )
+    prospect = db.get(Prospect, prospect_id)
+    assert prospect is not None
+    return ProspectOut.model_validate(prospect)

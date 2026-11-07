@@ -24,6 +24,10 @@
         <a href="/settings/profile" class="nav-link{% if request.url.path.startswith('/settings/profile') %} active{% endif %}">Profile</a>
         <a href="/settings/usage" class="nav-link{% if request.url.path == '/settings/usage' %} active{% endif %}">Usage</a>
         <a href="/settings/general" class="nav-link{% if request.url.path == '/settings/general' %} active{% endif %}">General</a>
+        <a href="/settings/import" class="nav-link{% if request.url.path == '/settings/import' %} active{% endif %}">Import</a>
+        <a href="/settings/saved-views" class="nav-link{% if request.url.path == '/settings/saved-views' %} active{% endif %}">Saved Views</a>
+        <a href="/merge/duplicates" class="nav-link{% if request.url.path == '/merge/duplicates' %} active{% endif %}">Merge Duplicates</a>
+        <a href="/settings/retention" class="nav-link{% if request.url.path == '/settings/retention' %} active{% endif %}">Retention</a>
       </nav>
     </header>
     <main class="main">

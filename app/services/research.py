@@ -17,10 +17,44 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models import Finding, Prospect, ResearchRun
+from app.models import Finding, Prospect, ProviderUsage, ResearchRun
 from app.providers.factory import get_discovery_provider, get_search_provider
 from app.services.activity import log_activity
 from app.site_inspector import inspect
+
+
+def _record_provider_usage(
+    db: Session,
+    *,
+    provider: str,
+    kind: str,
+    calls: int = 1,
+    errors: int = 0,
+    rate_limited: int = 0,
+) -> None:
+    """Record provider call accounting (SYSTEM_ARCHITECTURE §6).
+
+    Upserts into ``provider_usage`` keyed by (provider, kind, period).
+    """
+    from datetime import date as _date
+
+    today = _date.today()
+    row = db.query(ProviderUsage).filter_by(provider=provider, kind=kind, period=today).first()
+    if row is None:
+        row = ProviderUsage(
+            provider=provider,
+            kind=kind,
+            calls=calls,
+            errors=errors,
+            rate_limited=rate_limited,
+            period=today,
+        )
+        db.add(row)
+    else:
+        row.calls += calls
+        row.errors += errors
+        row.rate_limited += rate_limited
+    db.flush()
 
 
 def _now() -> datetime:
@@ -234,8 +268,11 @@ def run_research(
         except Exception as exc:  # pragma: no cover - defensive
             steps["website_check"] = f"failed: {exc!s}"
             errors.append(f"website: {exc!s}")
+            _record_provider_usage(db, provider="http_fetch", kind="inspect", calls=1, errors=1)
     else:
         steps["website_check"] = "not_attempted"
+    if website_url:
+        _record_provider_usage(db, provider="http_fetch", kind="inspect", calls=1)
         _upsert_finding(
             db,
             prospect_id=prospect_id,
@@ -275,12 +312,27 @@ def run_research(
         except Exception as exc:  # pragma: no cover - defensive
             steps["search"] = f"failed: {exc!s}"
             errors.append(f"search: {exc!s}")
+            _record_provider_usage(
+                db,
+                provider=getattr(search_provider, "provider_name", "search"),
+                kind="search",
+                calls=1,
+                errors=1,
+            )
+        else:
+            _record_provider_usage(
+                db,
+                provider=getattr(search_provider, "provider_name", "search"),
+                kind="search",
+                calls=1,
+            )
     else:
         steps["search"] = "skipped (no provider)"
 
-    # --- Step 3: Discovery enrichment (OSM) ---
+    # --- Step 3: Discovery enrichment ---
     discovery_provider = get_discovery_provider()
     if discovery_provider and search_found_anything is False:
+        discovery_provider_name = getattr(discovery_provider, "provider_name", "discovery")
         try:
             candidates = _run_sync(
                 discovery_provider.discover(
@@ -299,7 +351,7 @@ def run_research(
                         kind="identity",
                         statement=f"Possible related business: {c.get('name', '')} ({c.get('category', '')})",
                         source_url=c.get("website"),
-                        source_type="osm_overpass",
+                        source_type=discovery_provider_name,
                         verification_status="unverified",
                         confidence="low",
                         origin="provider",
@@ -309,6 +361,20 @@ def run_research(
         except Exception as exc:  # pragma: no cover - defensive
             steps["discovery"] = f"failed: {exc!s}"
             errors.append(f"discovery: {exc!s}")
+            _record_provider_usage(
+                db,
+                provider=discovery_provider_name,
+                kind="discover",
+                calls=1,
+                errors=1,
+            )
+        else:
+            _record_provider_usage(
+                db,
+                provider=discovery_provider_name,
+                kind="discover",
+                calls=1,
+            )
     else:
         steps["discovery"] = "skipped"
 

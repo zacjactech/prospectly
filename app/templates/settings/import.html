@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block content %}
+{% include "partials/flashes.html" %}
+
+{% if step == 1 %}
+  <!-- Step 1: Upload -->
+  <div class="page-bar">
+    <div>
+      <h1>Import prospects from CSV</h1>
+      <p class="muted small">Upload a CSV file (max {{ settings.csv_max_rows }} rows, {{ settings.csv_max_bytes }} bytes). One row per prospect.</p>
+    </div>
+    <a href="/settings/general" class="btn ghost">Back to settings</a>
+  </div>
+
+  {% if error %}
+  <div class="flash error">{{ error }}</div>
+  {% endif %}
+
+  <div class="card">
+    <div class="header-row">
+      <div class="grow">
+        <h3>Step 1 — Upload</h3>
+        <p class="muted small">Pick a CSV file. The first row must be a header with column names (e.g. name, city, phone, email, website).</p>
+      </div>
+    </div>
+    <form method="post" action="/prospects/import" enctype="multipart/form-data">
+      {{ csrf_field() }}
+      <div class="field full">
+        <label>CSV file</label>
+        <input type="file" name="file" accept=".csv" required>
+        <span class="muted small">Required column: business name (accepted headers: name, company, business, business_name). Phone numbers are normalized to E.164.</span>
+      </div>
+      <div class="action-group">
+        <button class="btn primary" type="submit">Next: preview</button>
+        <a href="/settings/general" class="btn ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+{% elif step == 2 %}
+  <!-- Step 2: Preview -->
+  <div class="page-bar">
+    <div>
+      <h1>Import preview</h1>
+      <p class="muted small">Review detected duplicates and errors before committing. Uncheck any row you do not want to import.</p>
+    </div>
+    <a href="/prospects/import" class="btn ghost">Re-upload</a>
+  </div>
+
+  <div class="card">
+    <div class="header-row">
+      <div class="grow">
+        <h3>Step 2 — Preview</h3>
+        <p class="muted small">{{ total_rows }} rows detected · {{ valid_count }} valid · {{ duplicate_count }} duplicates · {{ error_count }} errors</p>
+      </div>
+    </div>
+
+    <div class="muted small">Detected columns: {{ columns_detected | join(', ') }}</div>
+
+    <form method="post" action="/prospects/import/commit">
+      {{ csrf_field() }}
+      <input type="hidden" name="import_token" value="{{ import_token }}">
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:30px">✓</th>
+            <th>Business name</th>
+            <th>Category</th>
+            <th>City</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Website</th>
+            <th>Status</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr class="{% if row.status == 'error' %}row-error{% elif row.status == 'duplicate' %}row-dup{% elif row.fuzzy %}row-fuzzy{% endif %}">
+            <td>
+              {% if row.status == 'valid' %}
+              <input type="checkbox" name="row_indices" value="{{ row.index }}" checked>
+              {% else %}
+              <span class="muted small">—</span>
+              {% endif %}
+            </td>
+            <td><strong>{{ row.business_name }}</strong></td>
+            <td>{{ row.category }}</td>
+            <td>{{ row.location_city }}</td>
+            <td>{{ row.phone_e164 or row.phone_raw }}</td>
+            <td>{{ row.email }}</td>
+            <td>{{ row.website_url }}</td>
+            <td>
+              {% if row.status == 'valid' and row.fuzzy %}
+              <span class="badge stage-warn">possible duplicate</span>
+              {% elif row.status == 'valid' %}
+              <span class="badge stage-success">valid</span>
+              {% elif row.status == 'duplicate' %}
+              <span class="badge stage-danger">duplicate</span>
+              {% else %}
+              <span class="badge stage-muted">error</span>
+              {% endif %}
+            </td>
+            <td class="muted small">{{ row.reason or row.matched_prospect_name }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="action-group">
+        <button class="btn primary" type="submit">Commit {{ valid_count }} row(s)</button>
+        <a href="/prospects/import" class="btn ghost">Re-upload</a>
+      </div>
+    </form>
+  </div>
+
+{% elif step == 3 %}
+  <!-- Step 3: Results -->
+  <div class="page-bar">
+    <div>
+      <h1>Import complete</h1>
+      <p class="muted small">{{ result.created }} prospect(s) imported. You can now research them from the Prospects list.</p>
+    </div>
+    <a href="/prospects" class="btn primary">Go to prospects</a>
+    <a href="/settings/general" class="btn ghost">Back to settings</a>
+  </div>
+
+  <div class="card">
+    <div class="header-row">
+      <div class="grow">
+        <h3>Step 3 — Results</h3>
+      </div>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr><th>Metric</th><th>Count</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Rows in file</td><td>{{ total_rows }}</td></tr>
+        <tr><td class="text-ok">Created</td><td class="text-ok">{{ result.created }}</td></tr>
+        <tr><td class="text-muted">Skipped (duplicates)</td><td>{{ result.skipped_duplicates }}</td></tr>
+        <tr><td class="text-warn">Flagged for review</td><td>{{ result.flagged_for_review }}</td></tr>
+        <tr><td class="text-danger">Errors</td><td>{{ result.errors }}</td></tr>
+      </tbody>
+    </table>
+
+    {% if result.created_ids %}
+    <div class="muted small">Created prospect IDs: {{ result.created_ids | join(', ') }}</div>
+    {% endif %}
+
+    <div class="muted small">All imported prospects are tagged with source <code>csv_import</code>. Fuzzy matches carry the <code>possible-duplicate</code> tag.</div>
+  </div>
+
+{% endif %}
+{% endblock %}
