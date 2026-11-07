@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <div class="header-row">
+    <div class="grow">
+      <div class="prospect-name">Usage</div>
+      <div class="badge-row">
+        <span class="badge muted">Provider calls and AI tokens per day</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a href="/settings/profile" class="btn ghost">Profile</a>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Provider usage</h3>
+  {% if providers %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Provider</th><th>Kind</th><th>Period</th><th>Calls</th><th>Errors</th><th>Rate limited</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for provider, rows in providers.items() %}
+      {% for row in rows %}
+      <tr>
+        <td>{{ provider }}</td>
+        <td>{{ row.kind }}</td>
+        <td>{{ row.period }}</td>
+        <td>{{ row.calls }}</td>
+        <td>{{ row.errors }}</td>
+        <td>{{ row.rate_limited }}</td>
+      </tr>
+      {% endfor %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No provider usage recorded yet.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3>AI usage</h3>
+  {% if ai %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Provider / model</th><th>Task</th><th>Period</th><th>Calls</th><th>OK</th><th>Failed</th><th>Prompt tokens</th><th>Completion tokens</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for key, rows in ai.items() %}
+      {% for row in rows %}
+      <tr>
+        <td>{{ key }}</td>
+        <td>{{ row.task }}</td>
+        <td>{{ row.period }}</td>
+        <td>{{ row.calls }}</td>
+        <td>{{ row.ok_calls }}</td>
+        <td>{{ row.failed_calls }}</td>
+        <td>{{ row.prompt_tokens }}</td>
+        <td>{{ row.completion_tokens }}</td>
+      </tr>
+      {% endfor %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No AI usage recorded yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

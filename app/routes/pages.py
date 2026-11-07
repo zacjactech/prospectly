@@ -477,6 +477,21 @@ def profile_update(
     )
 
 
+@router.get("/settings/usage", response_class=HTMLResponse)
+def usage_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    """Settings → Usage: provider + AI call accounting per day (§2.7)."""
+    stats = dashboard_service.usage_stats(db)
+    return templates.TemplateResponse(
+        request=request,
+        name="settings/usage.html",
+        context={
+            "app_name": settings.app_name,
+            "providers": stats["providers"],
+            "ai": stats["ai"],
+        },
+    )
+
+
 @router.get("/prospects/{prospect_id}/research", response_class=HTMLResponse)
 def prospect_research(
     request: Request,

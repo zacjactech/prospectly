@@ -14,10 +14,12 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     Activity,
+    AIUsage,
     Finding,
     FollowUp,
     OutreachMessage,
     Prospect,
+    ProviderUsage,
     ResearchRun,
 )
 
@@ -270,3 +272,53 @@ def needs_attention(db: Session, today: date | None = None) -> list[dict[str, An
         )
 
     return items
+
+
+# --- Usage reporting (UI/UX spec §2.7) ---
+
+
+def usage_stats(db: Session) -> dict[str, Any]:
+    """Provider + AI call accounting per day (Settings → Usage page).
+
+    Groups provider_usage and ai_usage by provider/period for a simple table,
+    no charts.
+    """
+    provider_rows = (
+        db.query(ProviderUsage)
+        .order_by(ProviderUsage.period.desc(), ProviderUsage.provider, ProviderUsage.kind)
+        .all()
+    )
+    ai_rows = (
+        db.query(AIUsage)
+        .order_by(AIUsage.period.desc(), AIUsage.provider, AIUsage.model, AIUsage.task)
+        .all()
+    )
+
+    providers: dict[str, list[dict[str, Any]]] = {}
+    for prow in provider_rows:
+        providers.setdefault(prow.provider, []).append(
+            {
+                "kind": prow.kind,
+                "period": prow.period.isoformat(),
+                "calls": prow.calls,
+                "errors": prow.errors,
+                "rate_limited": prow.rate_limited,
+            }
+        )
+
+    ai: dict[str, list[dict[str, Any]]] = {}
+    for arow in ai_rows:
+        key = f"{arow.provider} / {arow.model or 'default'}"
+        ai.setdefault(key, []).append(
+            {
+                "task": arow.task,
+                "period": arow.period.isoformat(),
+                "calls": arow.calls,
+                "ok_calls": arow.ok_calls,
+                "failed_calls": arow.failed_calls,
+                "prompt_tokens": arow.prompt_tokens,
+                "completion_tokens": arow.completion_tokens,
+            }
+        )
+
+    return {"providers": providers, "ai": ai}
