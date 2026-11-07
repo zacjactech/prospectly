@@ -26,42 +26,53 @@
 </section>
 
 <section aria-label="Metrics">
-  <div class="metrics-strip">
-    <div class="metric-item">
-      <span class="metric-count">{{ metrics.total_prospects }}</span>
-      <span class="metric-label">Total</span>
+  <div class="metric-groups">
+    <div class="metric-group">
+      <span class="metric-group-label">Pipeline</span>
+      <div class="metric-row">
+        <span class="metric-label">Total</span>
+        <span class="metric-count{% if not metrics.total_prospects %} zero{% endif %}">{{ metrics.total_prospects }}</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Researched</span>
+        <span class="metric-count{% if not metrics.researched %} zero{% endif %}">{{ metrics.researched }}</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Requires review</span>
+        <span class="metric-count{% if metrics.requires_review %} hot{% elif not metrics.requires_review %} zero{% endif %}">{{ metrics.requires_review }}</span>
+      </div>
     </div>
-    <div class="metric-item">
-      <span class="metric-count">{{ metrics.researched }}</span>
-      <span class="metric-label">Researched</span>
+
+    <div class="metric-group">
+      <span class="metric-group-label">Outreach</span>
+      <div class="metric-row">
+        <span class="metric-label">Approved</span>
+        <span class="metric-count{% if not metrics.approved_messages %} zero{% endif %}">{{ metrics.approved_messages }}</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Sent</span>
+        <span class="metric-count{% if not metrics.sent_confirmed %} zero{% endif %}">{{ metrics.sent_confirmed }}</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Replies</span>
+        <span class="metric-count{% if not metrics.replies %} zero{% endif %}">{{ metrics.replies }}</span>
+      </div>
     </div>
-    <div class="metric-item">
-      <span class="metric-count">{{ metrics.requires_review }}</span>
-      <span class="metric-label">Requires review</span>
-    </div>
-    <div class="metric-item">
-      <span class="metric-count">{{ metrics.approved_messages }}</span>
-      <span class="metric-label">Approved</span>
-    </div>
-    <div class="metric-item">
-      <span class="metric-count">{{ metrics.sent_confirmed }}</span>
-      <span class="metric-label">Sent</span>
-    </div>
-    <div class="metric-item">
-      <span class="metric-count">{{ metrics.replies }}</span>
-      <span class="metric-label">Replies</span>
-    </div>
-    <div class="metric-item">
-      <span class="metric-count">{{ metrics.interested }}</span>
-      <span class="metric-label">Interested</span>
-    </div>
-    <div class="metric-item">
-      <span class="metric-count">{{ metrics.follow_ups_due }}</span>
-      <span class="metric-label">Follow-ups due</span>
-    </div>
-    <div class="metric-item">
-      <span class="metric-count">{{ metrics.converted }}</span>
-      <span class="metric-label">Converted</span>
+
+    <div class="metric-group">
+      <span class="metric-group-label">Results</span>
+      <div class="metric-row">
+        <span class="metric-label">Interested</span>
+        <span class="metric-count{% if not metrics.interested %} zero{% endif %}">{{ metrics.interested }}</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Follow-ups due</span>
+        <span class="metric-count{% if metrics.follow_ups_due %} hot{% else %} zero{% endif %}">{{ metrics.follow_ups_due }}</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Converted</span>
+        <span class="metric-count{% if not metrics.converted %} zero{% endif %}">{{ metrics.converted }}</span>
+      </div>
     </div>
   </div>
 </section>
