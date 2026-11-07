@@ -8,11 +8,11 @@ Influences researched (2026): CRM UX best-practice literature (aufaitux, eseospa
 
 ## 1. Information architecture & navigation
 
-Left sidebar (persistent, collapsible on mobile), top bar with global search + primary action.
+**Amendment (2026-11-07):** the MVP ships a **persistent top bar**, not the left sidebar below. Rationale: with only Dashboard / Prospects / Profile there are 3 sections, and research on navigation patterns (NN/g) says a sidebar only pays for itself past ~8 sections; the top bar also keeps the table full-width for density. The sidebar returns when Follow-ups, Outreach and Settings land (Phase 4+). The IA tree below is the target state; the shipped nav shows the three items in bold.
 
 ```
 Prospectly
-├── Dashboard            (metrics + "needs attention" queue)
+├── Dashboard            (pipeline strip + "needs attention" queue)
 ├── Prospects            (list = home base; filters, saved views)
 │     └── Prospect detail (tabs: Overview · Research · Opportunities · Outreach · Activity)
 ├── Follow-ups           (due / overdue / upcoming)
@@ -28,6 +28,8 @@ Prospectly
 
 **Design rule:** the pipeline is never more than two clicks deep; every list page has one dominant primary action in the header (Add prospect / Import / Run research / Generate draft).
 
+**Design system:** `app/static/css/app.css` is the single source of visual truth — flat surfaces with 1px hairline borders (no shadow stacks), near-black primary buttons, blue reserved for links/focus, compact 13px table rows, semantic badges only for status. Behaviors live in `app/static/js/app.js` (CSP forbids inline handlers): mobile nav toggle, `data-confirm` prompts, whole-row navigation.
+
 ## 2. Pages & responsibilities
 
 ### 2.1 Dashboard
@@ -38,9 +40,12 @@ Prospectly
   3. *Today*: follow-ups due today + recently replied.
 - All numbers link to the pre-filtered Prospects list.
 
+**Status (Phase 2):** only the **pipeline strip** is built, and it is rendered honestly — real per-stage counts of non-archived prospects (`app/services/dashboard.py`), zero-filled and grayed when empty, every cell linking to `/prospects?stage=…`. There are **no placeholder metric cards**; the "Needs attention" and "Today" queues are Phase 4 (they depend on follow-ups and outreach, which do not exist yet). Empty dashboard: one sentence + Add prospect / Set up profile.
+
 ### 2.2 Prospects list (home base)
 - **Responsibility:** scan, filter, triage.
 - Dense table (rows ~40px): Name · Category · Location · Website status · Stage · Last contact · Next follow-up · Flags (duplicate? suppressed? unverified?).
+  **Status (Phase 2):** Next follow-up and the "requires review" flag are Phase 4 columns and are not rendered yet (showing a permanent "none" column would be a lie); the rest are live. Website status and stage badges use `stage-<value>` color mappings, where `no_website_found` reads as neutral **info**, never as an error (P6).
 - Filter bar: stage, category, tag, location, "requires review", archived toggle, free-text search. Filter state persists in URL (shareable/back-button safe).
 - Row click → detail. Hover reveals quick actions (Run research, Open WhatsApp — only when state allows).
 - Bulk selection limited to safe ops: add tag, archive, change source. **No bulk outreach actions exist anywhere** (P1).

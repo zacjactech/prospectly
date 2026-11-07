@@ -5,7 +5,7 @@
 {% endif %}
 
 <div class="page-bar">
-  <span class="muted">{{ prospects|length }} prospect{{ 's' if prospects|length != 1 else '' }}</span>
+  <span class="muted">{{ prospects|length }} prospect{{ 's' if prospects|length != 1 else '' }}{% if include_archived %} (archived included){% endif %}</span>
   <a href="/prospects/new" class="btn primary">Add prospect</a>
 </div>
 
@@ -20,7 +20,7 @@
       <select name="stage">
         <option value="">Any</option>
         {% for s in stages %}
-        <option value="{{ s }}" {% if current_stage == s %}selected{% endif %}>{{ s }}</option>
+        <option value="{{ s }}" {% if current_stage == s %}selected{% endif %}>{{ s|replace('_',' ') }}</option>
         {% endfor %}
       </select>
     </div>
@@ -46,21 +46,21 @@
       <label>Location</label>
       <input name="location" value="{{ current_location or '' }}" placeholder="city, area, region">
     </div>
+    <div class="filter-toggles">
+      <label class="toggle-chip{% if include_archived %} active{% endif %}">
+        <input type="checkbox" name="include_archived" value="1"{% if include_archived %} checked{% endif %}>
+        <span>Archived</span>
+      </label>
+      <label class="toggle-chip{% if do_not_contact_only %} active{% endif %}">
+        <input type="checkbox" name="do_not_contact_only" value="1"{% if do_not_contact_only %} checked{% endif %}>
+        <span>Suppressed</span>
+      </label>
+    </div>
     <div class="filter-actions">
-      <button class="btn primary">Apply</button>
+      <button class="btn" type="submit">Apply</button>
       {% if include_archived or do_not_contact_only or current_stage or current_tag or current_category or current_location or current_q %}
       <a href="/prospects" class="btn ghost">Clear</a>
       {% endif %}
-    </div>
-    <div class="filter-toggles">
-      <label class="toggle-chip {% if include_archived %}active{% endif %}">
-        <input type="checkbox" name="include_archived" value="1" {% if include_archived %}checked{% endif %}>
-        <span>Include archived</span>
-      </label>
-      <label class="toggle-chip {% if do_not_contact_only %}active{% endif %}">
-        <input type="checkbox" name="do_not_contact_only" value="1" {% if do_not_contact_only %}checked{% endif %}>
-        <span>Suppressed only</span>
-      </label>
     </div>
   </form>
 </section>
@@ -73,52 +73,49 @@
         <th>Name</th>
         <th>Category</th>
         <th>Location</th>
-        <th>Website</th>
+        <th>Website status</th>
         <th>Stage</th>
         <th>Last contact</th>
-        <th>Next follow-up</th>
         <th>Tags</th>
         <th>Actions</th>
       </tr>
     </thead>
     <tbody>
       {% for p in prospects %}
-      <tr>
+      <tr data-href="/prospects/{{ p.id }}">
         <td>
           <div class="prospect-name"><a href="/prospects/{{ p.id }}">{{ p.business_name }}</a></div>
-          {% if p.do_not_contact %}<span class="badge danger">Suppressed</span>{% endif %}
-          {% if p.archived_at %}<span class="badge muted">Archived</span>{% endif %}
+          {% if p.do_not_contact or p.archived_at %}
+          <div class="badge-row">
+            {% if p.do_not_contact %}<span class="badge danger">Suppressed</span>{% endif %}
+            {% if p.archived_at %}<span class="badge muted">Archived</span>{% endif %}
+          </div>
+          {% endif %}
         </td>
         <td>{{ p.category or "none" }}</td>
         <td>{{ p.location_city or p.location_area or "none" }}</td>
         <td>
           {% if p.website_url %}
-          <a href="{{ p.website_url }}" target="_blank" rel="noopener" class="truncate">{{ p.website_url }}</a>
-          <br><span class="badge {{ 'success' if p.website_status == 'reachable' else 'warn' }}">{{ p.website_status }}</span>
+          <span class="badge stage-{{ p.website_status|replace('_','-') }}">{{ p.website_status|replace('_',' ') }}</span>
           {% else %}
           <span class="muted">none</span>
           {% endif %}
         </td>
-        <td><span class="badge stage-{{ p.stage | replace('_', '-') }}">{{ p.stage }}</span></td>
-        <td>{{ p.last_contacted_at or "none" }}</td>
-        <td>none</td>
+        <td><span class="badge stage-{{ p.stage|replace('_','-') }}">{{ p.stage|replace('_',' ') }}</span></td>
+        <td>{% if p.last_contacted_at %}{{ p.last_contacted_at.strftime('%b %d, %Y') }}{% else %}<span class="muted">none</span>{% endif %}</td>
         <td>
           {% for t in p.tags %}<span class="badge tag">{{ t.name }}</span>{% endfor %}
+          {% if not p.tags %}<span class="muted">none</span>{% endif %}
         </td>
         <td>
           <div class="row-actions">
-            <a href="/prospects/{{ p.id }}" class="btn small">View</a>
-            {% if p.do_not_contact %}
-            <form method="post" action="/prospects/{{ p.id }}/archive" onsubmit="return confirm('Archive this suppressed prospect?')">
-              <button class="btn small ghost">Archive</button>
-            </form>
-            {% elif p.archived_at %}
-            <form method="post" action="/prospects/{{ p.id }}/unarchive" onsubmit="return confirm('Restore this prospect?')">
-              <button class="btn small ghost">Restore</button>
+            {% if p.archived_at %}
+            <form method="post" action="/prospects/{{ p.id }}/unarchive" data-confirm="Restore this prospect to your active pipeline?">
+              <button class="btn small ghost" type="submit">Restore</button>
             </form>
             {% else %}
-            <form method="post" action="/prospects/{{ p.id }}/archive" onsubmit="return confirm('Archive this prospect?')">
-              <button class="btn small ghost">Archive</button>
+            <form method="post" action="/prospects/{{ p.id }}/archive" data-confirm="Archive this prospect?">
+              <button class="btn small ghost" type="submit">Archive</button>
             </form>
             {% endif %}
           </div>
@@ -130,8 +127,11 @@
 </section>
 {% else %}
 <div class="empty">
-  <p>No prospects yet.</p>
-  <a href="/prospects/new" class="btn primary">Add your first prospect</a>
+  <p>No prospects yet. Add one, or set up your profile to enable discovery.</p>
+  <div class="action-group">
+    <a href="/prospects/new" class="btn primary">Add your first prospect</a>
+    <a href="/settings/profile" class="btn">Set up profile</a>
+  </div>
 </div>
 {% endif %}
 {% endblock %}

@@ -1,69 +1,51 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="page-header">
-  <div class="header-row">
-    <div class="grow">
-      <h1>Research</h1>
-      <p class="muted">Evidence and findings for {{ prospect.business_name }}</p>
+<div class="page-bar">
+  <div>
+    <span class="prospect-name">{{ prospect.business_name }}</span>
+    <div class="badge-row">
+      <span class="badge">Research</span>
+      {% if latest_run %}<span class="badge stage-{{ latest_run.status|replace('_','-') }}">{{ latest_run.status|replace('_',' ') }}</span>{% endif %}
     </div>
-    <a href="/prospects/{{ prospect.id }}" class="btn ghost">Back to prospect</a>
+  </div>
+  <div class="header-actions">
+    <a href="/prospects/{{ prospect.id }}" class="btn">Back to prospect</a>
     {% if latest_run and latest_run.status != "running" %}
-    <form method="post" action="/prospects/{{ prospect.id }}/research/start" onsubmit="return confirm('Run research again? This will refresh all findings.')">
-      <button class="btn primary">Re-run research</button>
+    <form method="post" action="/prospects/{{ prospect.id }}/research/start" data-confirm="Run research again? This refreshes all findings.">
+      <button class="btn primary" type="submit">Re-run research</button>
     </form>
     {% elif not latest_run %}
     <form method="post" action="/prospects/{{ prospect.id }}/research/start">
-      <button class="btn primary">Run research</button>
+      <button class="btn primary" type="submit">Run research</button>
     </form>
     {% else %}
-    <button class="btn primary" disabled>Research running...</button>
+    <button class="btn primary" type="button" disabled>Research running...</button>
     {% endif %}
   </div>
-</section>
+</div>
 
 {% if latest_run and latest_run.status == "running" %}
-<div class="flash info">
-  <span class="badge">Running</span> Research is in progress. Refresh this page to see updated results.
-</div>
+<div class="flash info">Research is in progress. Refresh this page to see updated results.</div>
 {% endif %}
 
 {% if latest_run and latest_run.status == "failed" %}
-<div class="flash error">
-  Research failed: {{ latest_run.error or "Unknown error" }}
-</div>
+<div class="flash error">Research failed: {{ latest_run.error or "Unknown error" }}</div>
 {% endif %}
 
 <section class="card">
   <h3>Website check</h3>
   {% if website_checks %}
   {% set latest_check = website_checks[0] %}
-  <div class="grid grid-2">
-    <div class="metric-card">
-      <div class="metric-label">Status</div>
-      <div class="metric-value">
-        <span class="badge stage-{{ latest_check.outcome }}">{{ latest_check.outcome }}</span>
-      </div>
-    </div>
-    {% if latest_check.http_status %}
-    <div class="metric-card">
-      <div class="metric-label">HTTP status</div>
-      <div class="metric-value">{{ latest_check.http_status }}</div>
-    </div>
-    {% endif %}
-    {% if latest_check.response_ms %}
-    <div class="metric-card">
-      <div class="metric-label">Response time</div>
-      <div class="metric-value">{{ latest_check.response_ms }}ms</div>
-    </div>
-    {% endif %}
+  <dl class="facts">
+    <dt>Status</dt>
+    <dd>
+      <span class="badge stage-{{ latest_check.outcome|replace('_','-') }}">{{ latest_check.outcome|replace('_',' ') }}</span>
+      {% if latest_check.http_status %}<span class="muted small">HTTP {{ latest_check.http_status }}</span>{% endif %}
+      {% if latest_check.response_ms %}<span class="muted small">{{ latest_check.response_ms }}ms</span>{% endif %}
+    </dd>
     {% if latest_check.title %}
-    <div class="metric-card">
-      <div class="metric-label">Page title</div>
-      <div class="metric-value">{{ latest_check.title }}</div>
-    </div>
+    <dt>Page title</dt><dd>{{ latest_check.title }}</dd>
     {% endif %}
-  </div>
-  <div class="facts">
     <dt>URL checked</dt><dd><a href="{{ latest_check.url_checked }}" target="_blank" rel="noopener">{{ latest_check.url_checked }}</a></dd>
     {% if latest_check.final_url and latest_check.final_url != latest_check.url_checked %}
     <dt>Final URL</dt><dd><a href="{{ latest_check.final_url }}" target="_blank" rel="noopener">{{ latest_check.final_url }}</a></dd>
@@ -73,8 +55,8 @@
     {% if latest_check.error %}
     <dt>Error</dt><dd class="text-danger">{{ latest_check.error }}</dd>
     {% endif %}
-    <dt>Checked</dt><dd>{{ latest_check.checked_at }}</dd>
-  </div>
+    <dt>Checked</dt><dd>{% if latest_check.checked_at %}{{ latest_check.checked_at.strftime('%b %d, %Y %H:%M') }}{% else %}<span class="muted">none</span>{% endif %}</dd>
+  </dl>
   {% else %}
   <p class="muted">No website check has been run yet.</p>
   {% endif %}
@@ -83,30 +65,32 @@
 <section class="card">
   <h3>Findings</h3>
   {% if findings %}
-  <table class="prospects">
-    <thead>
-      <tr>
-        <th>Kind</th>
-        <th>Statement</th>
-        <th>Source</th>
-        <th>Verification</th>
-        <th>Confidence</th>
-        <th>Origin</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for f in findings %}
-      <tr>
-        <td><span class="badge">{{ f.kind }}</span></td>
-        <td>{{ f.statement }}</td>
-        <td>{% if f.source_url %}<a href="{{ f.source_url }}" target="_blank" rel="noopener">{{ f.source_url }}</a>{% else %}<span class="muted">none</span>{% endif %}</td>
-        <td><span class="badge stage-{{ f.verification_status }}">{{ f.verification_status }}</span></td>
-        <td><span class="badge">{{ f.confidence }}</span></td>
-        <td><span class="badge">{{ f.origin }}</span></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-scroll">
+    <table class="prospects">
+      <thead>
+        <tr>
+          <th>Kind</th>
+          <th>Statement</th>
+          <th>Source</th>
+          <th>Verification</th>
+          <th>Confidence</th>
+          <th>Origin</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in findings %}
+        <tr>
+          <td><span class="badge tag">{{ f.kind }}</span></td>
+          <td>{{ f.statement }}</td>
+          <td>{% if f.source_url %}<a href="{{ f.source_url }}" target="_blank" rel="noopener" class="truncate">{{ f.source_url }}</a>{% else %}<span class="muted">none</span>{% endif %}</td>
+          <td><span class="badge stage-{{ f.verification_status|replace('_','-') }}">{{ f.verification_status|replace('_',' ') }}</span></td>
+          <td><span class="badge">{{ f.confidence }}</span></td>
+          <td><span class="badge {{ 'warn' if f.origin == 'ai' else '' }}">{{ f.origin }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% else %}
   <p class="muted">No findings yet. Run research to collect evidence.</p>
   {% endif %}
@@ -115,28 +99,30 @@
 <section class="card">
   <h3>Research runs</h3>
   {% if runs %}
-  <table class="prospects">
-    <thead>
-      <tr>
-        <th>Status</th>
-        <th>Triggered</th>
-        <th>Started</th>
-        <th>Finished</th>
-        <th>Error</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in runs %}
-      <tr>
-        <td><span class="badge stage-{{ r.status }}">{{ r.status }}</span></td>
-        <td>{{ r.triggered_by }}</td>
-        <td>{{ r.started_at or "—" }}</td>
-        <td>{{ r.finished_at or "—" }}</td>
-        <td>{{ r.error or "—" }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-scroll">
+    <table class="prospects">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Triggered</th>
+          <th>Started</th>
+          <th>Finished</th>
+          <th>Error</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in runs %}
+        <tr>
+          <td><span class="badge stage-{{ r.status|replace('_','-') }}">{{ r.status|replace('_',' ') }}</span></td>
+          <td>{{ r.triggered_by }}</td>
+          <td>{% if r.started_at %}{{ r.started_at.strftime('%b %d, %Y %H:%M') }}{% else %}<span class="muted">none</span>{% endif %}</td>
+          <td>{% if r.finished_at %}{{ r.finished_at.strftime('%b %d, %Y %H:%M') }}{% else %}<span class="muted">none</span>{% endif %}</td>
+          <td>{% if r.error %}{{ r.error }}{% else %}<span class="muted">none</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% else %}
   <p class="muted">No research runs yet.</p>
   {% endif %}

@@ -5,23 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
   <link rel="stylesheet" href="/static/css/app.css">
+  <script src="/static/js/app.js" defer></script>
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <button class="mobile-menu-toggle" aria-label="Menu" onclick="document.body.classList.toggle('nav-open')">
+      <button class="mobile-menu-toggle" type="button" aria-label="Menu" data-nav-toggle>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="3" y1="12" x2="21" y2="12"></line>
           <line x1="3" y1="6" x2="21" y2="6"></line>
           <line x1="3" y1="18" x2="21" y2="18"></line>
         </svg>
       </button>
-      <span class="brand">{{ app_name }}</span>
-      <div class="topbar-right">
-        <a href="/" class="btn ghost small {% if request.url.path == '/' %}active{% endif %}">Dashboard</a>
-        <a href="/prospects" class="btn ghost small {% if request.url.path == '/prospects' or request.url.path.startswith('/prospects/') %}active{% endif %}">Prospects</a>
-        <a href="/settings/profile" class="btn ghost small {% if request.url.path.startswith('/settings') %}active{% endif %}">Profile</a>
-      </div>
+      <a href="/" class="brand">{{ app_name }}</a>
+      <nav class="topbar-right">
+        <a href="/" class="nav-link{% if request.url.path == '/' %} active{% endif %}">Dashboard</a>
+        <a href="/prospects" class="nav-link{% if request.url.path == '/prospects' or request.url.path.startswith('/prospects/') %} active{% endif %}">Prospects</a>
+        <a href="/settings/profile" class="nav-link{% if request.url.path.startswith('/settings') %} active{% endif %}">Profile</a>
+      </nav>
     </header>
     <main class="main">
       <div class="page">

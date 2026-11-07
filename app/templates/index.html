@@ -1,28 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="metric-grid">
-  <div class="metric-card">
-    <div class="metric-label">Needs attention</div>
-    <div class="metric-value">0</div>
-    <div class="metric-hint">Overdue follow-ups, pending drafts, unverified findings.</div>
+
+{% if total_prospects %}
+<div class="page-bar">
+  <span class="muted">{{ total_prospects }} prospect{{ 's' if total_prospects != 1 else '' }} not archived</span>
+  <a href="/prospects/new" class="btn primary">Add prospect</a>
+</div>
+
+<section aria-label="Pipeline">
+  <div class="pipeline-strip">
+    {% for s in pipeline_stages %}
+    <a class="pipeline-item{% if stage_counts[s] == 0 %} zero{% endif %}" href="/prospects?stage={{ s }}">
+      <span class="pipeline-count">{{ stage_counts[s] }}</span>
+      <span class="pipeline-label">{{ stage_label(s) }}</span>
+    </a>
+    {% endfor %}
   </div>
-  <div class="metric-card">
-    <div class="metric-label">Pipeline</div>
-    <div class="metric-value">0</div>
-    <div class="metric-hint">New to researched, opportunity to contacted, contacted to converted.</div>
-  </div>
-  <div class="metric-card">
-    <div class="metric-label">Today</div>
-    <div class="metric-value">0</div>
-    <div class="metric-hint">Follow-ups due and recently replied.</div>
+  <p class="small muted">
+    Each count opens a filtered list of that stage.
+  </p>
+</section>
+{% else %}
+<div class="empty">
+  <p>No prospects yet. Add one to start building your pipeline.</p>
+  <div class="action-group">
+    <a href="/prospects/new" class="btn primary">Add your first prospect</a>
+    <a href="/settings/profile" class="btn">Set up profile</a>
   </div>
 </div>
+{% endif %}
 
 <section class="card">
   <h3>Quick start</h3>
   <ul class="spaced">
-    <li><a href="/settings/profile">1. Set your profile</a> <span class="muted">(what you sell, who you target, where).</span></li>
-    <li><a href="/prospects/new">2. Add a prospect manually</a> <span class="muted">or run automated discovery from your profile.</span></li>
+    <li><a href="/settings/profile">1. Set your profile</a> <span class="muted">(what you offer, who you target, where).</span></li>
+    <li><a href="/prospects/new">2. Add a prospect</a> <span class="muted">or run automated discovery from your profile.</span></li>
     <li><a href="/prospects">3. Browse your pipeline</a> <span class="muted">filter by stage, tag, category, location.</span></li>
   </ul>
 </section>

@@ -1,17 +1,34 @@
 {% extends "base.html" %}
 {% block content %}
+{% if prospect.do_not_contact %}
+<div class="banner danger">
+  Suppressed: {{ prospect.do_not_contact_reason or "do not contact" }}. This prospect cannot receive drafts or outreach actions.
+</div>
+{% endif %}
+
 <section class="card">
   <div class="header-row">
     <div class="grow">
       <div class="prospect-name">{{ prospect.business_name }}</div>
       <div class="badge-row">
-        <span class="badge stage-{{ prospect.stage | replace('_', '-') }}">{{ prospect.stage }}</span>
-        {% if prospect.do_not_contact %}<span class="badge danger">Suppressed: {{ prospect.do_not_contact_reason }}</span>{% endif %}
+        <span class="badge stage-{{ prospect.stage|replace('_','-') }}">{{ prospect.stage|replace('_',' ') }}</span>
         {% if prospect.archived_at %}<span class="badge muted">Archived</span>{% endif %}
         {% if prospect.category %}<span class="badge">{{ prospect.category }}</span>{% endif %}
+        {% for t in prospect.tags %}<span class="badge tag">{{ t.name }}</span>{% endfor %}
       </div>
     </div>
-    <a href="/prospects/{{ prospect.id }}/edit" class="btn">Edit details</a>
+    <div class="header-actions">
+      <a href="/prospects/{{ prospect.id }}/edit" class="btn">Edit details</a>
+      {% if prospect.archived_at %}
+      <form method="post" action="/prospects/{{ prospect.id }}/unarchive" data-confirm="Restore this prospect to your active pipeline?">
+        <button class="btn ghost" type="submit">Restore</button>
+      </form>
+      {% else %}
+      <form method="post" action="/prospects/{{ prospect.id }}/archive" data-confirm="Archive this prospect?">
+        <button class="btn ghost" type="submit">Archive</button>
+      </form>
+      {% endif %}
+    </div>
   </div>
 </section>
 
@@ -20,123 +37,96 @@
     <h3>Key facts</h3>
     <dl class="facts">
       <dt>Phone</dt><dd>{{ prospect.phone_raw or prospect.phone_e164 or "none" }}</dd>
-      <dt>Email</dt><dd>{{ prospect.email or "none" }}</dd>
+      <dt>Email</dt><dd>{% if prospect.email %}{{ prospect.email }}{% else %}<span class="muted">none</span>{% endif %}</dd>
       <dt>Website</dt><dd>
         {% if prospect.website_url %}
         <a href="{{ prospect.website_url }}" target="_blank" rel="noopener">{{ prospect.website_url }}</a>
-        <span class="badge {{ 'success' if prospect.website_status == 'reachable' else 'warn' }}">{{ prospect.website_status }}</span>
+        <span class="badge stage-{{ prospect.website_status|replace('_','-') }}">{{ prospect.website_status|replace('_',' ') }}</span>
         {% else %}
         <span class="muted">none</span>
         {% endif %}
       </dd>
       <dt>Location</dt><dd>{{ prospect.location_city or prospect.location_area or prospect.location_country or "none" }}</dd>
       <dt>Source</dt><dd>{{ prospect.source.label if prospect.source else "none" }}</dd>
-      <dt>Tags</dt><dd>
-        {% for t in prospect.tags %}<span class="badge tag">{{ t.name }}</span>{% endfor %}
-        {% if not prospect.tags %}<span class="muted">none</span>{% endif %}
-      </dd>
-      <dt>Last contacted</dt><dd>{{ prospect.last_contacted_at or "none" }}</dd>
+      <dt>Last contacted</dt><dd>{% if prospect.last_contacted_at %}{{ prospect.last_contacted_at.strftime('%b %d, %Y') }}{% else %}<span class="muted">none</span>{% endif %}</dd>
     </dl>
   </div>
 
   <div class="card">
     <h3>Stage</h3>
-    <p>{{ prospect.stage }}</p>
+    {% set transitions = {
+      'new': ['researched', 'archived'],
+      'researched': ['opportunity_identified', 'archived'],
+      'opportunity_identified': ['outreach_ready', 'archived'],
+      'outreach_ready': ['contacted', 'archived'],
+      'contacted': ['replied', 'follow_up_due', 'archived'],
+      'replied': ['interested', 'follow_up_due', 'archived'],
+      'interested': ['converted', 'follow_up_due', 'archived'],
+      'follow_up_due': ['replied', 'archived'],
+      'converted': ['archived'],
+      'not_interested': ['archived'],
+      'do_not_contact': ['archived'],
+      'archived': [],
+    } %}
     <form method="post" action="/prospects/{{ prospect.id }}/stage" class="stage-form">
-      <select name="stage">
-        {% set current = prospect.stage %}
-        {% set transitions = {
-          'new': ['researched', 'archived'],
-          'researched': ['opportunity_identified', 'archived'],
-          'opportunity_identified': ['outreach_ready', 'archived'],
-          'outreach_ready': ['contacted', 'archived'],
-          'contacted': ['replied', 'follow_up_due', 'archived'],
-          'replied': ['interested', 'follow_up_due', 'archived'],
-          'interested': ['converted', 'follow_up_due', 'archived'],
-          'follow_up_due': ['replied', 'archived'],
-          'converted': ['archived'],
-          'not_interested': ['archived'],
-          'do_not_contact': ['archived'],
-          'archived': [],
-        } %}
-        {% for t in transitions.get(current, []) %}
-        <option value="{{ t }}">{{ t }}</option>
+      <select name="stage" aria-label="Next stage">
+        {% for t in transitions.get(prospect.stage, []) %}
+        <option value="{{ t }}">{{ t|replace('_',' ') }}</option>
         {% endfor %}
       </select>
-      {% if transitions.get(current) %}
-      <button class="btn primary">Change stage</button>
+      {% if transitions.get(prospect.stage) %}
+      <button class="btn" type="submit">Change stage</button>
       {% else %}
       <span class="muted">No further transitions.</span>
       {% endif %}
     </form>
+    <p class="muted small">Allowed next transitions only; anything else is rejected.</p>
   </div>
 </section>
 
 <section class="card">
   <h3>Research</h3>
   <div class="action-group">
-    <a href="/prospects/{{ prospect.id }}/research" class="btn">View full research</a>
     {% if latest_run and latest_run.status != "running" %}
-    <form method="post" action="/prospects/{{ prospect.id }}/research/start" onsubmit="return confirm('Re-run research?')">
-      <button class="btn primary">Re-run research</button>
+    <form method="post" action="/prospects/{{ prospect.id }}/research/start" data-confirm="Re-run research? This refreshes all findings.">
+      <button class="btn primary" type="submit">Re-run research</button>
     </form>
     {% elif not latest_run %}
     <form method="post" action="/prospects/{{ prospect.id }}/research/start">
-      <button class="btn primary">Run research</button>
+      <button class="btn primary" type="submit">Run research</button>
     </form>
     {% else %}
-    <button class="btn primary" disabled>Research running...</button>
+    <button class="btn primary" type="button" disabled>Research running...</button>
     {% endif %}
+    <a href="/prospects/{{ prospect.id }}/research" class="btn">View full research</a>
   </div>
-  {% if latest_run %}
-  <p class="muted">Last run: {{ latest_run.status }} ({{ latest_run.triggered_by }})</p>
-  {% endif %}
-  {% if website_checks %}
-  <div class="metric-grid">
-    <div class="metric-card">
-      <div class="metric-label">Website status</div>
-      <div class="metric-value">
-        <span class="badge stage-{{ website_checks[0].outcome }}">{{ website_checks[0].outcome }}</span>
-      </div>
-    </div>
-    {% if website_checks[0].http_status %}
-    <div class="metric-card">
-      <div class="metric-label">HTTP status</div>
-      <div class="metric-value">{{ website_checks[0].http_status }}</div>
-    </div>
-    {% endif %}
-  </div>
-  {% endif %}
-  {% if findings %}
-  <div class="facts">
-    {% for f in findings[:3] %}
-    <dt><span class="badge">{{ f.kind }}</span> {{ f.statement }}</dt>
-    <dd>{% if f.source_url %}<a href="{{ f.source_url }}" target="_blank" rel="noopener">Source</a>{% else %}<span class="muted">—</span>{% endif %}</dd>
-    {% endfor %}
-  </div>
-  {% endif %}
-</section>
 
-<section class="card">
-  <h3>Actions</h3>
-  <div class="action-group">
-    {% if not prospect.do_not_contact and not prospect.archived_at %}
-    <a href="/prospects/new" class="btn ghost">Add another</a>
-    {% endif %}
-    {% if prospect.do_not_contact %}
-    <form method="post" action="/prospects/{{ prospect.id }}/archive" onsubmit="return confirm('Archive this suppressed prospect?')">
-      <button class="btn ghost">Archive</button>
-    </form>
-    {% elif prospect.archived_at %}
-    <form method="post" action="/prospects/{{ prospect.id }}/unarchive" onsubmit="return confirm('Restore this prospect?')">
-      <button class="btn ghost">Restore</button>
-    </form>
-    {% else %}
-    <form method="post" action="/prospects/{{ prospect.id }}/archive" onsubmit="return confirm('Archive this prospect?')">
-      <button class="btn ghost">Archive</button>
-    </form>
-    {% endif %}
-  </div>
+  {% if website_checks %}
+  <dl class="facts">
+    <dt>Website</dt>
+    <dd>
+      <span class="badge stage-{{ website_checks[0].outcome|replace('_','-') }}">{{ website_checks[0].outcome|replace('_',' ') }}</span>
+      {% if website_checks[0].http_status %}<span class="muted small">HTTP {{ website_checks[0].http_status }}</span>{% endif %}
+      {% if website_checks[0].checked_at %}<span class="muted small">{{ website_checks[0].checked_at.strftime('%b %d, %Y') }}</span>{% endif %}
+    </dd>
+  </dl>
+  {% endif %}
+
+  {% if findings %}
+  <ul class="mini-list">
+    {% for f in findings[:3] %}
+    <li>
+      <span class="badge stage-{{ f.verification_status|replace('_','-') }}">{{ f.verification_status|replace('_',' ') }}</span>
+      <span>{{ f.statement }}</span>
+      {% if f.source_url %}<a class="src" href="{{ f.source_url }}" target="_blank" rel="noopener">Source</a>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% elif latest_run %}
+  <p class="muted">No findings recorded yet.</p>
+  {% else %}
+  <p class="muted">Not researched yet. Run research to collect evidence.</p>
+  {% endif %}
 </section>
 
 <section class="card">
@@ -145,8 +135,8 @@
   <ul class="activity-list">
     {% for a in activities %}
     <li>
-      <span class="actor {{ a.actor }}">{{ a.type }}</span>
-      <span class="muted small">{{ a.created_at }}</span>
+      <span class="actor {{ a.actor }}">{{ a.type|replace('_',' ') }}</span>
+      <span class="muted small">{{ a.created_at.strftime('%b %d, %H:%M') }}</span>
       {% if a.payload %}<span class="payload">{{ a.payload }}</span>{% endif %}
     </li>
     {% endfor %}

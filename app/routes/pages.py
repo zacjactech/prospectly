@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.config import BASE_DIR, settings
 from app.db import get_db
 from app.models import Activity, Finding, Prospect, ResearchRun, Source, Tag, WebsiteCheck
+from app.services import dashboard as dashboard_service
 from app.services import profile as profile_service
 from app.services import prospect as prospect_service
 from app.services import research as research_service
@@ -92,12 +93,19 @@ def healthz() -> dict[str, str]:
 
 
 @router.get("/", response_class=HTMLResponse)
-def index(request: Request) -> HTMLResponse:
-    """Dashboard home page."""
+def index(request: Request, db: DbSession) -> HTMLResponse:
+    """Dashboard home page: pipeline strip + quick start."""
+    counts = dashboard_service.stage_counts(db)
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"app_name": settings.app_name},
+        context={
+            "app_name": settings.app_name,
+            "stage_counts": counts,
+            "pipeline_stages": dashboard_service.PIPELINE_STAGES,
+            "stage_label": dashboard_service.stage_label,
+            "total_prospects": dashboard_service.total_prospects(db),
+        },
     )
 
 
