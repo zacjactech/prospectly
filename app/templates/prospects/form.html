@@ -9,53 +9,94 @@
 <div class="flash error">{{ error }}</div>
 {% endif %}
 
+{% if field_errors %}
+<div class="flash error">
+  Please fix the following:
+  <ul class="mini-list">
+    {% for field, message in field_errors.items() %}
+    <li><strong>{{ field.replace('_', ' ') }}:</strong> {{ message }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
 <form method="post" action="{{ action }}">
   {{ csrf_field() }}
   <div class="card">
     <div class="form-section full-width">
-      <div class="field">
+      <div class="field{% if field_errors and field_errors.business_name %} field-error{% endif %}">
         <label>Business name <span class="required">*</span></label>
         <input type="text" name="business_name" value="{{ (form.business_name if form else (prospect.business_name if prospect else '')) }}" required>
+        {% if field_errors and field_errors.business_name %}
+        <p class="field-error-msg">{{ field_errors.business_name }}</p>
+        {% endif %}
       </div>
     </div>
     <div class="form-section">
-      <div class="field">
+      <div class="field{% if field_errors and field_errors.category %} field-error{% endif %}">
         <label>Category</label>
         <input type="text" name="category" value="{{ (form.category if form else (prospect.category if prospect else '')) }}" placeholder="e.g. hotel, event planner">
+        {% if field_errors and field_errors.category %}
+        <p class="field-error-msg">{{ field_errors.category }}</p>
+        {% endif %}
       </div>
-      <div class="field">
+      <div class="field{% if field_errors and field_errors.location_area %} field-error{% endif %}">
         <label>Area / district</label>
         <input type="text" name="location_area" value="{{ (form.location_area if form else (prospect.location_area if prospect else '')) }}">
+        {% if field_errors and field_errors.location_area %}
+        <p class="field-error-msg">{{ field_errors.location_area }}</p>
+        {% endif %}
       </div>
-      <div class="field">
+      <div class="field{% if field_errors and field_errors.location_city %} field-error{% endif %}">
         <label>City</label>
         <input type="text" name="location_city" value="{{ (form.location_city if form else (prospect.location_city if prospect else '')) }}">
+        {% if field_errors and field_errors.location_city %}
+        <p class="field-error-msg">{{ field_errors.location_city }}</p>
+        {% endif %}
       </div>
-      <div class="field">
+      <div class="field{% if field_errors and field_errors.location_state %} field-error{% endif %}">
         <label>State / region</label>
         <input type="text" name="location_state" value="{{ (form.location_state if form else (prospect.location_state if prospect else '')) }}">
+        {% if field_errors and field_errors.location_state %}
+        <p class="field-error-msg">{{ field_errors.location_state }}</p>
+        {% endif %}
       </div>
-      <div class="field">
+      <div class="field{% if field_errors and field_errors.location_country %} field-error{% endif %}">
         <label>Country</label>
         <input type="text" name="location_country" value="{{ (form.location_country if form else (prospect.location_country if prospect else '')) }}" placeholder="e.g. US">
+        {% if field_errors and field_errors.location_country %}
+        <p class="field-error-msg">{{ field_errors.location_country }}</p>
+        {% endif %}
       </div>
-      <div class="field">
+      <div class="field{% if field_errors and field_errors.address %} field-error{% endif %}">
         <label>Address</label>
         <input type="text" name="address" value="{{ (form.address if form else (prospect.address if prospect else '')) }}">
+        {% if field_errors and field_errors.address %}
+        <p class="field-error-msg">{{ field_errors.address }}</p>
+        {% endif %}
       </div>
     </div>
     <div class="form-section">
-      <div class="field">
+      <div class="field{% if field_errors and field_errors.phone_raw %} field-error{% endif %}">
         <label>Phone</label>
         <input type="tel" name="phone_raw" value="{{ (form.phone_raw if form else (prospect.phone_raw if prospect else '')) }}">
+        {% if field_errors and field_errors.phone_raw %}
+        <p class="field-error-msg">{{ field_errors.phone_raw }}</p>
+        {% endif %}
       </div>
-      <div class="field">
+      <div class="field{% if field_errors and field_errors.email %} field-error{% endif %}">
         <label>Email</label>
         <input type="email" name="email" value="{{ (form.email if form else (prospect.email if prospect else '')) }}">
+        {% if field_errors and field_errors.email %}
+        <p class="field-error-msg">{{ field_errors.email }}</p>
+        {% endif %}
       </div>
-      <div class="field full">
+      <div class="field full{% if field_errors and field_errors.website_url %} field-error{% endif %}">
         <label>Website</label>
         <input type="url" name="website_url" value="{{ (form.website_url if form else (prospect.website_url if prospect else '')) }}" placeholder="https://">
+        {% if field_errors and field_errors.website_url %}
+        <p class="field-error-msg">{{ field_errors.website_url }}</p>
+        {% endif %}
       </div>
     </div>
   </div>

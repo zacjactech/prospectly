@@ -32,6 +32,18 @@ from app.services import profile as profile_service
 from app.services import prospect as prospect_service
 from app.services import research as research_service
 from app.services.activity import log_activity
+from app.validation import (
+    FollowUpFormData,
+    OpportunityFormData,
+    ProfileFormData,
+    ProspectFormData,
+    ValidationError,
+    validate_follow_up_form,
+    validate_message_text,
+    validate_opportunity_form,
+    validate_profile_form,
+    validate_prospect_form,
+)
 from app.whatsapp import normalize_phone
 
 router = APIRouter(tags=["pages"])
@@ -178,6 +190,47 @@ def prospect_create(
     email: str | None = Form(None),
     website_url: str | None = Form(None),
 ) -> HTMLResponse | RedirectResponse:
+    """Create a prospect from the manual add form (Flow 1)."""
+    try:
+        data: ProspectFormData = validate_prospect_form(
+            {
+                "business_name": business_name,
+                "category": category,
+                "location_area": location_area,
+                "location_city": location_city,
+                "location_state": location_state,
+                "location_country": location_country,
+                "address": address,
+                "phone_raw": phone_raw,
+                "email": email,
+                "website_url": website_url,
+            }
+        )
+    except ValidationError as exc:
+        return templates.TemplateResponse(
+            request=request,
+            name="prospects/form.html",
+            context={
+                "app_name": settings.app_name,
+                "prospect": None,
+                "action": "/prospects/new",
+                "field_errors": exc.fields,
+                "form": {
+                    "business_name": business_name,
+                    "category": category,
+                    "location_area": location_area,
+                    "location_city": location_city,
+                    "location_state": location_state,
+                    "location_country": location_country,
+                    "address": address,
+                    "phone_raw": phone_raw,
+                    "email": email,
+                    "website_url": website_url,
+                },
+            },
+            status_code=400,
+        )
+
     source = db.query(Source).filter(Source.type == "manual").first()
     if source is None:
         source = Source(type="manual", label="Manual add", detail={})
@@ -186,22 +239,24 @@ def prospect_create(
 
     # Normalize the raw phone to E.164 for dedupe + WhatsApp (D9). Invalid
     # numbers stay in phone_raw only and never produce a wa.me recipient.
-    phone_e164 = normalize_phone(phone_raw, settings.phone_default_country) if phone_raw else None
+    phone_e164 = (
+        normalize_phone(data.phone_raw, settings.phone_default_country) if data.phone_raw else None
+    )
 
     prospect, error = prospect_service.create_prospect(
         db,
-        business_name=business_name,
+        business_name=data.business_name,
         source=source,
-        category=category or None,
-        location_area=location_area or None,
-        location_city=location_city or None,
-        location_state=location_state or None,
-        location_country=location_country or None,
-        address=address or None,
+        category=data.category,
+        location_area=data.location_area,
+        location_city=data.location_city,
+        location_state=data.location_state,
+        location_country=data.location_country,
+        address=data.address,
         phone_e164=phone_e164,
-        phone_raw=phone_raw or None,
-        email=email or None,
-        website_url=website_url or None,
+        phone_raw=data.phone_raw,
+        email=data.email,
+        website_url=data.website_url,
     )
     if error:
         return templates.TemplateResponse(
@@ -337,22 +392,63 @@ def prospect_update(
     email: str | None = Form(None),
     website_url: str | None = Form(None),
 ) -> HTMLResponse | RedirectResponse:
+    """Update prospect fields from the edit form."""
+    try:
+        data: ProspectFormData = validate_prospect_form(
+            {
+                "business_name": business_name,
+                "category": category,
+                "location_area": location_area,
+                "location_city": location_city,
+                "location_state": location_state,
+                "location_country": location_country,
+                "address": address,
+                "phone_raw": phone_raw,
+                "email": email,
+                "website_url": website_url,
+            }
+        )
+    except ValidationError as exc:
+        return templates.TemplateResponse(
+            request=request,
+            name="prospects/form.html",
+            context={
+                "app_name": settings.app_name,
+                "prospect": db.get(Prospect, prospect_id),
+                "action": f"/prospects/{prospect_id}/edit",
+                "field_errors": exc.fields,
+                "form": {
+                    "business_name": business_name,
+                    "category": category,
+                    "location_area": location_area,
+                    "location_city": location_city,
+                    "location_state": location_state,
+                    "location_country": location_country,
+                    "address": address,
+                    "phone_raw": phone_raw,
+                    "email": email,
+                    "website_url": website_url,
+                },
+            },
+            status_code=400,
+        )
+
     prospect, error = prospect_service.update_prospect(
         db,
         prospect_id,
-        business_name=business_name,
-        category=category or None,
-        location_area=location_area or None,
-        location_city=location_city or None,
-        location_state=location_state or None,
-        location_country=location_country or None,
-        address=address or None,
-        phone_e164=normalize_phone(phone_raw, settings.phone_default_country)
-        if phone_raw
+        business_name=data.business_name,
+        category=data.category,
+        location_area=data.location_area,
+        location_city=data.location_city,
+        location_state=data.location_state,
+        location_country=data.location_country,
+        address=data.address,
+        phone_e164=normalize_phone(data.phone_raw, settings.phone_default_country)
+        if data.phone_raw
         else None,
-        phone_raw=phone_raw or None,
-        email=email or None,
-        website_url=website_url or None,
+        phone_raw=data.phone_raw,
+        email=data.email,
+        website_url=data.website_url,
     )
     if error:
         if error == "Prospect not found":
@@ -460,17 +556,27 @@ def profile_update(
     target_locations: str | None = Form(None),
     ideal_signals: str | None = Form(None),
 ) -> HTMLResponse | RedirectResponse:
-    def _csv_to_list(value: str | None) -> list[str] | None:
-        if value is None or value.strip() == "":
-            return []
-        return [v.strip() for v in value.split(",") if v.strip()]
+    try:
+        data: ProfileFormData = validate_profile_form(
+            {
+                "offer": offer,
+                "target_industries": target_industries,
+                "target_locations": target_locations,
+                "ideal_signals": ideal_signals,
+            }
+        )
+    except ValidationError as exc:
+        return HTMLResponse(
+            "; ".join(f"{k}: {v}" for k, v in exc.fields.items()),
+            status_code=400,
+        )
 
     profile_service.update_profile(
         db,
-        offer=offer or None,
-        target_industries=_csv_to_list(target_industries),
-        target_locations=_csv_to_list(target_locations),
-        ideal_signals=_csv_to_list(ideal_signals),
+        offer=data.offer,
+        target_industries=data.target_industries,
+        target_locations=data.target_locations,
+        ideal_signals=data.ideal_signals,
     )
     return RedirectResponse(
         url=f"/settings/profile?flash={quote('Profile saved')}&flash_type=success",
@@ -658,15 +764,25 @@ def opportunity_create(
     rationale: str | None = Form(None),
 ) -> HTMLResponse | RedirectResponse:
     """Human-created opportunity (Flow 4, origin='human' path)."""
+    try:
+        data: OpportunityFormData = validate_opportunity_form(
+            {"type": type, "summary": summary, "rationale": rationale}
+        )
+    except ValidationError as exc:
+        return HTMLResponse(
+            "; ".join(f"{k}: {v}" for k, v in exc.fields.items()),
+            status_code=400,
+        )
+
     prospect = db.get(Prospect, prospect_id)
     if prospect is None:
         return HTMLResponse("Prospect not found", status_code=404)
     opportunity, error = opportunity_service.create_opportunity(
         db,
         prospect_id=prospect_id,
-        type=type,
-        summary=summary,
-        rationale=rationale,
+        type=data.type,
+        summary=data.summary,
+        rationale=data.rationale,
         origin="human",
         actor="user",
     )
@@ -803,8 +919,40 @@ def message_edit(
     current_text: str = Form(...),
 ) -> HTMLResponse | RedirectResponse:
     """Edit draft text — any edit demotes the message back to draft (§3.1)."""
+    try:
+        text = validate_message_text(current_text, field="current_text")
+    except ValidationError as exc:
+        message = db.get(OutreachMessage, message_id)
+        if message is None:
+            return HTMLResponse("Message not found", status_code=404)
+        prospect = db.get(Prospect, message.prospect_id)
+        if prospect is None:
+            return HTMLResponse("Prospect not found", status_code=404)
+        findings = (
+            db.query(Finding)
+            .filter_by(prospect_id=message.prospect_id)
+            .order_by(Finding.recorded_at.desc())
+            .all()
+        )
+        grounded_ids = set(message.grounding or [])
+        grounded_findings = [f for f in findings if f.id in grounded_ids]
+        return templates.TemplateResponse(
+            request=request,
+            name="messages/edit.html",
+            context={
+                "app_name": settings.app_name,
+                "prospect": prospect,
+                "message": message,
+                "findings": findings,
+                "grounded_findings": grounded_findings,
+                "field_errors": exc.fields,
+                "form": {"current_text": current_text},
+            },
+            status_code=400,
+        )
+
     message, error = outreach_service.edit_message(
-        db, message_id=message_id, current_text=current_text, actor="user"
+        db, message_id=message_id, current_text=text, actor="user"
     )
     if error:
         if error == "Message not found":
@@ -828,8 +976,40 @@ def message_submit(
     current_text: str = Form(...),
 ) -> HTMLResponse | RedirectResponse:
     """Submit a draft for review: draft → pending_review."""
+    try:
+        text = validate_message_text(current_text, field="current_text")
+    except ValidationError as exc:
+        message = db.get(OutreachMessage, message_id)
+        if message is None:
+            return HTMLResponse("Message not found", status_code=404)
+        prospect = db.get(Prospect, message.prospect_id)
+        if prospect is None:
+            return HTMLResponse("Prospect not found", status_code=404)
+        findings = (
+            db.query(Finding)
+            .filter_by(prospect_id=message.prospect_id)
+            .order_by(Finding.recorded_at.desc())
+            .all()
+        )
+        grounded_ids = set(message.grounding or [])
+        grounded_findings = [f for f in findings if f.id in grounded_ids]
+        return templates.TemplateResponse(
+            request=request,
+            name="messages/edit.html",
+            context={
+                "app_name": settings.app_name,
+                "prospect": prospect,
+                "message": message,
+                "findings": findings,
+                "grounded_findings": grounded_findings,
+                "field_errors": exc.fields,
+                "form": {"current_text": current_text},
+            },
+            status_code=400,
+        )
+
     message, error = outreach_service.submit_message(
-        db, message_id=message_id, current_text=current_text, actor="user"
+        db, message_id=message_id, current_text=text, actor="user"
     )
     if error:
         if error == "Message not found":
@@ -1027,14 +1207,19 @@ def follow_up_create(
     due_date: str | None = Form(None),
     note: str | None = Form(None),
 ) -> HTMLResponse | RedirectResponse:
+    try:
+        data: FollowUpFormData = validate_follow_up_form({"due_date": due_date, "note": note})
+    except ValidationError as exc:
+        return HTMLResponse(
+            "; ".join(f"{k}: {v}" for k, v in exc.fields.items()),
+            status_code=400,
+        )
+
     parsed_due = None
-    if due_date:
-        try:
-            parsed_due = datetime.fromisoformat(due_date)
-        except ValueError:
-            parsed_due = None
+    if data.due_date:
+        parsed_due = datetime.fromisoformat(data.due_date)
     follow_up, error = outreach_service.create_follow_up(
-        db, prospect_id=prospect_id, due_date=parsed_due, note=note, actor="user"
+        db, prospect_id=prospect_id, due_date=parsed_due, note=data.note, actor="user"
     )
     if error:
         if error == "Prospect not found":

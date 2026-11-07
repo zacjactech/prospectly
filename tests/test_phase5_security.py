@@ -1,11 +1,7 @@
 """Phase 5 security tests (SECURITY_AND_PRIVACY.md §9 abuse-case checklist).
 
-Covers:
-- SafeFetcher SSRF blocking (§9 item 4)
-- XSS rendering escaped (§9 item 6)
-- Log redaction masks API keys (§9 item 7)
-- Non-loopback bind without token refuses to start (§9 item 8)
-- Dashboard metrics consistency (§8)
+All database-touching tests use an isolated temp DB so they can never pollute
+the real `data/prospectly.db`.
 """
 
 from __future__ import annotations
@@ -13,14 +9,15 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+import time
 from contextlib import suppress
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
-from app.db import Base
+from app.db import Base, get_db
 from app.main import app
 from app.safe_fetcher import SafeFetchError, fetch
 from app.safe_fetcher import _validate_url as _validate_url_fn
@@ -69,34 +66,55 @@ async def test_safe_fetcher_allows_public_url_validation() -> None:
 
 
 def test_xss_renders_escaped_in_templates() -> None:
-    """User-supplied content must render escaped, never as executable HTML."""
-    import time
+    """User-supplied content must render escaped, never as executable HTML.
 
-    client = TestClient(app)
-    client.get("/")  # prime CSRF cookie
+    Uses an isolated temp DB so the test can never pollute the real database.
+    """
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    engine = create_engine(f"sqlite:///{path}")
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+    db: Session = SessionLocal()
 
-    ts = int(time.time() * 1000)
-    # Create a prospect with an XSS payload in the business name.
-    unique_name = f'<script>alert("xss-{ts}")</script>'
-    r = post_form(
-        client,
-        "/prospects/new",
-        data={
-            "business_name": unique_name,
-            "phone_raw": f"+44207946{ts % 1000000:06d}",
-        },
-        follow_redirects=False,
-    )
-    assert r.status_code == 303, r.text
-    prospect_id = int(r.headers["location"].split("?")[0].rsplit("/", 1)[1])
+    def override_get_db():
+        try:
+            yield db
+        finally:
+            pass
 
-    # View the detail page — the name must be escaped.
-    r = client.get(f"/prospects/{prospect_id}")
-    assert r.status_code == 200
-    html = r.text
-    assert "<script>" not in html
-    # The escaped tag should be present as text, not executable HTML.
-    assert "&lt;script&gt;" in html
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+        client.get("/")  # prime CSRF cookie
+
+        ts = int(time.time() * 1000)
+        # Create a prospect with an XSS payload in the business name.
+        unique_name = f'<script>alert("xss-{ts}")</script>'
+        r = post_form(
+            client,
+            "/prospects/new",
+            data={
+                "business_name": unique_name,
+                "phone_raw": f"+44207946{ts % 1000000:06d}",
+            },
+            follow_redirects=False,
+        )
+        assert r.status_code == 303, r.text
+        prospect_id = int(r.headers["location"].split("?")[0].rsplit("/", 1)[1])
+
+        # View the detail page — the name must be escaped.
+        r = client.get(f"/prospects/{prospect_id}")
+        assert r.status_code == 200
+        html = r.text
+        assert "<script>" not in html
+        # The escaped tag should be present as text, not executable HTML.
+        assert "&lt;script&gt;" in html
+    finally:
+        db.close()
+        app.dependency_overrides.pop(get_db, None)
+        with suppress(OSError):
+            os.unlink(path)
 
 
 # ---------------------------------------------------------------------------

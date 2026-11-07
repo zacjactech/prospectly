@@ -734,6 +734,21 @@ p {
   grid-column: 1 / -1;
 }
 
+.field.field-error .field input,
+.field.field-error .field select,
+.field.field-error .field textarea,
+.field.field-error input,
+.field.field-error select,
+.field.field-error textarea {
+  border-color: var(--color-danger);
+}
+
+.field-error-msg {
+  margin-top: var(--sp-1);
+  font-size: clamp(10px, 0.85vw, 11px);
+  color: var(--color-danger);
+}
+
 /* ===== Flash & banner ===== */
 .flash {
   padding: 9px 12px;
