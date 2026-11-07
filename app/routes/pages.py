@@ -747,6 +747,8 @@ def draft_generate(
     if error:
         if error == "Prospect not found":
             return HTMLResponse("Prospect not found", status_code=404)
+        if error.startswith("suppressed:"):
+            return HTMLResponse(error, status_code=403)
         return HTMLResponse(error, status_code=409)
     assert message is not None
     return RedirectResponse(
@@ -860,6 +862,8 @@ def message_approve(
     if error:
         if error == "Message not found":
             return HTMLResponse("Message not found", status_code=404)
+        if error.startswith("suppressed:"):
+            return HTMLResponse(error, status_code=403)
         return HTMLResponse(error, status_code=409)
     return RedirectResponse(
         url=f"/messages/{message_id}/edit?flash={quote('Approved')}&flash_type=success",
@@ -884,6 +888,8 @@ def message_open(
     if error:
         if error == "Message not found":
             return HTMLResponse("Message not found", status_code=404)
+        if error.startswith("suppressed:"):
+            return HTMLResponse(error, status_code=403)
         return HTMLResponse(error, status_code=409)
     assert message is not None
     prospect = db.get(Prospect, message.prospect_id)
@@ -959,6 +965,8 @@ def start_new_outreach(
     if error:
         if error == "Prospect not found":
             return HTMLResponse("Prospect not found", status_code=404)
+        if error.startswith("suppressed:"):
+            return HTMLResponse(error, status_code=403)
         return HTMLResponse(error, status_code=409)
     assert message is not None
     return RedirectResponse(
@@ -995,6 +1003,8 @@ def prospect_reply(
     if error:
         if error == "Prospect not found":
             return HTMLResponse("Prospect not found", status_code=404)
+        if error.startswith("suppressed:"):
+            return HTMLResponse(error, status_code=403)
         return HTMLResponse(error, status_code=409)
     return RedirectResponse(
         url=f"/prospects/{prospect_id}?flash={quote('Reply recorded')}&flash_type=success",

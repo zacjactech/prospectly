@@ -494,6 +494,8 @@ def generate_draft_api(
     if error:
         if error == "Prospect not found":
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        if error.startswith("suppressed:"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
     assert message is not None
     return OutreachMessageOut.model_validate(message)
@@ -563,6 +565,8 @@ def approve_message_api(
     if error:
         if error == "Message not found":
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        if error.startswith("suppressed:"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
     assert message is not None
     return OutreachMessageOut.model_validate(message)
@@ -584,6 +588,8 @@ def open_message_api(
     if error:
         if error == "Message not found":
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        if error.startswith("suppressed:"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
     assert message is not None
     return MessageOpenOut(status=message.status, wa_me_url=wa_me_url)

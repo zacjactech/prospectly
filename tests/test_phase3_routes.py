@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.db import Base, get_db
 from app.main import app
 from app.models import Activity, Prospect
+from tests.conftest import post_form
 
 
 def _make_db() -> tuple[Session, str]:
@@ -41,11 +42,14 @@ def _client_with_db(db: Session) -> TestClient:
             pass
 
     app.dependency_overrides[get_db] = override_get_db
-    return TestClient(app)
+    client = TestClient(app)
+    client.get("/")  # prime CSRF cookie
+    return client
 
 
 def _create_prospect(client: TestClient, db: Session, phone="+442079460958") -> int:
-    r = client.post(
+    r = post_form(
+        client,
         "/prospects/new",
         data={"business_name": "Acme Widgets", "phone_raw": phone},
         follow_redirects=False,
@@ -85,7 +89,11 @@ def test_outreach_golden_path() -> None:
         _set_stage(client, db, prospect_id, "outreach_ready")
 
         # Generate draft.
-        r = client.post(f"/prospects/{prospect_id}/draft/generate", follow_redirects=False)
+        r = post_form(
+            client,
+            f"/prospects/{prospect_id}/draft/generate",
+            follow_redirects=False,
+        )
         assert r.status_code == 303
 
         message_id = _message_id(client, prospect_id)
@@ -96,7 +104,8 @@ def test_outreach_golden_path() -> None:
         assert "Submit for review" in r.text
 
         # Submit → pending_review.
-        r = client.post(
+        r = post_form(
+            client,
             f"/messages/{message_id}/submit",
             data={"current_text": "Hi Acme Widgets, worth a quick chat?"},
             follow_redirects=False,
@@ -104,11 +113,12 @@ def test_outreach_golden_path() -> None:
         assert r.status_code == 303
 
         # Approve without grounding + without acknowledgement → 409.
-        r = client.post(f"/messages/{message_id}/approve", follow_redirects=False)
+        r = post_form(client, f"/messages/{message_id}/approve", follow_redirects=False)
         assert r.status_code == 409
 
         # Approve with acknowledgement → approved.
-        r = client.post(
+        r = post_form(
+            client,
             f"/messages/{message_id}/approve",
             data={"ungrounded_acknowledgement": "1"},
             follow_redirects=False,
@@ -116,13 +126,13 @@ def test_outreach_golden_path() -> None:
         assert r.status_code == 303
 
         # Open → wa.me URL shown; status opened_in_whatsapp (never sent).
-        r = client.post(f"/messages/{message_id}/open", follow_redirects=False)
+        r = post_form(client, f"/messages/{message_id}/open", follow_redirects=False)
         assert r.status_code == 200
         assert "https://wa.me/442079460958" in r.text
         assert "I have sent this message" in r.text
 
         # Confirm sent → sent_confirmed.
-        r = client.post(f"/messages/{message_id}/confirm-sent", follow_redirects=False)
+        r = post_form(client, f"/messages/{message_id}/confirm-sent", follow_redirects=False)
         assert r.status_code == 303
 
         # Side effects: stage contacted, last_contacted_at set, activity logged.
@@ -138,7 +148,7 @@ def test_outreach_golden_path() -> None:
         assert len(activities) == 1
 
         # Not-sent path is unavailable once confirmed (status != opened_in_whatsapp).
-        r = client.post(f"/messages/{message_id}/not-sent", follow_redirects=False)
+        r = post_form(client, f"/messages/{message_id}/not-sent", follow_redirects=False)
         assert r.status_code == 409
     finally:
         db.close()
@@ -156,8 +166,10 @@ def test_suppression_blocks_outbound() -> None:
         prospect_id = _create_prospect(client, db)
         set_do_not_contact(db, prospect_id, reason="opted out", actor="user")
 
-        r = client.post(f"/prospects/{prospect_id}/draft/generate", follow_redirects=False)
-        assert r.status_code == 409
+        r = post_form(client, f"/prospects/{prospect_id}/draft/generate", follow_redirects=False)
+        assert r.status_code == 403, (
+            f"Expected 403 for suppressed prospect, got {r.status_code}: {r.text}"
+        )
     finally:
         db.close()
         with suppress(OSError):
@@ -172,11 +184,11 @@ def test_illegal_transition_returns_409() -> None:
         prospect_id = _create_prospect(client, db)
 
         # Cannot confirm-sent a message that was never opened.
-        r = client.post(f"/prospects/{prospect_id}/draft/generate", follow_redirects=False)
+        r = post_form(client, f"/prospects/{prospect_id}/draft/generate", follow_redirects=False)
         assert r.status_code == 303
         message_id = _message_id(client, prospect_id)
 
-        r = client.post(f"/messages/{message_id}/confirm-sent", follow_redirects=False)
+        r = post_form(client, f"/messages/{message_id}/confirm-sent", follow_redirects=False)
         assert r.status_code == 409
     finally:
         db.close()

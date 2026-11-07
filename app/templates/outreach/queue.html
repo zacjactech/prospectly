@@ -62,9 +62,11 @@
         <span>{{ m.current_text|truncate(60) }}</span>
         <div class="row-actions">
           <form method="post" action="/messages/{{ m.id }}/confirm-sent" data-confirm="Confirm this was sent?">
+            {{ csrf_field() }}
             <button class="btn small" type="submit">Confirm sent</button>
           </form>
           <form method="post" action="/messages/{{ m.id }}/not-sent" data-confirm="Return to approved?">
+            {{ csrf_field() }}
             <button class="btn ghost small" type="submit">Not sent</button>
           </form>
         </div>

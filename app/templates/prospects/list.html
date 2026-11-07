@@ -111,10 +111,12 @@
           <div class="row-actions">
             {% if p.archived_at %}
             <form method="post" action="/prospects/{{ p.id }}/unarchive" data-confirm="Restore this prospect to your active pipeline?">
+              {{ csrf_field() }}
               <button class="btn small ghost" type="submit">Restore</button>
             </form>
             {% else %}
             <form method="post" action="/prospects/{{ p.id }}/archive" data-confirm="Archive this prospect?">
+              {{ csrf_field() }}
               <button class="btn small ghost" type="submit">Archive</button>
             </form>
             {% endif %}

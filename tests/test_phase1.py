@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.db import Base, get_db
 from app.main import app
+from tests.conftest import patch_json, post_form, post_json
 
 
 def _make_db() -> tuple[Session, str]:
@@ -36,7 +37,9 @@ def _client_with_db(db: Session) -> TestClient:
             pass
 
     app.dependency_overrides[get_db] = override_get_db
-    return TestClient(app)
+    client = TestClient(app)
+    client.get("/")  # prime CSRF cookie
+    return client
 
 
 def _cleanup(db: Session, path: str) -> None:
@@ -52,7 +55,8 @@ def test_prospect_crud_lifecycle() -> None:
         client = _client_with_db(db)
 
         # Create
-        r = client.post(
+        r = post_form(
+            client,
             "/prospects/new",
             data={
                 "business_name": "Acme Hotel",
@@ -83,7 +87,8 @@ def test_prospect_crud_lifecycle() -> None:
         assert "Acme Hotel" in r.text
 
         # Update
-        r = client.post(
+        r = post_form(
+            client,
             f"/prospects/{prospect_id}/edit",
             data={
                 "business_name": "Acme Hotel & Suites",
@@ -98,11 +103,11 @@ def test_prospect_crud_lifecycle() -> None:
         assert r.status_code in (200, 303), r.text
 
         # Archive
-        r = client.post(f"/prospects/{prospect_id}/archive", follow_redirects=False)
+        r = post_form(client, f"/prospects/{prospect_id}/archive", follow_redirects=False)
         assert r.status_code in (200, 303), r.text
 
         # Unarchive
-        r = client.post(f"/prospects/{prospect_id}/unarchive", follow_redirects=False)
+        r = post_form(client, f"/prospects/{prospect_id}/unarchive", follow_redirects=False)
         assert r.status_code in (200, 303), r.text
     finally:
         _cleanup(db, path)
@@ -114,7 +119,8 @@ def test_duplicate_blocked() -> None:
         client = _client_with_db(db)
 
         # Create first prospect
-        r = client.post(
+        r = post_form(
+            client,
             "/prospects/new",
             data={
                 "business_name": "Unique Business",
@@ -125,7 +131,8 @@ def test_duplicate_blocked() -> None:
         assert r.status_code in (200, 303), r.text
 
         # Try to create duplicate with same name (normalized_name match)
-        r = client.post(
+        r = post_form(
+            client,
             "/prospects/new",
             data={
                 "business_name": "Unique Business",
@@ -149,9 +156,10 @@ def test_api_prospect_list() -> None:
         assert r.json() == []
 
         # Create via API
-        r = client.post(
+        r = post_json(
+            client,
             "/api/v1/prospects",
-            json={
+            data={
                 "business_name": "API Test Biz",
                 "category": "restaurant",
                 "location_city": "Lagos",
@@ -186,7 +194,8 @@ def test_stage_transition_valid_and_invalid() -> None:
     try:
         client = _client_with_db(db)
 
-        r = client.post(
+        r = post_form(
+            client,
             "/prospects/new",
             data={"business_name": "Stage Test"},
             follow_redirects=False,
@@ -199,20 +208,24 @@ def test_stage_transition_valid_and_invalid() -> None:
         pid = str(r.json()[0]["id"])
 
         # Valid transition: new -> researched
-        r = client.post(f"/api/v1/prospects/{pid}/stage", json={"stage": "researched"})
+        r = post_json(client, f"/api/v1/prospects/{pid}/stage", data={"stage": "researched"})
         assert r.status_code == 200, r.text
         assert r.json()["stage"] == "researched"
 
         # Valid: researched -> opportunity_identified
-        r = client.post(f"/api/v1/prospects/{pid}/stage", json={"stage": "opportunity_identified"})
+        r = post_json(
+            client,
+            f"/api/v1/prospects/{pid}/stage",
+            data={"stage": "opportunity_identified"},
+        )
         assert r.status_code == 200, r.text
 
         # Invalid: opportunity_identified -> contacted (skips outreach_ready)
-        r = client.post(f"/api/v1/prospects/{pid}/stage", json={"stage": "contacted"})
+        r = post_json(client, f"/api/v1/prospects/{pid}/stage", data={"stage": "contacted"})
         assert r.status_code == 409, f"Expected 409, got {r.status_code}"
 
         # Invalid: new -> do_not_contact (not a valid transition)
-        r = client.post(f"/api/v1/prospects/{pid}/stage", json={"stage": "bogus"})
+        r = post_json(client, f"/api/v1/prospects/{pid}/stage", data={"stage": "bogus"})
         assert r.status_code == 409
     finally:
         _cleanup(db, path)
@@ -229,9 +242,10 @@ def test_profile_get_and_update() -> None:
         assert r.json()["offer"] is None
 
         # Update profile
-        r = client.patch(
+        r = patch_json(
+            client,
             "/api/v1/settings/profile",
-            json={
+            data={
                 "offer": "Web design for small businesses",
                 "target_industries": ["hotel", "restaurant"],
                 "target_locations": ["Ikorodu", "Lagos"],
@@ -253,7 +267,8 @@ def test_prospect_detail_page() -> None:
     try:
         client = _client_with_db(db)
 
-        r = client.post(
+        r = post_form(
+            client,
             "/prospects/new",
             data={"business_name": "Detail Page Test"},
             follow_redirects=False,

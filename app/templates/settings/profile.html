@@ -5,6 +5,7 @@
 {% endif %}
 
 <form method="post" action="/settings/profile">
+  {{ csrf_field() }}
   <div class="card">
     <div class="form-section full-width">
       <div class="field full">

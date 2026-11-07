@@ -21,10 +21,12 @@
       <a href="/prospects/{{ prospect.id }}/edit" class="btn">Edit details</a>
       {% if prospect.archived_at %}
       <form method="post" action="/prospects/{{ prospect.id }}/unarchive" data-confirm="Restore this prospect to your active pipeline?">
+        {{ csrf_field() }}
         <button class="btn ghost" type="submit">Restore</button>
       </form>
       {% else %}
       <form method="post" action="/prospects/{{ prospect.id }}/archive" data-confirm="Archive this prospect?">
+        {{ csrf_field() }}
         <button class="btn ghost" type="submit">Archive</button>
       </form>
       {% endif %}
@@ -69,6 +71,7 @@
       'archived': [],
     } %}
     <form method="post" action="/prospects/{{ prospect.id }}/stage" class="stage-form">
+      {{ csrf_field() }}
       <select name="stage" aria-label="Next stage">
         {% for t in transitions.get(prospect.stage, []) %}
         <option value="{{ t }}">{{ t|replace('_',' ') }}</option>
@@ -90,10 +93,12 @@
     {% set outreach_primary = active_message is not none or (not prospect.do_not_contact and prospect.stage not in ('new', 'archived')) %}
     {% if latest_run and latest_run.status != "running" %}
     <form method="post" action="/prospects/{{ prospect.id }}/research/start" data-confirm="Re-run research? This refreshes all findings.">
+      {{ csrf_field() }}
       <button class="btn {% if not outreach_primary %}primary{% endif %}" type="submit">Re-run research</button>
     </form>
     {% elif not latest_run %}
     <form method="post" action="/prospects/{{ prospect.id }}/research/start">
+      {{ csrf_field() }}
       <button class="btn {% if not outreach_primary %}primary{% endif %}" type="submit">Run research</button>
     </form>
     {% else %}
@@ -138,6 +143,7 @@
   {% elif opportunities %}
   <div class="action-group">
     <form method="post" action="/prospects/{{ prospect.id }}/opportunities">
+      {{ csrf_field() }}
       <input type="text" name="type" placeholder="Opportunity type (e.g. no_standalone_website)" required>
       <input type="text" name="summary" placeholder="One-line summary" required>
       <button class="btn primary" type="submit">Add opportunity</button>
@@ -153,9 +159,11 @@
       <div class="row-actions">
         {% if o.status == "proposed" %}
         <form method="post" action="/opportunities/{{ o.id }}/validate" data-confirm="Validate this opportunity? It advances the stage to Opportunity identified.">
+          {{ csrf_field() }}
           <button class="btn small" type="submit">Validate</button>
         </form>
         <form method="post" action="/opportunities/{{ o.id }}/dismiss" data-confirm="Dismiss this opportunity?">
+          {{ csrf_field() }}
           <button class="btn ghost small" type="submit">Dismiss</button>
         </form>
         {% else %}
@@ -193,25 +201,31 @@
   <div class="action-group">
     {% if active_message.status == "draft" %}
     <form method="post" action="/messages/{{ active_message.id }}/submit" data-confirm="Submit this draft for review?">
+      {{ csrf_field() }}
       <button class="btn primary" type="submit">Submit for review</button>
     </form>
     {% elif active_message.status == "pending_review" %}
     <form method="post" action="/messages/{{ active_message.id }}/approve" data-confirm="Approve this message for sending?">
+      {{ csrf_field() }}
       <button class="btn primary" type="submit">Approve</button>
     </form>
     {% elif active_message.status == "approved" %}
     <form method="post" action="/messages/{{ active_message.id }}/open" data-confirm="Open WhatsApp with this message prefilled? You press Send in WhatsApp — the app never sends automatically.">
+      {{ csrf_field() }}
       <button class="btn primary" type="submit">Open in WhatsApp</button>
     </form>
     {% elif active_message.status == "opened_in_whatsapp" %}
     <form method="post" action="/messages/{{ active_message.id }}/confirm-sent" data-confirm="Did you send this message? Yes confirms it was sent.">
+      {{ csrf_field() }}
       <button class="btn primary" type="submit">I have sent this message</button>
     </form>
     <form method="post" action="/messages/{{ active_message.id }}/not-sent" data-confirm="Return this message to approved (ready to re-open)?">
+      {{ csrf_field() }}
       <button class="btn ghost small" type="submit">Not sent</button>
     </form>
     {% elif active_message.status == "sent_confirmed" %}
     <form method="post" action="/prospects/{{ prospect.id }}/start-new-outreach" data-confirm="Start a new outreach draft for this prospect?">
+      {{ csrf_field() }}
       <button class="btn primary" type="submit">Start new outreach</button>
     </form>
     {% endif %}
@@ -220,6 +234,7 @@
   {% else %}
   <div class="action-group">
     <form method="post" action="/prospects/{{ prospect.id }}/draft/generate">
+      {{ csrf_field() }}
       <button class="btn {% if outreach_primary %}primary{% endif %}" type="submit">Generate draft</button>
     </form>
   </div>
@@ -238,9 +253,11 @@
       <span>{{ fu.note or "no note" }}</span>
       <div class="row-actions">
         <form method="post" action="/follow-ups/{{ fu.id }}/complete" data-confirm="Mark this follow-up complete?">
+          {{ csrf_field() }}
           <button class="btn small" type="submit">Complete</button>
         </form>
         <form method="post" action="/follow-ups/{{ fu.id }}/cancel" data-confirm="Cancel this follow-up?">
+          {{ csrf_field() }}
           <button class="btn ghost small" type="submit">Cancel</button>
         </form>
       </div>
@@ -248,6 +265,7 @@
     {% endfor %}
   </ul>
   <form method="post" action="/prospects/{{ prospect.id }}/follow-ups" class="action-group">
+    {{ csrf_field() }}
     <input type="date" name="due_date">
     <input type="text" name="note" placeholder="Note">
     <button class="btn small" type="submit">Add follow-up</button>

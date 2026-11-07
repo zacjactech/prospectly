@@ -16,6 +16,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
 from app.config import BASE_DIR, settings
+from app.csrf import CSRFMiddleware, csrf_field, csrf_token
 from app.logging_setup import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,13 @@ def create_app() -> FastAPI:
 
     app.include_router(pages.router)
     app.include_router(api.router, prefix="/api/v1")
+
+    # CSRF protection (SECURITY_AND_PRIVACY.md §3): double-submit cookie.
+    app.add_middleware(CSRFMiddleware)
+
+    # Expose CSRF helpers to Jinja2 templates.
+    pages.templates.env.globals["csrf_token"] = csrf_token
+    pages.templates.env.globals["csrf_field"] = csrf_field
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next: RequestResponseEndpoint) -> Response:

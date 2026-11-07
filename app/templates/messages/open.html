@@ -40,9 +40,11 @@
   <h3>Confirm</h3>
   <div class="action-group">
     <form method="post" action="/messages/{{ message.id }}/confirm-sent" data-confirm="Did you send this message? Yes confirms it was sent.">
+      {{ csrf_field() }}
       <button class="btn primary" type="submit">I have sent this message</button>
     </form>
     <form method="post" action="/messages/{{ message.id }}/not-sent" data-confirm="Return this message to approved (ready to re-open)?">
+      {{ csrf_field() }}
       <button class="btn ghost small" type="submit">Not sent</button>
     </form>
   </div>

@@ -22,6 +22,7 @@
 <section class="card">
   <h3>Defaults</h3>
   <form method="post" action="/settings/general">
+    {{ csrf_field() }}
     <div class="form-section">
       <div class="field">
         <label>Default follow-up days</label>
@@ -93,6 +94,7 @@
   <p class="muted small">Snapshots the SQLite database to <code>backups/</code> via VACUUM INTO.</p>
   <div class="action-group">
     <form method="post" action="/settings/general" data-confirm="Run a database backup now?">
+      {{ csrf_field() }}
       <input type="hidden" name="backup" value="1">
       <button class="btn primary" type="submit">Create backup</button>
     </form>

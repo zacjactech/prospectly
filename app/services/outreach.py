@@ -60,7 +60,7 @@ def create_draft(
     create a blank draft the user will fill in (used by "start new outreach").
     """
     if _is_suppressed(db, prospect_id):
-        return None, "Cannot draft for a do-not-contact prospect"
+        return None, "suppressed: cannot draft for a do-not-contact prospect"
     if not allow_empty and (not current_text or not current_text.strip()):
         return None, "Draft text is required"
 
@@ -123,7 +123,7 @@ def generate_draft(
     unverified and are labelled origin='ai').
     """
     if _is_suppressed(db, prospect_id):
-        return None, "Cannot draft for a do-not-contact prospect"
+        return None, "suppressed: cannot draft for a do-not-contact prospect"
     prospect = _prospect(db, prospect_id)
     if prospect is None:
         return None, "Prospect not found"
@@ -226,7 +226,7 @@ def approve_message(
     if message.status != "pending_review":
         return None, f"Cannot approve a message in status {message.status}"
     if _is_suppressed(db, message.prospect_id):
-        return None, "Cannot approve outreach for a do-not-contact prospect"
+        return None, "suppressed: cannot approve outreach for a do-not-contact prospect"
     if not message.current_text or not message.current_text.strip():
         return None, "Message text is required"
     if not _grounding_ok(message) and not ungrounded_acknowledgement:
@@ -267,7 +267,7 @@ def open_message(
     if message.status != "approved":
         return None, f"Cannot open a message in status {message.status}", None
     if _is_suppressed(db, message.prospect_id):
-        return None, "Cannot open WhatsApp for a do-not-contact prospect", None
+        return None, "suppressed: cannot open WhatsApp for a do-not-contact prospect", None
 
     prospect = _prospect(db, message.prospect_id)
     if prospect is None or not prospect.phone_e164:
@@ -405,7 +405,7 @@ def record_reply(
     if prospect is None:
         return None, "Prospect not found"
     if _is_suppressed(db, prospect_id):
-        return None, "Cannot record a reply for a do-not-contact prospect"
+        return None, "suppressed: cannot record a reply for a do-not-contact prospect"
 
     log_activity(
         db,
@@ -432,7 +432,7 @@ def start_new_outreach(
     history; the new draft becomes the single active one.
     """
     if _is_suppressed(db, prospect_id):
-        return None, "Cannot start outreach for a do-not-contact prospect"
+        return None, "suppressed: cannot start outreach for a do-not-contact prospect"
     return create_draft(db, prospect_id=prospect_id, current_text="", actor=actor, allow_empty=True)
 
 

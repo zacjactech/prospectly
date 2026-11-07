@@ -26,6 +26,7 @@
   <h3>Draft editor</h3>
   <p class="muted small">Edits are logged and demote the message back to draft — approval is invalidated by any change.</p>
   <form method="post" action="/messages/{{ message.id }}/edit">
+    {{ csrf_field() }}
     <div class="field">
       <textarea name="current_text" rows="8" placeholder="Write your message…">{{ message.current_text }}</textarea>
     </div>
@@ -61,10 +62,12 @@
   <div class="action-group">
     {% if message.status == "draft" %}
     <form method="post" action="/messages/{{ message.id }}/submit" data-confirm="Submit this draft for review?">
+      {{ csrf_field() }}
       <button class="btn primary" type="submit">Submit for review</button>
     </form>
     {% elif message.status == "pending_review" %}
     <form method="post" action="/messages/{{ message.id }}/approve">
+      {{ csrf_field() }}
       <label style="display:flex;align-items:center;gap:var(--sp-2);">
         <input type="checkbox" name="ungrounded_acknowledgement" value="1">
         I accept ungrounded content
@@ -73,17 +76,21 @@
     </form>
     {% elif message.status == "approved" %}
     <form method="post" action="/messages/{{ message.id }}/open" data-confirm="Open WhatsApp with this message prefilled? You press Send — the app never sends automatically.">
+      {{ csrf_field() }}
       <button class="btn primary" type="submit">Open in WhatsApp</button>
     </form>
     {% elif message.status == "opened_in_whatsapp" %}
     <form method="post" action="/messages/{{ message.id }}/confirm-sent" data-confirm="Did you send this message? Yes confirms it was sent.">
+      {{ csrf_field() }}
       <button class="btn primary" type="submit">I have sent this message</button>
     </form>
     <form method="post" action="/messages/{{ message.id }}/not-sent" data-confirm="Return this message to approved (ready to re-open)?">
+      {{ csrf_field() }}
       <button class="btn ghost small" type="submit">Not sent</button>
     </form>
     {% elif message.status == "sent_confirmed" %}
     <form method="post" action="/prospects/{{ prospect.id }}/start-new-outreach" data-confirm="Start a new outreach draft for this prospect?">
+      {{ csrf_field() }}
       <button class="btn primary" type="submit">Start new outreach</button>
     </form>
     {% endif %}
