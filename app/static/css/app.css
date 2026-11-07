@@ -726,6 +726,12 @@ p {
 table.prospects .prospect-name {
   font-size: var(--fs-sm);
   letter-spacing: normal;
+  /* First cell is nowrap, so an unbounded name widens the whole table and
+     brings the horizontal scrollbar back. Clip it instead. */
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ===== Toolbar & filters ===== */
@@ -877,7 +883,9 @@ table.prospects {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--fs-sm);
-  min-width: 860px;
+  /* Floor for narrow screens only. The content itself sets the real minimum;
+     a higher value here just clipped the Actions column at common widths. */
+  min-width: 640px;
 }
 
 table.prospects th {
@@ -894,9 +902,17 @@ table.prospects th {
 }
 
 table.prospects td {
-  padding: 9px 12px;
+  padding: 6px 12px;
+  height: 40px; /* minimum row height (UI spec --row-h); cells grow past it */
   border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
+}
+
+@media (max-width: 639px) {
+  table.prospects td {
+    padding: 12px;
+    height: 44px; /* rows carry the whole tap target when actions hide */
+  }
 }
 
 table.prospects tbody tr:last-child td {
