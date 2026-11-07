@@ -402,8 +402,10 @@ p {
 .pipeline-item {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 10px 6px;
+  gap: 6px;
+  /* Vertical room makes the strip read as a KPI band; horizontal stays tight
+     because 9 cells share the width from 768px up. */
+  padding: 16px 8px;
   background: var(--color-surface);
   color: var(--color-text);
   text-decoration: none;
@@ -1174,13 +1176,14 @@ ul.spaced {
 }
 
 ul.spaced li {
-  padding: 10px 0;
+  padding: 14px 0;
   border-bottom: 1px solid var(--color-border);
   font-size: var(--fs-base);
+  line-height: var(--lh-tight);
 }
 
 ul.spaced li:first-child {
-  padding-top: 0;
+  padding-top: 4px; /* heading sits 12px above, this rounds it to 16px */
 }
 
 ul.spaced li:last-child {
@@ -1188,8 +1191,13 @@ ul.spaced li:last-child {
   padding-bottom: 0;
 }
 
+/* Description drops to its own line so each step reads as title + note
+   instead of one inline sentence that wraps mid-clause. */
 ul.spaced li .muted {
+  display: block;
+  margin-top: 5px;
   font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
 }
 
 /* ===== Responsive ===== */
