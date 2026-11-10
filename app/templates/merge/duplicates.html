@@ -60,7 +60,7 @@
       {% for pair in pairs %}
       <tr>
         <td>
-          <form method="post" action="/merge" data-confirm="Merge "{{ pair.source_name }}" into "{{ pair.target_name }}"? This cannot be undone.">
+          <form method="post" action="/merge" data-confirm='Merge "{{ pair.source_name }}" into "{{ pair.target_name }}"? This cannot be undone.'>
             {{ csrf_field() }}
             <input type="hidden" name="source_id" value="{{ pair.source_id }}">
             <input type="hidden" name="target_id" value="{{ pair.target_id }}">
@@ -86,4 +86,5 @@
     </tbody>
   </table>
 </section>
+{% endif %}
 {% endblock %}

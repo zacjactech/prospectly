@@ -144,7 +144,9 @@ Index: `(status, due_date)` for the dashboard query.
 ### 2.11 `activities` — append-only history (P: complete activity history)
 `id, prospect_id FK, type, actor ('user','system','ai'), payload JSON, created_at`.
 
-Types: `created`, `imported`, `edited`, `archived`, `unarchived`, `merged`, `research_started`, `research_finished`, `finding_added`, `finding_verified`, `finding_edited`, `opportunity_created`, `opportunity_validated`, `opportunity_dismissed`, `draft_created`, `draft_edited`, `draft_submitted`, `draft_approved`, `whatsapp_opened`, `message_sent_confirmed`, `message_not_sent`, `reply_received`, `stage_changed`, `follow_up_set`, `follow_up_completed`, `follow_up_cancelled`, `do_not_contact_set`, `do_not_contact_cleared`, `note_added`, `tag_added`.
+Types: `created`, `imported`, `edited`, `archived`, `unarchived`, `merged`, `merged_into`, `discovered`, `job_reclaimed`, `research_started`, `research_finished`, `opportunity_created`, `opportunity_validated`, `opportunity_dismissed`, `draft_created`, `draft_edited`, `draft_submitted`, `draft_approved`, `whatsapp_opened`, `message_sent_confirmed`, `message_not_sent`, `reply_received`, `stage_changed`, `follow_up_set`, `follow_up_completed`, `follow_up_cancelled`, `retention_review_flagged`, `retention_review_cleared`, `do_not_contact_set`, `do_not_contact_cleared`, `tag_added`.
+
+*(Reconciled 2026-11-10 against code: every listed type is emitted by at least one code path. Types for surfaces not yet built — findings CRUD (`finding_added`/`finding_verified`/`finding_edited`) and notes (`note_added`) — are reserved and re-added when those surfaces ship. `research_started` is logged by `queue_research_job`.)*
 
 Never updated or deleted (no `updated_at`).
 

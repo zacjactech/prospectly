@@ -41,10 +41,10 @@ All outbound HTTP (research, website checks) passes through one component:
 | Scheme allowlist | `http`, `https` only (reject `file:`, `ftp:`, `gopher:`, `javascript:`) |
 | Host resolution check | Resolve DNS → reject if any address is loopback/private/link-local/CGNAT/reserved (`127.0.0.0/8`, `10/8`, `172.16/12`, `192.168/16`, `169.254/16`, `::1`, `fc00::/7`, `fe80::/10`, `0.0.0.0`, metadata `169.254.169.254`) — checked **per redirect hop** |
 | Redirects | max 5; re-validate every hop; log chain |
-| DNS rebinding | pin resolved IP for the connection (connect to IP + `Host` header / custom resolver) |
+| DNS rebinding | **accepted residual (not mitigated)** — validation resolves once, httpx re-resolves at connect (TOCTOU window). Hardening path: pin the resolved IP (connect to IP + `Host` header / custom resolver) |
 | Timeouts | connect 10s, total 30s |
 | Response size | cap 2 MB (abort mid-stream, mark `blocked`) |
-| Concurrency | ≤5 in-flight fetches; polite delay; per-host pacing |
+| Concurrency | *(not implemented in MVP — fetches are per-request; per-host pacing is future work)* |
 | User-Agent | identifiable (`Prospectly/0.1 (+local research tool)`) |
 | Robots/ToS posture | fetch only when the user explicitly starts research on a prospect; no crawling loops, no sitemap fan-out; respect `429`/`Retry-After` |
 | TLS | verify certificates on (no `verify=False`) |

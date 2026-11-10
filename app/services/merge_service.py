@@ -21,7 +21,7 @@ from app.models import (
     Prospect,
 )
 from app.services.activity import log_activity
-from app.services.prospect import _normalize_name
+from app.services.prospect import _normalize_name, set_do_not_contact
 
 # --- Fuzzy-duplicate candidate prefilter bounds (M1, review finding) ---
 # Scoring every live pair is O(n^2): 5,000 prospects meant ~12.5M name scores
@@ -246,8 +246,19 @@ def merge_prospects(
         activity.prospect_id = target_id
 
     # --- Re-link findings ---
-    for finding in source.findings:
+    # findings carry a unique (prospect_id, finding_key). When the target
+    # already holds the identical idempotent finding — guaranteed for any
+    # two researched no-URL prospects, which both record the constant
+    # "No website URL recorded" observation — re-linking would violate the
+    # index and 500 the merge (reviewer N1). Keep the target's copy; the
+    # source's copy stays on the archived source row (no data is destroyed,
+    # the archived prospect keeps its audit trail).
+    target_keys = {f.finding_key for f in target.findings}
+    for finding in list(source.findings):
+        if finding.finding_key in target_keys:
+            continue
         finding.prospect_id = target_id
+        target_keys.add(finding.finding_key)
 
     # --- Re-link website checks ---
     for check in source.website_checks:
@@ -258,7 +269,11 @@ def merge_prospects(
         opp.prospect_id = target_id
 
     # --- Re-link outreach messages ---
+    # §2.9: only one ACTIVE message per prospect (partial unique index) —
+    # if both sides have an active message, the target's wins.
     for msg in source.outreach_messages:
+        if msg.active and any(m.active for m in target.outreach_messages):
+            msg.active = False
         msg.prospect_id = target_id
 
     # --- Re-link follow-ups ---
@@ -273,6 +288,17 @@ def merge_prospects(
     # --- Re-link research runs ---
     for run in source.research_runs:
         run.prospect_id = target_id
+
+    # --- Propagate suppression (Flow 8 / P10) ---
+    # Merging a suppressed duplicate into a live one must not silently
+    # restore contact permission — the opt-out travels with the identity.
+    if source.do_not_contact and not target.do_not_contact:
+        set_do_not_contact(
+            db,
+            target_id,
+            reason=source.do_not_contact_reason or "merged duplicate was suppressed",
+            actor=actor,
+        )
 
     # --- Archive the source prospect ---
     source.archived_at = _now()

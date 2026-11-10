@@ -590,7 +590,6 @@
           }
         ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/x-www-form-urlencoded": {
               "schema": {
@@ -2903,6 +2902,100 @@
               }
             },
             "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/prospects/{prospect_id}/replies": {
+      "post": {
+        "tags": [
+          "api"
+        ],
+        "summary": "Record Reply Api",
+        "description": "Record an inbound reply: activity + stage → replied (Flow 6, API_DESIGN §2.6).",
+        "operationId": "record_reply_api_api_v1_prospects__prospect_id__replies_post",
+        "parameters": [
+          {
+            "name": "prospect_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Prospect Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "description": "Validation Error",
@@ -5288,13 +5381,11 @@
         "properties": {
           "reason": {
             "type": "string",
-            "title": "Reason"
+            "title": "Reason",
+            "default": ""
           }
         },
         "type": "object",
-        "required": [
-          "reason"
-        ],
         "title": "Body_prospect_unsuppress_prospects__prospect_id__do_not_contact_clear_post"
       },
       "Body_prospect_update_prospects__prospect_id__edit_post": {
@@ -7127,6 +7218,31 @@
         },
         "type": "object",
         "title": "ProspectPatch"
+      },
+      "ReplyIn": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "received_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "ReplyIn"
       },
       "ResearchRunOut": {
         "properties": {

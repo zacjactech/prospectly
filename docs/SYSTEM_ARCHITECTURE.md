@@ -120,7 +120,7 @@ replied → interested → follow_up_due ⇄ replied → converted
 3. Worker executes pipeline steps: website inspection (httpx) → search queries (enabled SearchProvider) → optional discovery enrichment.
 4. Each result → `findings` rows with source metadata (P7); site check → `website_checks` row (status classification per P6).
 5. Optional AI summarization (if configured) → additional findings with `origin='ai'`, `verification_status='unverified'`.
-6. Run marked `succeeded`/`partially_completed`; prospect stage → `researched`; UI polls HTMX partial for progress.
+6. Run marked `succeeded`/`partially_completed`; prospect stage → `researched`; the research page shows the latest run's status after a reload (no live polling in MVP — deferred with the HTMX progress partial).
 
 ### 4.3 Draft → approved → WhatsApp → confirmed
 

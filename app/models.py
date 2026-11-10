@@ -28,6 +28,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -477,7 +478,15 @@ class OutreachMessage(Base):
     prospect: Mapped[Prospect] = relationship(back_populates="outreach_messages")
 
     __table_args__ = (
-        Index("ux_outreach_messages_active", "prospect_id", unique=True),
+        # Partial unique index (DATABASE_DESIGN §2.9): one ACTIVE message per
+        # prospect — a non-partial index made every second draft (and "start
+        # new outreach") crash with IntegrityError (QA D1).
+        Index(
+            "ux_outreach_messages_active",
+            "prospect_id",
+            unique=True,
+            sqlite_where=text("active = 1"),
+        ),
         Index("ix_outreach_messages_status", "status"),
     )
 

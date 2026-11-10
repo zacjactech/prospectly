@@ -47,6 +47,7 @@ from app.schemas import (
     ProspectCreate,
     ProspectOut,
     ProspectPatch,
+    ReplyIn,
     ResearchRunOut,
     ResearchStartOut,
     RetentionSweepIn,
@@ -317,6 +318,41 @@ def unsuppress_prospect(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
     return SuppressionOut.model_validate(prospect)
+
+
+@router.post(
+    "/prospects/{prospect_id}/replies",
+    response_model=ProspectOut,
+    responses={
+        400: {"model": ErrorOut},
+        403: {"model": ErrorOut},
+        404: {"model": ErrorOut},
+        409: {"model": ErrorOut},
+    },
+)
+def record_reply_api(
+    prospect_id: int = Path(ge=1),
+    payload: ReplyIn = Body(...),
+    db: Session = Depends(get_db),
+) -> ProspectOut:
+    """Record an inbound reply: activity + stage → replied (Flow 6, API_DESIGN §2.6)."""
+    if not payload.text.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="text is required")
+    prospect, error = outreach_service.record_reply(
+        db,
+        prospect_id=prospect_id,
+        text=payload.text,
+        received_at=payload.received_at,
+        actor="user",
+    )
+    if error:
+        if error == "Prospect not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        if error.startswith("suppressed:"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    assert prospect is not None
+    return ProspectOut.model_validate(prospect)
 
 
 @router.get(

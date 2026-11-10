@@ -94,6 +94,11 @@ class SuppressionOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ReplyIn(BaseModel):
+    text: str
+    received_at: datetime | None = None
+
+
 class ActivityOut(BaseModel):
     id: int
     type: str

@@ -572,7 +572,7 @@ def prospect_unsuppress(
     request: Request,
     prospect_id: int,
     db: Session = Depends(get_db),
-    reason: str = Form(...),
+    reason: str = Form(""),
 ) -> HTMLResponse | RedirectResponse:
     """Clear suppression — Flow 8: explicit action + reason, audit-logged."""
     reason = reason.strip()

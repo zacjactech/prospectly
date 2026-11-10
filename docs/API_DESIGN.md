@@ -21,8 +21,8 @@ Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamp
 | GET/POST | `/prospects/{id}/edit` | Edit |
 | POST | `/prospects/{id}/archive` · `/unarchive` | Soft archive |
 | POST | `/prospects/{id}/research/start` | Queue research run |
-| GET | `/prospects/{id}/research/status` | HTMX partial: run progress |
-| POST | `/prospects/{id}/findings` · `/findings/{fid}/edit` · `/verify` · `/delete` | Evidence CRUD (origin preserved) |
+| GET | `/prospects/{id}/research/status` | *(documented, not implemented — the research page shows run status on reload; no HTMX polling yet)* |
+| — | `/prospects/{id}/findings` CRUD | *(not implemented — findings are written by the research pipeline; evidence editing ships with the findings surface. The activity types `finding_added`/`finding_verified`/`finding_edited` are reserved for it)* |
 | POST | `/prospects/{id}/opportunities` · `/{oid}/validate` · `/{oid}/dismiss` | Opportunity CRUD |
 | POST | `/prospects/{id}/draft/generate` | Create draft (AI or template) |
 | POST | `/messages/{id}/edit` · `/submit` · `/approve` · `/open` · `/confirm-sent` | Approval gate chain |

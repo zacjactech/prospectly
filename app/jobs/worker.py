@@ -12,6 +12,7 @@ after the job is claimed and the transaction is committed.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from datetime import UTC, datetime, timedelta
 
@@ -24,6 +25,8 @@ from app.providers.factory import get_discovery_provider, get_search_provider
 from app.services import research as research_service
 from app.services.activity import log_activity
 from app.services.prospect import check_duplicates, create_prospect
+
+logger = logging.getLogger(__name__)
 
 # How long a job can stay "running" before it's considered stale and
 # reclaimed (SYSTEM_ARCHITECTURE §6).
@@ -40,9 +43,14 @@ def _now() -> datetime:
 
 
 def claim_job(db: Session) -> Job | None:
-    """Claim the next queued job using BEGIN IMMEDIATE for SQLite locking.
+    """Claim the next queued job with a conditional UPDATE (single-writer safe).
 
-    Returns the claimed job, or None when no job is available.
+    Returns the claimed job, or None when no job is available or another
+    claimant won the race. Stale ``running`` jobs (>10 min) are reclaimed
+    first. The claim itself is one ``UPDATE ... WHERE id=? AND status='queued'``
+    so two concurrent claimants cannot both win — the loser matches zero
+    rows (the docstring used to claim BEGIN IMMEDIATE, which was never
+    issued; reviewer N2).
     """
     # Reclaim stale running jobs first.
     stale_cutoff = _now() - timedelta(minutes=STALE_JOB_MINUTES)
@@ -85,9 +93,21 @@ def claim_job(db: Session) -> Job | None:
     if next_job is None:
         return None
 
-    next_job.status = "running"
-    next_job.locked_at = _now()
-    next_job.attempts = (next_job.attempts or 0) + 1
+    claimed = (
+        db.query(Job)
+        .filter(Job.id == next_job.id, Job.status == "queued")
+        .update(
+            {
+                "status": "running",
+                "locked_at": _now(),
+                "attempts": Job.attempts + 1,
+            },
+            synchronize_session=False,
+        )
+    )
+    if claimed == 0:
+        return None  # lost the race to another claimant
+    db.expire(next_job)  # reload the row the UPDATE just changed
     db.flush()
     return next_job
 
@@ -365,13 +385,18 @@ def run_worker(once: bool = False) -> None:
     """Run the worker loop.
 
     When ``once=True``, processes a single available job and exits.
-    Otherwise loops forever, polling for new jobs.
+    Otherwise loops forever, polling for new jobs. Transient failures
+    (e.g. SQLITE_BUSY past the busy timeout) are logged and retried on the
+    next iteration instead of killing the worker process (reviewer N2).
     """
     try:
         while True:
             db = SessionLocal()
             try:
                 processed = process_one_job(db)
+            except Exception as exc:  # noqa: BLE001 — resilience boundary
+                logger.warning("worker iteration failed (will retry): %s", exc)
+                processed = False
             finally:
                 db.close()
 
@@ -399,6 +424,13 @@ def queue_research_job(
     )
     db.add(job)
     db.flush()
+    log_activity(
+        db,
+        prospect_id=prospect_id,
+        type="research_started",
+        actor="user",
+        payload={"research_run_id": research_run_id, "job_id": job.id},
+    )
     return job
 
 

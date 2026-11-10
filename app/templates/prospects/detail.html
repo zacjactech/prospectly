@@ -57,10 +57,10 @@
   <div class="card">
     <h3>Stage</h3>
     {% set transitions = {
-      'new': ['researched', 'archived'],
-      'researched': ['opportunity_identified', 'archived'],
-      'opportunity_identified': ['outreach_ready', 'archived'],
-      'outreach_ready': ['contacted', 'archived'],
+      'new': ['researched', 'not_interested', 'archived'],
+      'researched': ['opportunity_identified', 'not_interested', 'archived'],
+      'opportunity_identified': ['outreach_ready', 'not_interested', 'archived'],
+      'outreach_ready': ['contacted', 'not_interested', 'archived'],
       'contacted': ['replied', 'follow_up_due', 'not_interested', 'archived'],
       'replied': ['interested', 'follow_up_due', 'not_interested', 'archived'],
       'interested': ['converted', 'follow_up_due', 'not_interested', 'archived'],
@@ -267,6 +267,33 @@
     </form>
   </div>
   <p class="muted small">No active outreach. Generate a draft from validated opportunities and research findings.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3>Record reply</h3>
+  {% if prospect.do_not_contact %}
+  <p class="muted">Suppressed — reply recording is blocked (Flow 8).</p>
+  {% else %}
+  <p class="muted small">
+    Paste or summarize what they sent on WhatsApp (Flow 6). Records the reply
+    and moves the stage to <strong>replied</strong> unless the prospect is
+    already later in the pipeline or in a terminal stage.
+  </p>
+  <form method="post" action="/prospects/{{ prospect.id }}/reply">
+    {{ csrf_field() }}
+    <div class="field full">
+      <label>Reply text</label>
+      <textarea name="text" rows="3" required placeholder="e.g. Yes, send me a quote"></textarea>
+    </div>
+    <div class="field">
+      <label>Received at (optional)</label>
+      <input type="datetime-local" name="received_at">
+    </div>
+    <div class="action-group">
+      <button class="btn primary" type="submit">Record reply</button>
+    </div>
+  </form>
   {% endif %}
 </section>
 
