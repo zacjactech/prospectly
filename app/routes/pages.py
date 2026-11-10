@@ -23,6 +23,7 @@ from app.models import (
     DiscoveryJob,
     Finding,
     FollowUp,
+    Note,
     OutreachMessage,
     Prospect,
     ResearchRun,
@@ -31,7 +32,9 @@ from app.models import (
     WebsiteCheck,
 )
 from app.services import dashboard as dashboard_service
+from app.services import findings as findings_service
 from app.services import import_service, merge_service
+from app.services import notes as notes_service
 from app.services import opportunity as opportunity_service
 from app.services import outreach as outreach_service
 from app.services import profile as profile_service
@@ -344,6 +347,7 @@ def prospect_detail(
         .order_by(FollowUp.due_date.asc().nullslast(), FollowUp.created_at.desc())
         .all()
     )
+    notes = db.query(Note).filter_by(prospect_id=prospect_id).order_by(Note.updated_at.desc()).all()
     opportunities = opportunity_service.list_opportunities(db, prospect_id=prospect_id)
     return templates.TemplateResponse(
         request=request,
@@ -357,6 +361,7 @@ def prospect_detail(
             "website_checks": website_checks,
             "active_message": active_message,
             "follow_ups": follow_ups,
+            "notes": notes,
             "opportunities": opportunities,
         },
     )
@@ -1181,6 +1186,46 @@ def prospect_research(
     )
 
 
+@router.get("/prospects/{prospect_id}/research/status", response_class=HTMLResponse)
+def prospect_research_status(
+    request: Request,
+    prospect_id: int,
+    db: DbSession,
+) -> HTMLResponse:
+    """HTMX partial: live research progress + findings (SYSTEM_ARCHITECTURE §4.2).
+
+    Polled by the research page while a run is ``running``. A terminal run
+    renders the fragment without the ``hx-*`` attributes, so the outerHTML swap
+    replaces the polling node and polling stops by itself. Findings are part of
+    the fragment so they refresh on the same swap.
+    """
+    prospect = db.get(Prospect, prospect_id)
+    if prospect is None:
+        return HTMLResponse("Prospect not found", status_code=404)
+
+    latest_run = (
+        db.query(ResearchRun)
+        .filter_by(prospect_id=prospect_id)
+        .order_by(ResearchRun.created_at.desc())
+        .first()
+    )
+    findings = (
+        db.query(Finding)
+        .filter_by(prospect_id=prospect_id)
+        .order_by(Finding.recorded_at.desc())
+        .all()
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/research_live.html",
+        context={
+            "prospect": prospect,
+            "latest_run": latest_run,
+            "findings": findings,
+        },
+    )
+
+
 @router.post(
     "/prospects/{prospect_id}/research/start", response_class=HTMLResponse, response_model=None
 )
@@ -1202,6 +1247,154 @@ def prospect_research_start(
     queue_research_job(db, prospect_id=prospect_id, research_run_id=run.id)
 
     return RedirectResponse(url=f"/prospects/{prospect_id}/research", status_code=303)
+
+
+# ===== Findings evidence CRUD (USER_FLOWS P8, UI spec §2.3) =====
+
+
+def _finding_error_response(error: str) -> HTMLResponse:
+    """Map a findings-service error to the houses status set (404/409/400)."""
+    if error in ("Prospect not found", "Finding not found"):
+        return HTMLResponse(error, status_code=404)
+    if error in (findings_service.DUPLICATE_ERROR, findings_service.LINKED_ERROR):
+        return HTMLResponse(error, status_code=409)
+    return HTMLResponse(error, status_code=400)
+
+
+@router.post(
+    "/prospects/{prospect_id}/findings",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def finding_create_page(
+    prospect_id: int,
+    db: Session = Depends(get_db),
+    kind: str = Form(...),
+    statement: str = Form(...),
+    detail: str | None = Form(None),
+    source_url: str | None = Form(None),
+) -> HTMLResponse | RedirectResponse:
+    """Add a manually entered finding (forced human/unverified/low, P5)."""
+    finding, error = findings_service.create_finding(
+        db,
+        prospect_id=prospect_id,
+        kind=kind,
+        statement=statement,
+        detail=detail,
+        source_url=source_url,
+        actor="user",
+    )
+    if error:
+        return _finding_error_response(error)
+    assert finding is not None
+    return RedirectResponse(
+        url=(
+            f"/prospects/{prospect_id}/research?flash={quote('Finding added')}&flash_type=success"
+        ),
+        status_code=303,
+    )
+
+
+@router.post("/findings/{finding_id}/edit", response_class=HTMLResponse, response_model=None)
+def finding_edit_page(
+    finding_id: int,
+    db: Session = Depends(get_db),
+    statement: str = Form(...),
+    detail: str | None = Form(None),
+) -> HTMLResponse | RedirectResponse:
+    """Edit a finding's statement/detail (provenance preserved, §2.6)."""
+    finding, error = findings_service.edit_finding(
+        db, finding_id=finding_id, statement=statement, detail=detail, actor="user"
+    )
+    if error:
+        return _finding_error_response(error)
+    assert finding is not None
+    return RedirectResponse(
+        url=(
+            f"/prospects/{finding.prospect_id}/research"
+            f"?flash={quote('Finding updated')}&flash_type=success"
+        ),
+        status_code=303,
+    )
+
+
+@router.post("/findings/{finding_id}/verify", response_class=HTMLResponse, response_model=None)
+def finding_verify_page(
+    finding_id: int,
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    """Verify a finding — a human action that may raise the status (P5)."""
+    finding, error = findings_service.verify_finding(db, finding_id=finding_id, actor="user")
+    if error:
+        return _finding_error_response(error)
+    assert finding is not None
+    return RedirectResponse(
+        url=(
+            f"/prospects/{finding.prospect_id}/research"
+            f"?flash={quote('Finding verified')}&flash_type=success"
+        ),
+        status_code=303,
+    )
+
+
+@router.post("/findings/{finding_id}/delete", response_class=HTMLResponse, response_model=None)
+def finding_delete_page(
+    finding_id: int,
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    """Hard-delete a finding unless an opportunity depends on it."""
+    finding, error = findings_service.delete_finding(db, finding_id=finding_id, actor="user")
+    if error:
+        return _finding_error_response(error)
+    assert finding is not None
+    return RedirectResponse(
+        url=(
+            f"/prospects/{finding.prospect_id}/research"
+            f"?flash={quote('Finding deleted')}&flash_type=success"
+        ),
+        status_code=303,
+    )
+
+
+# ===== Notes (Flow 9 handoff note, UI spec §2.3) =====
+
+
+@router.post("/prospects/{prospect_id}/notes", response_class=HTMLResponse, response_model=None)
+def note_create_page(
+    prospect_id: int,
+    db: Session = Depends(get_db),
+    body: str = Form(...),
+) -> HTMLResponse | RedirectResponse:
+    """Add a note from the prospect detail page."""
+    note, error = notes_service.add_note(db, prospect_id=prospect_id, body=body, actor="user")
+    if error:
+        if error == "Prospect not found":
+            return HTMLResponse(error, status_code=404)
+        return HTMLResponse(error, status_code=400)
+    assert note is not None
+    return RedirectResponse(
+        url=f"/prospects/{prospect_id}?flash={quote('Note added')}&flash_type=success",
+        status_code=303,
+    )
+
+
+@router.post("/notes/{note_id}/edit", response_class=HTMLResponse, response_model=None)
+def note_edit_page(
+    note_id: int,
+    db: Session = Depends(get_db),
+    body: str = Form(...),
+) -> HTMLResponse | RedirectResponse:
+    """Edit a note from the prospect detail page."""
+    note, error = notes_service.edit_note(db, note_id=note_id, body=body, actor="user")
+    if error:
+        if error == "Note not found":
+            return HTMLResponse(error, status_code=404)
+        return HTMLResponse(error, status_code=400)
+    assert note is not None
+    return RedirectResponse(
+        url=f"/prospects/{note.prospect_id}?flash={quote('Note updated')}&flash_type=success",
+        status_code=303,
+    )
 
 
 # ===== Opportunities (Flow 4) =====

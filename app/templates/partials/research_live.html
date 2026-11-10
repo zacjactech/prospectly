@@ -1,0 +1,129 @@
+{# Live research region (SYSTEM_ARCHITECTURE §4.2) — polled while a run is in flight.
+   The outer <div> carries the HTMX polling attributes only while the latest run
+   is `running`. A terminal run renders the fragment WITHOUT them, so the
+   outerHTML swap replaces the polling node and polling stops by itself.
+   Findings live inside this region so a poll refreshes them too. #}
+<div id="research-live"{% if latest_run and latest_run.status == 'running' %} hx-get="/prospects/{{ prospect.id }}/research/status" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <section class="card">
+    <h3>Research status</h3>
+    {% if latest_run %}
+    <div class="action-group">
+      <span class="badge stage-{{ latest_run.status|replace('_','-') }}">{{ latest_run.status|replace('_',' ') }}</span>
+      {% if latest_run.started_at %}<span class="muted small">Started {{ latest_run.started_at.strftime('%b %d, %Y %H:%M') }}</span>{% endif %}
+      {% if latest_run.finished_at %}<span class="muted small">Finished {{ latest_run.finished_at.strftime('%b %d, %Y %H:%M') }}</span>{% endif %}
+    </div>
+    {% if latest_run.status == 'running' %}
+    <p class="muted">Research in progress… results will appear automatically.</p>
+    {% endif %}
+    {% if latest_run.error %}
+    <div class="flash error">Research failed: {{ latest_run.error }}</div>
+    {% endif %}
+    {# Run actions live INSIDE the polled region so they can never go stale
+       (a page-bar button would keep saying "running" after the poll ends). #}
+    {% if latest_run.status != 'running' %}
+    <div class="action-group">
+      <form method="post" action="/prospects/{{ prospect.id }}/research/start" data-confirm="Run research again? This refreshes all findings.">
+        {{ csrf_field() }}
+        <button class="btn primary" type="submit">Re-run research</button>
+      </form>
+    </div>
+    {% endif %}
+    {% else %}
+    <p class="muted">No research run yet.</p>
+    <div class="action-group">
+      <form method="post" action="/prospects/{{ prospect.id }}/research/start">
+        {{ csrf_field() }}
+        <button class="btn primary" type="submit">Run research</button>
+      </form>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h3>Findings</h3>
+    {% if findings %}
+    <div class="table-scroll">
+      <table class="prospects">
+        <thead>
+          <tr>
+            <th>Kind</th>
+            <th>Statement</th>
+            <th>Source</th>
+            <th>Verification</th>
+            <th>Confidence</th>
+            <th>Origin</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in findings %}
+          <tr>
+            <td><span class="badge tag">{{ f.kind }}</span></td>
+            <td>{{ f.statement }}</td>
+            <td>{% if f.source_url %}<a href="{{ f.source_url }}" target="_blank" rel="noopener" class="truncate">{{ f.source_url }}</a>{% else %}<span class="muted">none</span>{% endif %}</td>
+            <td><span class="badge stage-{{ f.verification_status|replace('_','-') }}">{{ f.verification_status|replace('_',' ') }}</span></td>
+            <td><span class="badge">{{ f.confidence }}</span></td>
+            <td><span class="badge {{ 'warn' if f.origin == 'ai' else '' }}">{{ f.origin }}</span></td>
+            <td>
+              <div class="row-actions">
+                {% if f.verification_status != 'verified' %}
+                <form method="post" action="/findings/{{ f.id }}/verify">
+                  {{ csrf_field() }}
+                  <button class="btn small" type="submit">Verify</button>
+                </form>
+                {% endif %}
+                <details>
+                  <summary class="btn small">Edit</summary>
+                  <form method="post" action="/findings/{{ f.id }}/edit">
+                    {{ csrf_field() }}
+                    <div class="field full">
+                      <label>Statement</label>
+                      <input type="text" name="statement" value="{{ f.statement }}" maxlength="500" required>
+                    </div>
+                    <div class="field full">
+                      <label>Detail (optional)</label>
+                      <textarea name="detail" rows="2">{{ f.detail or "" }}</textarea>
+                    </div>
+                    <button class="btn small primary" type="submit">Save</button>
+                  </form>
+                </details>
+                <form method="post" action="/findings/{{ f.id }}/delete" data-confirm="Delete this finding? This removes the evidence row.">
+                  {{ csrf_field() }}
+                  <button class="btn ghost small" type="submit">Delete</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="muted">No findings yet. Run research to collect evidence.</p>
+    {% endif %}
+
+    <h4>Add finding</h4>
+    <form method="post" action="/prospects/{{ prospect.id }}/findings">
+      {{ csrf_field() }}
+      <div class="field">
+        <label>Kind</label>
+        <input type="text" name="kind" maxlength="40" required placeholder="e.g. observation">
+      </div>
+      <div class="field full">
+        <label>Statement</label>
+        <input type="text" name="statement" maxlength="500" required placeholder="One sentence of evidence">
+      </div>
+      <div class="field full">
+        <label>Detail (optional)</label>
+        <textarea name="detail" rows="2"></textarea>
+      </div>
+      <div class="field full">
+        <label>Source URL (optional)</label>
+        <input type="url" name="source_url" maxlength="2000">
+      </div>
+      <div class="action-group">
+        <button class="btn primary" type="submit">Add finding</button>
+      </div>
+    </form>
+  </section>
+</div>

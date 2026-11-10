@@ -2,8 +2,8 @@
 
 Full manual walkthrough of the user flows (USER_FLOWS.md). Each flow is
 verified against the running app and backed by regression tests in `tests/`.
-"Blocked" means a defect with no workaround; "not implemented" means the
-spec promises a surface that does not exist yet (listed under *Known gaps*).
+"Blocked" means a defect with no workaround; "not implemented" means a
+spec surface is still pending (currently none — see *Known gaps*).
 
 Run the app (Windows / project default):
 
@@ -49,6 +49,7 @@ provider key required for live data) · `not implemented` = spec gap.
 | Worker claims and runs it | run → `succeeded`/`partially_completed`; no job stuck `queued` | pass — worker e2e tests |
 | Findings stored with source URL + origin | evidence retained (P7) | pass |
 | Website status classified | `no_website_found` only from successful-empty search (+dns/no-url); timeout/blocked/failed-search → `check_failed` (P6) | pass — `tests/test_website_status.py` (17 tests) |
+| Live progress | research page polls the HTMX partial every 2s while `running`; terminal fragment stops polling and refreshes findings in the same swap | pass — `tests/test_research_polling.py` |
 | Stage advances new → researched | state machine enforced | pass |
 | Second `worker --once` on empty queue | exits 0, no crash | pass (2026-11-10 QA) |
 
@@ -129,7 +130,7 @@ provider key required for live data) · `not implemented` = spec gap.
 | Step | Check | Status |
 |------|-------|--------|
 | Set stage converted | prospect leaves active counts | pass |
-| Handoff note recorded | — | **not implemented** (no note surface exists yet; `note_added` reserved in DATABASE_DESIGN) |
+| Handoff note recorded | Notes card on prospect detail: add/edit, `note_added`/`note_edited` activities | pass — `tests/test_notes.py` |
 
 ## Flow 10 — CSV import (secondary Settings utility)
 
@@ -148,7 +149,7 @@ provider key required for live data) · `not implemented` = spec gap.
 | Step | Check | Status |
 |------|-------|--------|
 | Dashboard "Needs attention" queue | overdue → pending review → failed research → unverified findings | pass (metrics match DB, 2026-11-10 QA) |
-| Fix unverified findings | — | **not implemented** (findings Verify/Edit surface not built; API_DESIGN marks it) |
+| Fix unverified findings | Verify / Edit / Delete on the research page + findings API (origin preserved, AI audit, linked-delete 409) | pass — `tests/test_findings_crud.py` |
 | Approve pending drafts | Outreach queue | pass |
 | Clear overdue follow-ups | follow-ups on prospect detail | pass |
 | Settings → Usage | provider errors visible; daily buckets don't crash (period DATE, H5) | pass — `test_website_status.py` |
@@ -193,10 +194,16 @@ provider key required for live data) · `not implemented` = spec gap.
 
 ## Test suite
 
-`uv run pytest` — **246 tests pass, 0 failed** (2026-11-10); `ruff check`,
+`uv run pytest` — **280 tests pass, 0 failed** (2026-11-10); `ruff check`,
 `ruff format --check`, `mypy app` all clean.
 
 Coverage by area (newest first):
+- `test_findings_crud.py` — 18: forced provenance (P5), duplicate/collision
+  409s, verify idempotency, AI first-edit audit, linked-delete guard, HTML
+  + API parity incl. list filters
+- `test_notes.py` — 10: add/edit + activities, validation, both HTML routes
+- `test_research_polling.py` — 6: running→polling attrs, terminal→attrs
+  dropped (self-stopping), findings inside the fragment, htmx vendored
 - `test_regressions_round4.py` — 12: partial message index (D1), template
   compile sweep + the three former 500 pages (D2), clear-reason 400 (D3),
   reply form + API (D4), merge identical-findings (N1), merge suppression
@@ -253,11 +260,11 @@ fixed or documented. Invariant grep re-confirmed: no WhatsApp send path.
 
 ## Known gaps (spec promises not yet built)
 
-- Findings evidence CRUD (verify/edit/delete) and its activity types.
-- Notes surface (Flow 9 handoff note) and `note_added`.
-- HTMX research-progress polling (research page shows status on reload).
-- `POST /prospects/{id}/findings`, `/research/status` — documented in
-  API_DESIGN as *not implemented*.
+**None as of 2026-11-10.** The last three — findings evidence CRUD, the
+notes surface (Flow 9), and HTMX research-progress polling — shipped in
+this pass and are covered by `test_findings_crud.py`, `test_notes.py` and
+`test_research_polling.py`. (The `POST /prospects/{id}/findings` and
+`/research/status` rows in API_DESIGN are now live, not "not implemented".)
 
 ## Phase 5 — Hardening & Release (complete)
 

@@ -29,6 +29,8 @@ from app.schemas import (
     DedupeCheckOut,
     DuplicatePairOut,
     ErrorOut,
+    FindingCreateIn,
+    FindingEditIn,
     FindingOut,
     FollowUpCreate,
     FollowUpOut,
@@ -61,6 +63,7 @@ from app.schemas import (
     SuppressionOut,
     WebsiteCheckOut,
 )
+from app.services import findings as findings_service
 from app.services import import_service, merge_service
 from app.services import opportunity as opportunity_service
 from app.services import outreach as outreach_service
@@ -449,17 +452,115 @@ def get_research_run(
 def list_findings(
     prospect_id: int = Path(ge=1),
     db: Session = Depends(get_db),
+    kind: str | None = None,
+    verification_status: str | None = None,
+    origin: str | None = None,
 ) -> list[FindingOut]:
     prospect = db.get(Prospect, prospect_id)
     if prospect is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prospect not found")
-    rows = (
-        db.query(Finding)
-        .filter_by(prospect_id=prospect_id)
-        .order_by(Finding.recorded_at.desc())
-        .all()
-    )
+    query = db.query(Finding).filter_by(prospect_id=prospect_id)
+    if kind:
+        query = query.filter(Finding.kind == kind)
+    if verification_status:
+        query = query.filter(Finding.verification_status == verification_status)
+    if origin:
+        query = query.filter(Finding.origin == origin)
+    rows = query.order_by(Finding.recorded_at.desc()).all()
     return [FindingOut.model_validate(r) for r in rows]
+
+
+@router.post(
+    "/prospects/{prospect_id}/findings",
+    response_model=FindingOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={400: {"model": ErrorOut}, 404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
+)
+def create_finding_api(
+    prospect_id: int = Path(ge=1),
+    payload: FindingCreateIn = Body(...),
+    db: Session = Depends(get_db),
+) -> FindingOut:
+    """Add a manually entered finding (forced human/unverified/low, P5)."""
+    finding, error = findings_service.create_finding(
+        db,
+        prospect_id=prospect_id,
+        kind=payload.kind,
+        statement=payload.statement,
+        detail=payload.detail,
+        source_url=payload.source_url,
+        actor="user",
+    )
+    if error:
+        if error == "Prospect not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        if error == findings_service.DUPLICATE_ERROR:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
+    assert finding is not None
+    return FindingOut.model_validate(finding)
+
+
+@router.post(
+    "/findings/{finding_id}/edit",
+    response_model=FindingOut,
+    responses={400: {"model": ErrorOut}, 404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
+)
+def edit_finding_api(
+    finding_id: int = Path(ge=1),
+    payload: FindingEditIn = Body(...),
+    db: Session = Depends(get_db),
+) -> FindingOut:
+    """Edit statement/detail only; origin is preserved and the edit is audited."""
+    finding, error = findings_service.edit_finding(
+        db,
+        finding_id=finding_id,
+        statement=payload.statement,
+        detail=payload.detail,
+        actor="user",
+    )
+    if error:
+        if error == "Finding not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        if error == findings_service.DUPLICATE_ERROR:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
+    assert finding is not None
+    return FindingOut.model_validate(finding)
+
+
+@router.post(
+    "/findings/{finding_id}/verify",
+    response_model=FindingOut,
+    responses={404: {"model": ErrorOut}},
+)
+def verify_finding_api(
+    finding_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> FindingOut:
+    """Verify a finding (idempotent)."""
+    finding, error = findings_service.verify_finding(db, finding_id=finding_id, actor="user")
+    if error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+    assert finding is not None
+    return FindingOut.model_validate(finding)
+
+
+@router.post(
+    "/findings/{finding_id}/delete",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
+)
+def delete_finding_api(
+    finding_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+) -> None:
+    """Hard-delete a finding unless an opportunity links it."""
+    _, error = findings_service.delete_finding(db, finding_id=finding_id, actor="user")
+    if error:
+        if error == "Finding not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
 
 
 @router.get(

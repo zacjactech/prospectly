@@ -31,14 +31,24 @@
     });
   }
 
-  /* ----- Destructive confirms: <form data-confirm="..."> ----- */
-  document.querySelectorAll("form[data-confirm]").forEach(function (form) {
-    form.addEventListener("submit", function (e) {
-      if (!window.confirm(form.getAttribute("data-confirm") || "Are you sure?")) {
+  /* ----- Destructive confirms: <form data-confirm="..."> -----
+     Delegated to document in the CAPTURE phase so that (a) forms injected
+     by HTMX swaps (research page polling) are covered — one-time binding
+     missed them, silently dropping the Delete confirmation — and (b) the
+     confirm runs before htmx's own submit handler can fire the request. */
+  document.addEventListener(
+    "submit",
+    function (e) {
+      var form = e.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      var message = form.getAttribute("data-confirm");
+      if (message && !window.confirm(message)) {
         e.preventDefault();
+        e.stopImmediatePropagation();
       }
-    });
-  });
+    },
+    true
+  );
 
   /* ----- Whole-row navigation: <tr data-href="/prospects/1"> ----- */
   document.querySelectorAll("tr[data-href]").forEach(function (row) {

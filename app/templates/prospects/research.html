@@ -5,32 +5,14 @@
     <span class="prospect-name">{{ prospect.business_name }}</span>
     <div class="badge-row">
       <span class="badge">Research</span>
-      {% if latest_run %}<span class="badge stage-{{ latest_run.status|replace('_','-') }}">{{ latest_run.status|replace('_',' ') }}</span>{% endif %}
     </div>
   </div>
   <div class="header-actions">
     <a href="/prospects/{{ prospect.id }}" class="btn">Back to prospect</a>
-    {% if latest_run and latest_run.status != "running" %}
-    <form method="post" action="/prospects/{{ prospect.id }}/research/start" data-confirm="Run research again? This refreshes all findings.">
-      <button class="btn primary" type="submit">Re-run research</button>
-    </form>
-    {% elif not latest_run %}
-    <form method="post" action="/prospects/{{ prospect.id }}/research/start">
-      <button class="btn primary" type="submit">Run research</button>
-    </form>
-    {% else %}
-    <button class="btn primary" type="button" disabled>Research running...</button>
-    {% endif %}
   </div>
 </div>
 
-{% if latest_run and latest_run.status == "running" %}
-<div class="flash info">Research is in progress. Refresh this page to see updated results.</div>
-{% endif %}
-
-{% if latest_run and latest_run.status == "failed" %}
-<div class="flash error">Research failed: {{ latest_run.error or "Unknown error" }}</div>
-{% endif %}
+{% include "partials/research_live.html" %}
 
 <section class="card">
   <h3>Website check</h3>
@@ -59,40 +41,6 @@
   </dl>
   {% else %}
   <p class="muted">No website check has been run yet.</p>
-  {% endif %}
-</section>
-
-<section class="card">
-  <h3>Findings</h3>
-  {% if findings %}
-  <div class="table-scroll">
-    <table class="prospects">
-      <thead>
-        <tr>
-          <th>Kind</th>
-          <th>Statement</th>
-          <th>Source</th>
-          <th>Verification</th>
-          <th>Confidence</th>
-          <th>Origin</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for f in findings %}
-        <tr>
-          <td><span class="badge tag">{{ f.kind }}</span></td>
-          <td>{{ f.statement }}</td>
-          <td>{% if f.source_url %}<a href="{{ f.source_url }}" target="_blank" rel="noopener" class="truncate">{{ f.source_url }}</a>{% else %}<span class="muted">none</span>{% endif %}</td>
-          <td><span class="badge stage-{{ f.verification_status|replace('_','-') }}">{{ f.verification_status|replace('_',' ') }}</span></td>
-          <td><span class="badge">{{ f.confidence }}</span></td>
-          <td><span class="badge {{ 'warn' if f.origin == 'ai' else '' }}">{{ f.origin }}</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <p class="muted">No findings yet. Run research to collect evidence.</p>
   {% endif %}
 </section>
 

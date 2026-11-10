@@ -21,8 +21,9 @@ Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamp
 | GET/POST | `/prospects/{id}/edit` | Edit |
 | POST | `/prospects/{id}/archive` · `/unarchive` | Soft archive |
 | POST | `/prospects/{id}/research/start` | Queue research run |
-| GET | `/prospects/{id}/research/status` | *(documented, not implemented — the research page shows run status on reload; no HTMX polling yet)* |
-| — | `/prospects/{id}/findings` CRUD | *(not implemented — findings are written by the research pipeline; evidence editing ships with the findings surface. The activity types `finding_added`/`finding_verified`/`finding_edited` are reserved for it)* |
+| GET | `/prospects/{id}/research/status` | HTMX partial: run progress + findings (polled every 2s while the run is `running`; terminal renders drop the `hx-*` attrs and polling stops) |
+| POST | `/prospects/{id}/findings` · `/findings/{fid}/edit` · `/verify` · `/delete` | Findings evidence CRUD — create forces `origin=human`/`unverified`/`low`/`source_type=user` (P5); edit keeps `origin`, audits `edited_by` + first-edit `original_statement` for AI rows; delete 409 while linked to an opportunity (P7) |
+| POST | `/prospects/{id}/notes` · `/notes/{nid}/edit` | Notes add/edit (Flow 9 handoff note; HTML surface only) |
 | POST | `/prospects/{id}/opportunities` · `/{oid}/validate` · `/{oid}/dismiss` | Opportunity CRUD |
 | POST | `/prospects/{id}/draft/generate` | Create draft (AI or template) |
 | POST | `/messages/{id}/edit` · `/submit` · `/approve` · `/open` · `/confirm-sent` | Approval gate chain |
@@ -81,9 +82,11 @@ HTMX partials return HTML fragments (`HX-Request` header honored); full page loa
 |---|---|---|
 | POST | `/prospects/{id}/research/runs` | `202 {run_id, job_id}` |
 | GET | `/research/runs/{run_id}` | `ResearchRun {status, steps, error, timings}` |
-| GET | `/prospects/{id}/findings` | `FindingList` (filter `kind`, `verification_status`, `origin`) |
-| POST | `/prospects/{id}/findings` | `201 Finding` (`source_type='user'` path) |
-| PATCH | `/findings/{fid}` | `Finding` — changing `verification_status`/`confidence` requires `origin` preserved + audit payload |
+| GET | `/prospects/{id}/findings` | `Finding[]` (query filters `kind`, `verification_status`, `origin`) |
+| POST | `/prospects/{id}/findings` | `201 Finding` (`source_type='user'` path; `origin`/`verification_status`/`confidence` are forced server-side) |
+| POST | `/findings/{fid}/edit` | `Finding` — `statement`/`detail` only; `origin` preserved, `edited_by` + first-edit `original_statement` audit |
+| POST | `/findings/{fid}/verify` | `Finding` — `verification_status → verified` (human action; idempotent) |
+| POST | `/findings/{fid}/delete` | `204` — `409` while linked to an opportunity (evidence must stand behind it) |
 | GET | `/prospects/{id}/website-checks` | `WebsiteCheck[]` history |
 
 ### 2.4 Opportunities

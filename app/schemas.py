@@ -185,6 +185,27 @@ class FindingOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class FindingCreateIn(BaseModel):
+    """Manual finding create body (API_DESIGN §2.3, ``source_type='user'``).
+
+    ``origin``/``verification_status``/``confidence`` are deliberately absent:
+    the service forces human/unverified/low (P5). Empty values are validated in
+    the service so the API returns 400 (not a 422) for them.
+    """
+
+    kind: str = ""
+    statement: str = ""
+    detail: str | None = None
+    source_url: str | None = None
+
+
+class FindingEditIn(BaseModel):
+    """Editable finding fields only (statement/detail); origin stays unchanged."""
+
+    statement: str = ""
+    detail: str | None = None
+
+
 class OutreachMessageOut(BaseModel):
     id: int
     prospect_id: int

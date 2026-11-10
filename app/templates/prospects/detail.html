@@ -329,6 +329,45 @@
 {% endif %}
 
 <section class="card">
+  <h3>Notes</h3>
+  {% if notes %}
+  <ul class="mini-list">
+    {% for n in notes %}
+    <li>
+      <span class="muted small">{{ n.updated_at.strftime('%b %d, %Y %H:%M') }}</span>
+      <span>{{ n.body }}</span>
+      <div class="row-actions">
+        <details>
+          <summary class="btn small">Edit</summary>
+          <form method="post" action="/notes/{{ n.id }}/edit">
+            {{ csrf_field() }}
+            <div class="field full">
+              <label>Note</label>
+              <textarea name="body" rows="3" maxlength="2000" required>{{ n.body }}</textarea>
+            </div>
+            <button class="btn small primary" type="submit">Save note</button>
+          </form>
+        </details>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No notes yet.</p>
+  {% endif %}
+  <form method="post" action="/prospects/{{ prospect.id }}/notes">
+    {{ csrf_field() }}
+    <div class="field full">
+      <label>Add note</label>
+      <textarea name="body" rows="3" maxlength="2000" required placeholder="e.g. What was agreed on the call"></textarea>
+    </div>
+    <div class="action-group">
+      <button class="btn primary" type="submit">Add note</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
   <h3>Recent activity</h3>
   {% if activities %}
   <ul class="activity-list">

@@ -87,6 +87,7 @@ Add/import flow: candidate keys are checked → exact match blocks with "existin
 
 **Unique:** `(prospect_id, finding_key)`.
 **Invariant:** `origin='ai'` ⇒ initial `verification_status='unverified'` AND `confidence='low'`; only a human edit/action may raise them (service-enforced).
+**Service guards (`app/services/findings.py`):** manual create forces `origin='human'` / `unverified` / `low` / `source_type='user'` / `research_run_id=NULL` (client-supplied provenance is ignored); `verify` is the human action that may raise status (idempotent); `edit` changes `statement`/`detail` only, always sets `edited_by`, and preserves `original_statement` on the first edit of an AI row; hard `delete` is refused (`409`) while `opportunity_findings` references the row, because that FK cascades the evidence links.
 
 ### 2.7 `website_checks`
 | Column | Notes |
@@ -144,9 +145,9 @@ Index: `(status, due_date)` for the dashboard query.
 ### 2.11 `activities` — append-only history (P: complete activity history)
 `id, prospect_id FK, type, actor ('user','system','ai'), payload JSON, created_at`.
 
-Types: `created`, `imported`, `edited`, `archived`, `unarchived`, `merged`, `merged_into`, `discovered`, `job_reclaimed`, `research_started`, `research_finished`, `opportunity_created`, `opportunity_validated`, `opportunity_dismissed`, `draft_created`, `draft_edited`, `draft_submitted`, `draft_approved`, `whatsapp_opened`, `message_sent_confirmed`, `message_not_sent`, `reply_received`, `stage_changed`, `follow_up_set`, `follow_up_completed`, `follow_up_cancelled`, `retention_review_flagged`, `retention_review_cleared`, `do_not_contact_set`, `do_not_contact_cleared`, `tag_added`.
+Types: `created`, `imported`, `edited`, `archived`, `unarchived`, `merged`, `merged_into`, `discovered`, `job_reclaimed`, `research_started`, `research_finished`, `finding_added`, `finding_verified`, `finding_edited`, `finding_deleted`, `opportunity_created`, `opportunity_validated`, `opportunity_dismissed`, `draft_created`, `draft_edited`, `draft_submitted`, `draft_approved`, `whatsapp_opened`, `message_sent_confirmed`, `message_not_sent`, `reply_received`, `stage_changed`, `follow_up_set`, `follow_up_completed`, `follow_up_cancelled`, `retention_review_flagged`, `retention_review_cleared`, `do_not_contact_set`, `do_not_contact_cleared`, `note_added`, `note_edited`, `tag_added`.
 
-*(Reconciled 2026-11-10 against code: every listed type is emitted by at least one code path. Types for surfaces not yet built — findings CRUD (`finding_added`/`finding_verified`/`finding_edited`) and notes (`note_added`) — are reserved and re-added when those surfaces ship. `research_started` is logged by `queue_research_job`.)*
+*(Reconciled 2026-11-10 against code: every listed type is emitted by at least one code path — findings CRUD by `app/services/findings.py`, notes by `app/services/notes.py`, `research_started` by `queue_research_job`.)*
 
 Never updated or deleted (no `updated_at`).
 
