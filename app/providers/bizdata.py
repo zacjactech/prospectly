@@ -57,6 +57,8 @@ class BizDataDiscoveryProvider:
 
         own_client = self._client is None
         client = self._client or httpx.AsyncClient(timeout=30.0)
+        failures = 0
+        last_error: httpx.HTTPError | None = None
         try:
             for industry in industries:
                 for location in locations:
@@ -72,8 +74,13 @@ class BizDataDiscoveryProvider:
                             },
                         )
                         response.raise_for_status()
-                    except httpx.HTTPError:
-                        continue  # graceful degradation — OSM is the fallback
+                    except httpx.HTTPError as exc:
+                        # Partial degradation stays graceful, but a run where
+                        # EVERY call failed is an error, not an empty result
+                        # (live-smoke finding — same P6 reasoning as search).
+                        failures += 1
+                        last_error = exc
+                        continue
 
                     data = response.json()
                     if not isinstance(data, list):
@@ -99,6 +106,8 @@ class BizDataDiscoveryProvider:
                         )
                 if len(results) >= max_results:
                     break
+            if not results and failures and last_error is not None:
+                raise last_error
         finally:
             if own_client:
                 await client.aclose()

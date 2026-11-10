@@ -6,6 +6,8 @@ required. Results are a starting point, not an authoritative directory.
 
 from __future__ import annotations
 
+import re
+
 import httpx
 
 
@@ -19,9 +21,11 @@ class OverpassDiscoveryProvider:
         *,
         base_url: str = "https://overpass-api.de/api/interpreter",
         timeout_seconds: int = 60,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
+        self._client = client
 
     async def discover(
         self,
@@ -33,39 +37,45 @@ class OverpassDiscoveryProvider:
         if not industries or not locations:
             return []
 
-        # Build an Overpass QL query for businesses matching tags in target areas.
-        # We search for common business tags across the listed locations.
-        tag_filters = "|".join(industries)
+        # Escape user profile strings for the OQL string + regex contexts.
+        tag_filters = "|".join(re.escape(ind.strip()) for ind in industries if ind.strip())
+        area_names = [
+            loc.strip().replace("\\", "").replace('"', "")[:80] for loc in locations if loc.strip()
+        ][:3]
+        if not tag_filters or not area_names:
+            return []
 
-        query = f"""
-        [out:json][timeout:{self.timeout_seconds}];
-        (
-          node["shop"~"({tag_filters})"](area.searchArea);
-          node["amenity"~"({tag_filters})"](area.searchArea);
-          node["tourism"~"({tag_filters})"](area.searchArea);
-          way["shop"~"({tag_filters})"](area.searchArea);
-          way["amenity"~"({tag_filters})"](area.searchArea);
-          way["tourism"~"({tag_filters})"](area.searchArea);
-        );
-        out center tags {max_results};
-        """
+        # Live-smoke finding: the previous query only matched shop=* (hotels
+        # are tourism=*) and ignored locations entirely — it could never find
+        # e.g. a hotel in Berlin. Overpass resolves named admin areas itself,
+        # so scope by area (no Nominatim needed) and cover shop+amenity+tourism
+        # on nodes and ways.
+        area_decls = "\n".join(
+            f'area["name"="{name}"]->.a{i};' for i, name in enumerate(area_names)
+        )
+        clauses: list[str] = []
+        for i in range(len(area_names)):
+            for key in ("shop", "amenity", "tourism"):
+                for element in ("node", "way"):
+                    clauses.append(f'  {element}["{key}"~"({tag_filters})"](area.a{i});')
+        query = (
+            f"[out:json][timeout:{self.timeout_seconds}];\n"
+            f"{area_decls}\n"
+            f"(\n" + "\n".join(clauses) + "\n);\n"
+            f"out tags center {max_results};"
+        )
 
-        # Note: Overpass requires named areas (searchArea) which we'd resolve
-        # via a separate Nominatim lookup. For MVP we do a simpler global query
-        # filtered by location names in tags where possible.
-        query = f"""
-        [out:json][timeout:{self.timeout_seconds}];
-        node["name"]["shop"~"({tag_filters})"];
-        out tags center {max_results};
-        """
-
-        async with httpx.AsyncClient(timeout=float(self.timeout_seconds)) as client:
-            try:
-                response = await client.post(self.base_url, data={"data": query})
-                response.raise_for_status()
-            except httpx.HTTPError:
-                return []
-            data = response.json()
+        # HTTP failures RAISE (P6): a failed discovery must read as a failed
+        # step (partially_completed), not as "found nothing".
+        own_client = self._client is None
+        client = self._client or httpx.AsyncClient(timeout=float(self.timeout_seconds))
+        try:
+            response = await client.post(self.base_url, data={"data": query})
+            response.raise_for_status()
+        finally:
+            if own_client:
+                await client.aclose()
+        data = response.json()
 
         results: list[dict[str, str]] = []
         for element in data.get("elements", [])[:max_results]:

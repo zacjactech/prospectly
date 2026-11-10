@@ -194,7 +194,7 @@ provider key required for live data) · `not implemented` = spec gap.
 
 ## Test suite
 
-`uv run pytest` — **281 tests pass, 0 failed** (2026-11-10); `ruff check`,
+`uv run pytest` — **291 tests pass, 0 failed** (2026-11-10); `ruff check`,
 `ruff format --check`, `mypy app` all clean.
 
 Coverage by area (newest first):
@@ -280,10 +280,59 @@ First real-browser pass over the previously cookie-jar-only behaviors
   (`test_smoke.py`); no template may contain an inline event handler
   (`test_regressions_round4.py`).
 
+## Live smoke — Phase 1, keyless — 2026-11-10
+
+Real network, isolated instance (`/tmp/opencode/live-smoke`), no API keys:
+DDGS search + OSM discovery + template AI. Worker CLI processed every job.
+
+- **Flow 1 (discovery)**: profile → Run discovery → worker → **5 real
+  candidates** (real names/URLs from live DuckDuckGo) created as `new`;
+  job `succeeded`, attempts=1. OSM path: `overpass-api.de` returns **406 at
+  the nginx edge for every request from this host** (v4 and v6, even a
+  one-node query) — environment block, not an app defect; the run now
+  honestly reports `partially_completed` with the real error instead of the
+  old silent "succeeded, 0 candidates".
+- **Flow 2 (research, three classification cases)**:
+  - `python.org` → HTTP 200 → `website_status=reachable` + "Website
+    reachable" finding with source URL;
+  - `hyatt.com` → HTTP 403 (bot wall) → `check_failed` ("could not
+    verify", never "no website") — **C3 in anger**;
+  - `*.example` NXDOMAIN → `dns_failure`, and because the live search
+    returned results → `check_failed` (C3: dns_failure alone is not
+    enough when search found sites) — partial run captured the real
+    `Errno -2` message.
+- **Flow 5**: template draft (grounded) → submit → approve → open →
+  **wa.me URL with the exact E.164 phone** → not-sent → approved,
+  `opened_at` cleared. No message sent (P2/P4).
+- **H5**: one `provider_usage` row per provider/day with accumulated
+  counts (`http_fetch/inspect calls=2`, `ddgs/search calls=2`) — the
+  second-same-day upsert that used to crash now merges.
+- **Invariants on the live DB**: 0 AI-origin findings (all provider,
+  `unverified`), no WhatsApp send path in `app/`, all jobs terminal,
+  idle worker exits 0.
+
+### Findings found & fixed in the live loop (commit below)
+
+1. **Every provider swallowed HTTP errors and returned `[]`** — a failed
+   search was indistinguishable from "no results" and could feed P6's
+   `no_website_found` with a failed search. ddgs/tavily/serper/osm now
+   **raise**; bizdata raises only when *every* fan-out call failed
+   (partial failure still degrades gracefully). Live-proven: the Overpass
+   406 surfaced as `partially_completed` with the real error.
+2. **OSM query was structurally dead for its flagship case**: it only
+   matched `shop=*` (hotels are `tourism=*`) and ignored locations
+   entirely (the area-scoped query was dead code, overwritten). Now:
+   named-area scoping (`area["name"="…"]`, no Nominatim needed) ×
+   shop/amenity/tourism × node/way, with profile strings escaped.
+   Unit-verified (`test_search_discovery_providers.py`, 9 tests);
+   live re-test deferred — Overpass blocks this host (see above).
+
 ### Not verified in this pass (honest limits)
 
-- Live external providers (OSM/BizData/Tavily/Serper/DDGS), live website
-  inspection, live AI providers — offline only, fakes where needed.
+- Live external providers: **DDGS search + real website inspection
+  verified live (2026-11-10)**; Tavily/Serper/AI providers still
+  offline-only (Phase 2, keyed); OSM unreachable from this host
+  (406 at edge — re-test from an unblocked network).
 - Backup **restore** and `alembic downgrade` (upgrade path tested).
 - Non-loopback bind with token (startup refusal tested; live LAN exposure
   not exercised) — `Secure` cookie flag is off by design for loopback.

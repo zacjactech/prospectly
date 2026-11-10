@@ -96,7 +96,13 @@ async def test_bizdata_discover_deduplicates_by_name_and_address() -> None:
 
 
 @pytest.mark.asyncio
-async def test_bizdata_discover_handles_http_error_gracefully() -> None:
+async def test_bizdata_discover_raises_when_every_call_fails() -> None:
+    """Total failure must RAISE (P6, live-smoke finding).
+
+    Returning [] would be indistinguishable from "found nothing" and could
+    feed the no_website_found rule with a failed search.
+    """
+
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(502, text="bad gateway")
 
@@ -104,13 +110,36 @@ async def test_bizdata_discover_handles_http_error_gracefully() -> None:
     client = httpx.AsyncClient(transport=transport)
     provider = BizDataDiscoveryProvider(client=client)
 
+    with pytest.raises(httpx.HTTPStatusError):
+        await provider.discover(
+            industries=["cafe"],
+            locations=["Berlin"],
+            max_results=10,
+        )
+
+
+@pytest.mark.asyncio
+async def test_bizdata_discover_degrades_when_some_calls_fail() -> None:
+    """Partial failure stays graceful: succeeding locations still return."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("location") == "Berlin":
+            return httpx.Response(502, text="bad gateway")
+        return httpx.Response(
+            200,
+            json=[{"name": "Cafe Paris", "address": "1 Rue Ex", "website": "", "phone": ""}],
+        )
+
+    transport = httpx.MockTransport(handler)
+    client = httpx.AsyncClient(transport=transport)
+    provider = BizDataDiscoveryProvider(client=client)
+
     results = await provider.discover(
         industries=["cafe"],
-        locations=["Berlin"],
+        locations=["Berlin", "Paris"],
         max_results=10,
     )
-
-    assert results == []
+    assert [r["name"] for r in results] == ["Cafe Paris"]
 
 
 @pytest.mark.asyncio
