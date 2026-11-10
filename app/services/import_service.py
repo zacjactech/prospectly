@@ -14,7 +14,9 @@ import contextlib
 import csv
 import io
 import json
-from datetime import UTC, datetime
+import re
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -32,6 +34,17 @@ MAX_UPLOAD_ROWS = settings.csv_max_rows
 
 # Required CSV column (at least one alias must be present).
 _REQUIRED_COLUMN = "business_name"
+
+# phone_raw may legitimately start with '+' (E.164), so it gets a shape check
+# instead of the generic formula-prefix rejection: letters/quotes/bangs — the
+# ingredients of a spreadsheet formula payload like '+HYPERLINK(...)' — do not
+# match this pattern (M8).
+_PHONE_SHAPE_RE = re.compile(r"\+?[\d\s().\-/]{1,80}")
+
+# Import session files hold parsed personal data — they expire after 24h and
+# abandoned ones are swept on the next save (data hygiene, SECURITY §8).
+_IMPORT_SESSION_TTL = timedelta(hours=24)
+_TOKEN_RE = re.compile(r"[0-9a-f]{24}")
 
 # Canonical field -> set of accepted header aliases (case-insensitive).
 _COLUMN_ALIASES: dict[str, set[str]] = {
@@ -119,6 +132,11 @@ def _validate_row(
         phone_raw = phone_raw.strip()
         if len(phone_raw) > 80:
             errors.append("phone must be 80 characters or fewer")
+        elif not _PHONE_SHAPE_RE.fullmatch(phone_raw):
+            # E.164 numbers start with '+', which the generic formula guard
+            # would reject — enforce phone shape instead (letters, quotes and
+            # other formula ingredients are still refused).
+            errors.append("phone contains invalid characters")
 
     email = row_data.get("email")
     if email:
@@ -153,9 +171,12 @@ def _validate_row(
 
     # Formula-injection guard (§6): cells starting with =, +, -, or @ are
     # formula-injection vectors when opened in spreadsheet software. Reject
-    # them rather than storing or escaping.
+    # them rather than storing or escaping. phone_raw is exempt (checked by
+    # shape above) so international '+49…' numbers stay importable.
     _FORMULA_PREFIXES = ("=", "+", "-", "@")
     for field_name, value in row_data.items():
+        if field_name == "phone_raw":
+            continue
         if (
             value
             and isinstance(value, str)
@@ -362,7 +383,15 @@ def commit_import(
     # Re-run dedupe at commit time (live DB state may have changed).
     for index in row_indices:
         row = rows_by_index.get(index)
-        if row is None or row["status"] != "valid":
+        if row is None:
+            continue
+        if row["status"] == "duplicate":
+            # Counted, not silently dropped — the summary must account for
+            # every selected row (QA: selecting duplicates reported zeros).
+            skipped_duplicates += 1
+            continue
+        if row["status"] == "error":
+            errors += 1
             continue
 
         fields = row["fields"]
@@ -438,28 +467,66 @@ def commit_import(
     }
 
 
+def _session_path(token: str) -> Path | None:
+    """Resolve the session file for ``token``.
+
+    Returns None when the token is not one we generated (24 hex chars) so
+    user-supplied tokens can never steer file access outside uploads/.
+    """
+    if not _TOKEN_RE.fullmatch(token):
+        return None
+    return settings.uploads_dir / f"import_{token}.json"
+
+
+def _sweep_expired_sessions() -> None:
+    """Best-effort removal of abandoned session files (they hold personal data)."""
+    cutoff = datetime.now(UTC) - _IMPORT_SESSION_TTL
+    for path in settings.uploads_dir.glob("import_*.json"):
+        try:
+            if datetime.fromtimestamp(path.stat().st_mtime, tz=UTC) < cutoff:
+                path.unlink()
+        except (OSError, OverflowError, ValueError):
+            continue
+
+
 def save_import_session(token: str, data: dict[str, Any]) -> str:
     """Persist parsed import data to a temp file; return the file path."""
     settings.ensure_dirs()
-    path = settings.uploads_dir / f"import_{token}.json"
+    _sweep_expired_sessions()
+    path = _session_path(token)
+    if path is None:
+        raise ValueError("invalid import session token")
     payload = {"data": data, "created_at": datetime.now(UTC).isoformat()}
     path.write_text(json.dumps(payload), encoding="utf-8")
     return str(path)
 
 
 def load_import_session(token: str) -> dict[str, Any] | None:
-    """Load parsed import data from a temp file."""
-    path = settings.uploads_dir / f"import_{token}.json"
-    if not path.exists():
+    """Load parsed import data from a temp file; None when missing/expired."""
+    path = _session_path(token)
+    if path is None or not path.exists():
         return None
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-        return payload.get("data")
-    except (json.JSONDecodeError, OSError):
+        created_raw = payload.get("created_at")
+        created_at = datetime.fromisoformat(created_raw) if created_raw else None
+    except (json.JSONDecodeError, OSError, TypeError, ValueError):
         return None
+    if (
+        created_at is None
+        or created_at.tzinfo is None
+        or datetime.now(UTC) - created_at > _IMPORT_SESSION_TTL
+    ):
+        with contextlib.suppress(OSError):
+            path.unlink()
+        return None
+    return payload.get("data")
 
 
 def delete_import_session(token: str) -> None:
     """Remove a temp import file (best-effort)."""
+    path = _session_path(token)
+    if path is None:
+        return
     with contextlib.suppress(OSError):
-        (settings.uploads_dir / f"import_{token}.json").unlink()
+        path.unlink()

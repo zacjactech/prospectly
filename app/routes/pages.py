@@ -716,12 +716,15 @@ def import_preview_page(
             preview = import_service.parse_csv(
                 content, default_country=settings.phone_default_country
             )
-        except ImportError as exc:
+        except import_service.ImportError as exc:
+            # import_service.ImportError subclasses ValueError — catching the
+            # builtin here let every structurally invalid CSV escape as a 500.
             return templates.TemplateResponse(
                 request=request,
                 name="settings/import.html",
                 context={
                     "app_name": settings.app_name,
+                    "settings": settings,
                     "step": 1,
                     "error": str(exc),
                 },
@@ -734,6 +737,7 @@ def import_preview_page(
             name="settings/import.html",
             context={
                 "app_name": settings.app_name,
+                "settings": settings,
                 "step": 1,
                 "error": "No CSV file provided.",
             },
@@ -804,6 +808,7 @@ def import_commit_page(
             name="settings/import.html",
             context={
                 "app_name": settings.app_name,
+                "settings": settings,
                 "step": 1,
                 "error": "Import session expired or not found. Please re-upload.",
             },

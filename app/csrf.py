@@ -47,11 +47,18 @@ def csrf_token(request: Request) -> str:
     """Return the current CSRF token for the request (cookie value).
 
     Used by templates via ``csrf_field()`` and by JSON clients reading the
-    cookie. Returns a fresh token if none exists yet.
+    cookie. On a first visit (no cookie yet) returns the token the middleware
+    pre-seeded on ``request.state`` — the same value the middleware will set
+    as the cookie — so the rendered form always matches the cookie (H4:
+    previously the form got one random token and the cookie another, making
+    every first submit fail with 403).
     """
     token = _get_cookie_token(request)
     if token is None:
-        token = _new_token()
+        token = getattr(request.state, "csrf_token", None)
+        if token is None:
+            token = _new_token()
+            request.state.csrf_token = token
     return token
 
 
@@ -69,16 +76,47 @@ def _tokens_match(cookie_token: str | None, presented_token: str | None) -> bool
     return secrets.compare_digest(cookie_token, presented_token)
 
 
-def _extract_form_token(body: bytes, content_type: str) -> str | None:
-    """Extract the csrf_token field from a URL-encoded form body."""
-    if "application/x-www-form-urlencoded" not in content_type:
-        return None
-    from urllib.parse import parse_qs
+def _extract_multipart_token(body: bytes) -> str | None:
+    """Best-effort extraction of the ``csrf_token`` field from a multipart body.
 
-    parsed = parse_qs(body.decode("utf-8", errors="replace"))
-    tokens = parsed.get(_FORM_FIELD_NAME)
-    if tokens:
-        return tokens[0]
+    Plain HTML forms cannot send the ``X-CSRF-Token`` header, so a
+    ``multipart/form-data`` upload must carry the token in its body. Scans for
+    the csrf field's ``Content-Disposition`` and reads the value that follows.
+    The csrf field is rendered before any file input, so the first match is
+    the real field; a file part that *contains* the marker can only inject a
+    wrong value, which the cookie comparison still rejects (fail closed).
+    """
+    idx = body.find(b'name="csrf_token"')
+    if idx == -1:
+        idx = body.find(b"name=csrf_token")
+        if idx == -1:
+            return None
+    sep = body.find(b"\r\n\r\n", idx)
+    if sep == -1:
+        return None
+    start = sep + 4
+    end = body.find(b"\r\n", start)
+    if end == -1:
+        return None
+    try:
+        token = body[start:end].decode("ascii")
+    except UnicodeDecodeError:
+        return None
+    return token or None
+
+
+def _extract_form_token(body: bytes, content_type: str) -> str | None:
+    """Extract the csrf_token field from a form body (urlencoded or multipart)."""
+    if "application/x-www-form-urlencoded" in content_type:
+        from urllib.parse import parse_qs
+
+        parsed = parse_qs(body.decode("utf-8", errors="replace"))
+        tokens = parsed.get(_FORM_FIELD_NAME)
+        if tokens:
+            return tokens[0]
+        return None
+    if "multipart/form-data" in content_type:
+        return _extract_multipart_token(body)
     return None
 
 
@@ -86,9 +124,9 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     """Reject state-changing requests that lack a matching CSRF token."""
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        if request.method in _MUTATING_METHODS:
-            cookie_token = _get_cookie_token(request)
+        cookie_token = _get_cookie_token(request)
 
+        if request.method in _MUTATING_METHODS:
             # Read + cache the body so downstream form()/json() parsing still
             # works, and extract the csrf_token field if it's a form post.
             body = await request.body()
@@ -116,15 +154,21 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                     status_code=403,
                 )
 
+        # First visit (no cookie yet): pre-seed ONE token that both the
+        # rendered forms (via csrf_token()) and the Set-Cookie below use —
+        # otherwise the form and the cookie carry different random tokens
+        # and the first submit always fails.
+        if cookie_token is None and getattr(request.state, "csrf_token", None) is None:
+            request.state.csrf_token = _new_token()
+
         response = await call_next(request)
 
         # Set/refresh the csrf_token cookie on every response so the client
         # always has a current token for the next mutating request.
-        cookie_token = _get_cookie_token(request)
         if cookie_token is None:
             response.set_cookie(
                 _COOKIE_NAME,
-                _new_token(),
+                request.state.csrf_token,
                 httponly=True,
                 samesite="strict",
                 path="/",

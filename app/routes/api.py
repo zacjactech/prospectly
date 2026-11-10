@@ -725,7 +725,9 @@ def import_preview(
     import_service.save_import_session(import_token, preview)
 
     # Flatten each row: merge canonical fields into the top level so
-    # ImportRow (a flat Pydantic model) can validate it.
+    # ImportRow (a flat Pydantic model) can validate it. Error rows may carry
+    # None for the required business_name (missing name column value) —
+    # coerce just that field so one bad row cannot 500 the whole preview.
     flat_rows = []
     for r in preview["rows"]:
         flat = {
@@ -737,6 +739,8 @@ def import_preview(
             "matched_prospect_name": r["matched_prospect_name"],
         }
         flat.update(r["fields"])
+        if flat.get("business_name") is None:
+            flat["business_name"] = ""
         flat_rows.append(flat)
 
     rows = [ImportRow.model_validate(fr) for fr in flat_rows]

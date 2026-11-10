@@ -23,7 +23,7 @@
         <p class="muted small">Pick a CSV file. The first row must be a header with column names (e.g. name, city, phone, email, website).</p>
       </div>
     </div>
-    <form method="post" action="/prospects/import" enctype="multipart/form-data">
+    <form method="post" action="/settings/import" enctype="multipart/form-data">
       {{ csrf_field() }}
       <div class="field full">
         <label>CSV file</label>
@@ -44,7 +44,7 @@
       <h1>Import preview</h1>
       <p class="muted small">Review detected duplicates and errors before committing. Uncheck any row you do not want to import.</p>
     </div>
-    <a href="/prospects/import" class="btn ghost">Re-upload</a>
+    <a href="/settings/import" class="btn ghost">Re-upload</a>
   </div>
 
   <div class="card">
@@ -57,7 +57,7 @@
 
     <div class="muted small">Detected columns: {{ columns_detected | join(', ') }}</div>
 
-    <form method="post" action="/prospects/import/commit">
+    <form method="post" action="/settings/import/commit">
       {{ csrf_field() }}
       <input type="hidden" name="import_token" value="{{ import_token }}">
 
@@ -110,7 +110,7 @@
 
       <div class="action-group">
         <button class="btn primary" type="submit">Commit {{ valid_count }} row(s)</button>
-        <a href="/prospects/import" class="btn ghost">Re-upload</a>
+        <a href="/settings/import" class="btn ghost">Re-upload</a>
       </div>
     </form>
   </div>
