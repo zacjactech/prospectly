@@ -22,6 +22,11 @@ from app.providers.factory import get_discovery_provider, get_search_provider
 from app.services.activity import log_activity
 from app.site_inspector import inspect
 
+# Record-level observation written only when a prospect has NO website URL.
+# It feeds the `no_standalone_website` evidence (opportunity rule engine) and
+# must never be written for prospects that DO have a URL (P5).
+NO_URL_STATEMENT = "No website URL recorded for this prospect"
+
 
 def _record_provider_usage(
     db: Session,
@@ -149,12 +154,21 @@ def _store_website_check(
 def _derive_website_status(
     db: Session,
     prospect_id: int,
-    search_found_anything: bool,
+    *,
+    has_website_url: bool,
+    search_state: str,
 ) -> str:
     """Derive prospects.website_status from latest check + search evidence (P6).
 
-    Rule: search says no site AND DNS fails ⇒ no_website_found;
-    inspection errored ⇒ check_failed; reachable ⇒ reachable.
+    Rule (DATABASE_DESIGN §2.7, USER_FLOWS Flow 2 step 6):
+    - inspection reachable ⇒ ``reachable``
+    - DNS failure — or no URL recorded at all — AND a *successful* search
+      that found nothing ⇒ ``no_website_found`` (search-empty is the evidence
+      when there is nothing to DNS-check; approved amendment, see
+      DATABASE_DESIGN §2.7)
+    - everything else ⇒ ``check_failed``: timeout/blocked/HTTP errors and
+      failed or absent searches mean "could not verify" — never "no website"
+      (P6).
     """
     from app.models import WebsiteCheck
 
@@ -164,19 +178,16 @@ def _derive_website_status(
         .order_by(WebsiteCheck.checked_at.desc())
         .first()
     )
-    if not latest:
-        return "unknown"
-
-    if latest.outcome == "reachable":
-        return "reachable"
-    if latest.outcome in ("dns_failure", "timeout", "blocked"):
-        if not search_found_anything:
+    if latest is not None:
+        if latest.outcome == "reachable":
+            return "reachable"
+        if latest.outcome == "dns_failure" and search_state == "empty":
             return "no_website_found"
         return "check_failed"
-    if latest.outcome in ("unreachable_http", "redirect_loop", "invalid_url"):
-        return "check_failed"
-    if latest.outcome == "not_attempted":
-        return "check_failed"
+
+    # No check recorded: only a no-URL prospect can be confirmed via search.
+    if not has_website_url and search_state == "empty":
+        return "no_website_found"
     return "check_failed"
 
 
@@ -205,12 +216,15 @@ def run_research(
     db.flush()
 
     steps: dict[str, str] = {}
-    search_found_anything = False
+    # P6 evidence quality: only a SUCCESSFUL search that found nothing may
+    # support "no website". States: no_provider | results | empty | failed.
+    search_state = "no_provider"
     errors: list[str] = []
 
     # --- Step 1: Website inspection ---
     website_url = prospect.website_url
     if website_url:
+        inspect_errored = False
         try:
             inspection = _run_sync(inspect(website_url))
             _store_website_check(
@@ -266,19 +280,29 @@ def run_research(
                 if inspection.error:
                     errors.append(f"website: {inspection.error}")
         except Exception as exc:  # pragma: no cover - defensive
+            inspect_errored = True
             steps["website_check"] = f"failed: {exc!s}"
             errors.append(f"website: {exc!s}")
-            _record_provider_usage(db, provider="http_fetch", kind="inspect", calls=1, errors=1)
+        # Exactly one usage record per attempted inspection (the old code
+        # recorded on both the exception path and afterwards: double count).
+        _record_provider_usage(
+            db,
+            provider="http_fetch",
+            kind="inspect",
+            calls=1,
+            errors=1 if inspect_errored else 0,
+        )
     else:
         steps["website_check"] = "not_attempted"
-    if website_url:
-        _record_provider_usage(db, provider="http_fetch", kind="inspect", calls=1)
+        # C4 fix: record the observation only when NO URL exists. Wording is
+        # record-level ("recorded"), not a business claim; website_status
+        # carries the P6 verdict derived from search/DNS evidence.
         _upsert_finding(
             db,
             prospect_id=prospect_id,
             research_run_id=research_run.id,
             kind="website",
-            statement="No website URL recorded for this prospect",
+            statement=NO_URL_STATEMENT,
             source_type="user",
             verification_status="verified",
             confidence="high",
@@ -292,7 +316,7 @@ def run_research(
             search_query = f"{prospect.business_name} {prospect.location_city or ''}".strip()
             results = _run_sync(search_provider.search(search_query, max_results=5))
             if results:
-                search_found_anything = True
+                search_state = "results"
                 steps["search"] = f"ok ({len(results)} results)"
                 for r in results:
                     _upsert_finding(
@@ -308,8 +332,10 @@ def run_research(
                         origin="provider",
                     )
             else:
+                search_state = "empty"
                 steps["search"] = "ok (no results)"
         except Exception as exc:  # pragma: no cover - defensive
+            search_state = "failed"
             steps["search"] = f"failed: {exc!s}"
             errors.append(f"search: {exc!s}")
             _record_provider_usage(
@@ -331,7 +357,7 @@ def run_research(
 
     # --- Step 3: Discovery enrichment ---
     discovery_provider = get_discovery_provider()
-    if discovery_provider and search_found_anything is False:
+    if discovery_provider and search_state != "results":
         discovery_provider_name = getattr(discovery_provider, "provider_name", "discovery")
         try:
             candidates = _run_sync(
@@ -379,7 +405,12 @@ def run_research(
         steps["discovery"] = "skipped"
 
     # --- Derive website status ---
-    website_status = _derive_website_status(db, prospect_id, search_found_anything)
+    website_status = _derive_website_status(
+        db,
+        prospect_id,
+        has_website_url=website_url is not None,
+        search_state=search_state,
+    )
     prospect.website_status = website_status
 
     # --- Finalize run ---

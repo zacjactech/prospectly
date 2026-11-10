@@ -101,7 +101,11 @@ def _propose_opportunities(
         (
             "website_inaccessible",
             lambda status, _kinds: status == "check_failed",
-            lambda kinds: kinds.get("website", []),
+            # Evidence must come from an actual check/search, never from the
+            # auto-recorded "no URL" observation (source_type="user") — that
+            # would claim "site exists but inspection failed" for prospects
+            # that have no site recorded at all.
+            lambda kinds: [f for f in kinds.get("website", []) if f.source_type != "user"],
         ),
         (
             "no_inquiry_path",

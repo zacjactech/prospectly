@@ -104,7 +104,7 @@ Add/import flow: candidate keys are checked → exact match blocks with "existin
 | error | TEXT NULL |
 | checked_at | |
 
-`prospects.website_status` is derived from the latest check + search evidence (rule: search says no site AND DNS fails ⇒ `no_website_found`; inspection errored ⇒ `check_failed`).
+`prospects.website_status` is derived from the latest check + search evidence. Rule (amended 2026-11-10, owner-approved): `no_website_found` only when a **successful** search found nothing AND (the URL's DNS fails OR no URL is recorded — there is nothing to DNS-check, so search-empty is the evidence; USER_FLOWS Flow 2 step 6 "AND/OR"). `check_failed` for `timeout`/`blocked`/HTTP failures and for failed or absent searches — "could not verify", never "no website" (P6). `reachable` when the latest check is reachable.
 
 ### 2.8 `opportunities` + `opportunity_findings`
 | opportunities | Notes |

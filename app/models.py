@@ -20,6 +20,7 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -519,7 +520,7 @@ class ProviderUsage(Base):
     calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     errors: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     rate_limited: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    period: Mapped[dt.date] = mapped_column(DateTime(timezone=True), nullable=False)
+    period: Mapped[dt.date] = mapped_column(Date, nullable=False)
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -544,7 +545,7 @@ class AIUsage(Base):
     calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     ok_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     failed_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    period: Mapped[dt.date] = mapped_column(DateTime(timezone=True), nullable=False)
+    period: Mapped[dt.date] = mapped_column(Date, nullable=False)
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
