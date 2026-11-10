@@ -540,6 +540,57 @@ def prospect_stage(
     )
 
 
+@router.post(
+    "/prospects/{prospect_id}/do-not-contact", response_class=HTMLResponse, response_model=None
+)
+def prospect_suppress(
+    request: Request,
+    prospect_id: int,
+    db: Session = Depends(get_db),
+    reason: str = Form(""),
+) -> HTMLResponse | RedirectResponse:
+    """Suppress a prospect — Flow 8 "Do not contact" button (P10)."""
+    prospect, error = prospect_service.set_do_not_contact(
+        db, prospect_id, reason=reason.strip(), actor="user"
+    )
+    if error:
+        if error == "Prospect not found":
+            return HTMLResponse("Prospect not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    return RedirectResponse(
+        url=f"/prospects/{prospect_id}?flash={quote('Prospect suppressed')}&flash_type=success",
+        status_code=303,
+    )
+
+
+@router.post(
+    "/prospects/{prospect_id}/do-not-contact/clear",
+    response_class=HTMLResponse,
+    response_model=None,
+)
+def prospect_unsuppress(
+    request: Request,
+    prospect_id: int,
+    db: Session = Depends(get_db),
+    reason: str = Form(...),
+) -> HTMLResponse | RedirectResponse:
+    """Clear suppression — Flow 8: explicit action + reason, audit-logged."""
+    reason = reason.strip()
+    if not reason:
+        return HTMLResponse("A reason is required to clear suppression", status_code=400)
+    prospect, error = prospect_service.clear_do_not_contact(
+        db, prospect_id, reason=reason, actor="user"
+    )
+    if error:
+        if error == "Prospect not found":
+            return HTMLResponse("Prospect not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    return RedirectResponse(
+        url=f"/prospects/{prospect_id}?flash={quote('Suppression cleared')}&flash_type=success",
+        status_code=303,
+    )
+
+
 @router.get("/settings/profile", response_class=HTMLResponse)
 def profile_form(request: Request, db: DbSession) -> HTMLResponse:
     profile = profile_service.get_or_create_profile(db)

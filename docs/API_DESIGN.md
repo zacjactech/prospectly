@@ -16,7 +16,7 @@ Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamp
 | GET | `/` | Dashboard |
 | GET | `/prospects` | List (filters: stage, tag, category, location, search, include-archived) |
 | GET/POST | `/prospects/new` | Manual add form |
-| GET/POST | `/prospects/import` | CSV upload + preview + confirm **(secondary Settings utility; not part of discovery flow)** |
+| GET/POST | `/settings/import` · `/settings/import/commit` | CSV upload + preview + confirm **(secondary Settings utility; not part of discovery flow)** |
 | GET | `/prospects/{id}` | Detail (tabs: Overview · Research · Opportunities · Outreach · Activity) |
 | GET/POST | `/prospects/{id}/edit` | Edit |
 | POST | `/prospects/{id}/archive` · `/unarchive` | Soft archive |
@@ -29,7 +29,7 @@ Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamp
 | POST | `/prospects/{id}/stage` | Manual stage change (validated) |
 | POST | `/prospects/{id}/reply` | Record inbound reply (sets stage `replied`) |
 | POST | `/prospects/{id}/follow-ups` · `/follow-ups/{fid}/complete` | Follow-ups |
-| POST | `/prospects/{id}/do-not-contact` · `/clear` | Suppression |
+| POST | `/prospects/{id}/do-not-contact` · `/prospects/{id}/do-not-contact/clear` | Suppression (flag + stage; clear requires `reason`) |
 | GET | `/follow-ups` | Due/overdue list |
 | GET | `/settings`, `/settings/providers`, `/settings/usage`, `/settings/profile` | Config, provider status, usage, user profile |
 | GET | `/healthz` | Liveness (no auth, no data) |
@@ -95,7 +95,7 @@ HTMX partials return HTML fragments (`HX-Request` header honored); full page loa
 | Method | Path | Preconditions | Returns |
 |---|---|---|---|
 | POST | `/prospects/{id}/drafts` | not suppressed; stage allows outreach | `201 OutreachMessage` (`draft`) |
-| PATCH | `/messages/{id}` | status ∈ {draft, pending_review, approved, opened_in_whatsapp} | any change to `current_text` demotes status → `draft` (edits invalidate approval) |
+| PATCH | `/messages/{id}` | status ∈ {draft, pending_review, approved, opened_in_whatsapp}; `sent_confirmed` is terminal and rejects edits (`409`) | any change to `current_text` demotes status → `draft` (edits invalidate approval) |
 | POST | `/messages/{id}/submit` | non-empty text | `pending_review` |
 | POST | `/messages/{id}/approve` | `pending_review`; not suppressed; grounding ok or ack set | `approved` + `approved_at` |
 | POST | `/messages/{id}/open` | `approved` | `opened_in_whatsapp` + `{wa_me_url}` (**never marks sent**) |

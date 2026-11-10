@@ -3,9 +3,10 @@
 Statuses: draft → pending_review → approved → opened_in_whatsapp → sent_confirmed.
 
 Only ``approve``/``open``/``confirm_sent`` advance the chain; every edit
-demotes back to ``draft``. Suppression (do_not_contact) blocks all outbound
-steps. The app never sends anything — ``open`` returns a ``wa.me`` URL for the
-user to send manually, and ``sent_confirmed`` is written only by an explicit
+demotes back to ``draft`` — except ``sent_confirmed``, which is terminal and
+rejects edits. Suppression (do_not_contact) blocks all outbound steps. The
+app never sends anything — ``open`` returns a ``wa.me`` URL for the user to
+send manually, and ``sent_confirmed`` is written only by an explicit
 confirmation (P2/P3/P4).
 """
 
@@ -67,6 +68,9 @@ def create_draft(
     prospect = _prospect(db, prospect_id)
     if prospect is None:
         return None, "Prospect not found"
+    if prospect.stage == "not_interested":
+        # Flow 6.3: not_interested is terminal for outreach.
+        return None, "not_interested: outreach is terminal for this prospect"
 
     # Grounding may only reference findings that belong to this prospect.
     if grounding:
@@ -319,7 +323,21 @@ def confirm_sent(
     if prospect is None:
         return None, "Prospect not found"
     prospect.last_contacted_at = _now()
-    if prospect.stage not in {"contacted", "replied", "interested", "converted"}:
+    # Advance the stage unless the prospect already sits at/after contacted
+    # or in a state that must not be overwritten (terminal dispositions,
+    # archived) or follow_up_due (still needs its follow-up — a re-contact
+    # must not silently clear it). USER_FLOWS Flow 5.8 promises contacted;
+    # the inbound edge exists from every active pre-contact stage.
+    if prospect.stage not in {
+        "contacted",
+        "replied",
+        "interested",
+        "converted",
+        "follow_up_due",
+        "not_interested",
+        "do_not_contact",
+        "archived",
+    }:
         transition_stage(db, prospect_id=message.prospect_id, new_stage="contacted", actor=actor)
 
     log_activity(
@@ -354,7 +372,7 @@ def not_sent(
     log_activity(
         db,
         prospect_id=message.prospect_id,
-        type="draft_approved",
+        type="message_not_sent",
         actor=actor,
         payload={"message_id": message_id, "reset_from": "opened_in_whatsapp"},
     )
@@ -368,10 +386,18 @@ def edit_message(
     current_text: str,
     actor: str = "user",
 ) -> tuple[OutreachMessage | None, str | None]:
-    """Edit text: any status → draft (edits invalidate approval, §3.1)."""
+    """Edit text: any status → draft (edits invalidate approval, §3.1).
+
+    ``sent_confirmed`` is terminal (§3.1) — editing it would silently erase
+    the send confirmation and rewrite history, so it is rejected instead.
+    """
     message = db.get(OutreachMessage, message_id)
     if message is None:
         return None, "Message not found"
+    if message.status == "sent_confirmed":
+        return None, (
+            "Cannot edit a message that was confirmed sent; start a new outreach draft instead"
+        )
     if not current_text or not current_text.strip():
         return None, "Message text is required"
 
@@ -415,7 +441,17 @@ def record_reply(
         payload={"text": text, "received_at": (received_at or _now()).isoformat()},
     )
 
-    if prospect.stage not in {"interested", "converted"}:
+    # Advance unless already at/after replied or in a state a reply must not
+    # overwrite (USER_FLOWS Flow 6.2 promises stage → replied; the inbound
+    # edge exists from every active stage).
+    if prospect.stage not in {
+        "replied",
+        "interested",
+        "converted",
+        "not_interested",
+        "do_not_contact",
+        "archived",
+    }:
         transition_stage(db, prospect_id=prospect_id, new_stage="replied", actor=actor)
     return prospect, None
 

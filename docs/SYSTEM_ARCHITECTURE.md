@@ -83,6 +83,19 @@ replied → interested → follow_up_due ⇄ replied → converted
 - Stage changes are written to `activities` (append-only history).
 - `do_not_contact` is terminal and blocks all outbound actions.
 - Archiving (`archived_at`) hides from lists but preserves history.
+- **Amendment (2026-11-10, owner-approved with the H2/H3 fix):**
+  - *Event edges* — confirming a send (→ `contacted`, Flow 5.8) and
+    recording a reply (→ `replied`, Flow 6.2) may land from any active
+    stage: these are operator-recorded facts and the pipeline position may
+    lag because stages are otherwise advanced manually.
+  - *Dispositions at any point* — `not_interested` and `do_not_contact`
+    are reachable from every active stage (Flow 6.3 / Flow 8 "Any time").
+    `converted → do_not_contact` is allowed (opt-outs can arrive later);
+    `converted → not_interested` is not.
+  - *Flag sync* — moving the stage to `do_not_contact` sets the
+    `do_not_contact` suppression flag (and clearing restores the
+    pre-suppression stage from the activity log), so the stage view,
+    badges, dashboard counts and outbound guards can never disagree (P10).
 
 ### 3.3 Research run status
 

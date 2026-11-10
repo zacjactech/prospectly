@@ -81,6 +81,19 @@ class StageTransitionOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class SuppressionIn(BaseModel):
+    reason: str = ""
+
+
+class SuppressionOut(BaseModel):
+    id: int
+    stage: str
+    do_not_contact: bool
+    do_not_contact_reason: str | None
+
+    model_config = {"from_attributes": True}
+
+
 class ActivityOut(BaseModel):
     id: int
     type: str

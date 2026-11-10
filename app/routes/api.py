@@ -58,6 +58,8 @@ from app.schemas import (
     SavedViewUpdate,
     StageTransitionIn,
     StageTransitionOut,
+    SuppressionIn,
+    SuppressionOut,
     WebsiteCheckOut,
 )
 from app.services import import_service, merge_service
@@ -271,6 +273,52 @@ def transition_prospect_stage(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
     return StageTransitionOut.model_validate(prospect)
+
+
+@router.post(
+    "/prospects/{prospect_id}/do-not-contact",
+    response_model=SuppressionOut,
+    responses={409: {"model": ErrorOut}, 404: {"model": ErrorOut}},
+)
+def suppress_prospect(
+    prospect_id: int = Path(ge=1),
+    payload: SuppressionIn | None = Body(None),
+    db: Session = Depends(get_db),
+) -> SuppressionOut:
+    """Suppress a prospect (Flow 8 / P10)."""
+    reason = payload.reason if payload is not None else ""
+    prospect, error = prospect_service.set_do_not_contact(
+        db, prospect_id, reason=reason, actor="user"
+    )
+    if error:
+        if error == "Prospect not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    return SuppressionOut.model_validate(prospect)
+
+
+@router.post(
+    "/prospects/{prospect_id}/do-not-contact/clear",
+    response_model=SuppressionOut,
+    responses={400: {"model": ErrorOut}, 409: {"model": ErrorOut}, 404: {"model": ErrorOut}},
+)
+def unsuppress_prospect(
+    prospect_id: int = Path(ge=1),
+    payload: SuppressionIn | None = Body(None),
+    db: Session = Depends(get_db),
+) -> SuppressionOut:
+    """Clear suppression with a reason (Flow 8: explicit action + reason)."""
+    reason = payload.reason.strip() if payload is not None else ""
+    if not reason:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="reason is required")
+    prospect, error = prospect_service.clear_do_not_contact(
+        db, prospect_id, reason=reason, actor="user"
+    )
+    if error:
+        if error == "Prospect not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    return SuppressionOut.model_validate(prospect)
 
 
 @router.get(

@@ -17,16 +17,40 @@ from app.models import Prospect, Source, Tag
 from app.services.activity import log_activity
 
 # Allowed stage transitions (SYSTEM_ARCHITECTURE §3.2).
+#
+# Two classes of inbound edges beyond the linear pipeline:
+# - Event edges: confirming a send (→ contacted) and recording a reply
+#   (→ replied) are operator-recorded facts (USER_FLOWS Flow 5.8 / 6.2) and
+#   may land from any active pre-contact stage — the pipeline position may
+#   lag reality because stages are otherwise advanced manually.
+# - Dispositions: not_interested and do_not_contact are available at any
+#   point from an active stage (Flow 6.3 "terminal for outreach", Flow 8
+#   "Any time"); do_not_contact also sets the suppression flag in
+#   transition_stage (guards read the flag — P10).
 _STAGE_TRANSITIONS: dict[str, set[str]] = {
-    "new": {"researched", "archived"},
-    "researched": {"opportunity_identified", "archived"},
-    "opportunity_identified": {"outreach_ready", "archived"},
-    "outreach_ready": {"contacted", "archived"},
-    "contacted": {"replied", "follow_up_due", "archived"},
-    "replied": {"interested", "follow_up_due", "archived"},
-    "interested": {"converted", "follow_up_due", "archived"},
-    "follow_up_due": {"replied", "archived"},
-    "converted": {"archived"},
+    "new": {"researched", "contacted", "replied", "not_interested", "do_not_contact", "archived"},
+    "researched": {
+        "opportunity_identified",
+        "contacted",
+        "replied",
+        "not_interested",
+        "do_not_contact",
+        "archived",
+    },
+    "opportunity_identified": {
+        "outreach_ready",
+        "contacted",
+        "replied",
+        "not_interested",
+        "do_not_contact",
+        "archived",
+    },
+    "outreach_ready": {"contacted", "replied", "not_interested", "do_not_contact", "archived"},
+    "contacted": {"replied", "follow_up_due", "not_interested", "do_not_contact", "archived"},
+    "replied": {"interested", "follow_up_due", "not_interested", "do_not_contact", "archived"},
+    "interested": {"converted", "follow_up_due", "not_interested", "do_not_contact", "archived"},
+    "follow_up_due": {"replied", "not_interested", "do_not_contact", "archived"},
+    "converted": {"do_not_contact", "archived"},
     "not_interested": {"archived"},
     "do_not_contact": {"archived"},  # terminal; only archive out
     "archived": set(),  # terminal
@@ -308,6 +332,19 @@ def transition_stage(
     prospect.stage = new_stage
     if new_stage == "contacted":
         prospect.last_contacted_at = _now()
+    # Suppression IS the flag (P10 — guards, badges and dashboard read it).
+    # A stage-only move would display the prospect as suppressed while
+    # outbound stays unblocked, so the flag must follow.
+    if new_stage == "do_not_contact" and not prospect.do_not_contact:
+        prospect.do_not_contact = True
+        prospect.do_not_contact_at = _now()
+        log_activity(
+            db,
+            prospect_id=prospect.id,
+            type="do_not_contact_set",
+            actor=actor,
+            payload={"reason": prospect.do_not_contact_reason or "", "from_stage": old_stage},
+        )
     db.flush()
     log_activity(
         db,
@@ -326,44 +363,108 @@ def set_do_not_contact(
     reason: str,
     actor: str = "user",
 ) -> tuple[Prospect | None, str | None]:
-    """Terminal suppression flag; blocks all outbound actions."""
+    """Terminal suppression flag; blocks all outbound actions (Flow 8).
+
+    Also moves the stage to ``do_not_contact`` (unless archived) so §3.2,
+    list filters and badges agree with the flag; the pre-suppression stage is
+    recorded in the activity payload for a clean revert on clear.
+    """
     prospect = db.get(Prospect, prospect_id)
     if prospect is None:
         return None, "Prospect not found"
+    if prospect.do_not_contact:
+        return None, "Prospect is already suppressed"
+    old_stage = prospect.stage
     prospect.do_not_contact = True
     prospect.do_not_contact_reason = reason
     prospect.do_not_contact_at = _now()
+    if old_stage not in ("do_not_contact", "archived"):
+        prospect.stage = "do_not_contact"
     db.flush()
     log_activity(
         db,
         prospect_id=prospect.id,
         type="do_not_contact_set",
         actor=actor,
-        payload={"reason": reason},
+        payload={"reason": reason, "from_stage": old_stage},
     )
+    if prospect.stage != old_stage:
+        log_activity(
+            db,
+            prospect_id=prospect.id,
+            type="stage_changed",
+            actor=actor,
+            payload={"from": old_stage, "to": prospect.stage},
+        )
     return prospect, None
+
+
+def _stage_before_suppression(db: Session, prospect: Prospect) -> str:
+    """Best-effort recovery of the stage the prospect held when suppressed."""
+    from app.models import Activity
+
+    set_activity = (
+        db.query(Activity)
+        .filter_by(prospect_id=prospect.id, type="do_not_contact_set")
+        .order_by(Activity.created_at.desc())
+        .first()
+    )
+    if set_activity is not None:
+        candidate = (set_activity.payload or {}).get("from_stage")
+        if candidate and candidate in _STAGE_TRANSITIONS:
+            return candidate
+    last_stage = (
+        db.query(Activity)
+        .filter_by(prospect_id=prospect.id, type="stage_changed")
+        .order_by(Activity.created_at.desc())
+        .all()
+    )
+    for activity in last_stage:
+        to_stage = (activity.payload or {}).get("to")
+        if to_stage and to_stage != "do_not_contact" and to_stage in _STAGE_TRANSITIONS:
+            return to_stage
+    return "new"
 
 
 def clear_do_not_contact(
     db: Session,
     prospect_id: int,
     *,
+    reason: str = "",
     actor: str = "user",
 ) -> tuple[Prospect | None, str | None]:
-    """Clear suppression (explicit action + reason, audited)."""
+    """Clear suppression (explicit action + reason, audited — Flow 8).
+
+    Restores the pre-suppression stage so the prospect re-enters the
+    pipeline where they left it.
+    """
     prospect = db.get(Prospect, prospect_id)
     if prospect is None:
         return None, "Prospect not found"
+    if not prospect.do_not_contact:
+        return None, "Prospect is not suppressed"
+    old_stage = prospect.stage
     prospect.do_not_contact = False
     prospect.do_not_contact_reason = None
     prospect.do_not_contact_at = None
+    if old_stage == "do_not_contact":
+        prospect.stage = _stage_before_suppression(db, prospect)
     db.flush()
     log_activity(
         db,
         prospect_id=prospect.id,
         type="do_not_contact_cleared",
         actor=actor,
+        payload={"reason": reason},
     )
+    if prospect.stage != old_stage:
+        log_activity(
+            db,
+            prospect_id=prospect.id,
+            type="stage_changed",
+            actor=actor,
+            payload={"from": old_stage, "to": prospect.stage, "reason": "suppression_cleared"},
+        )
     return prospect, None
 
 

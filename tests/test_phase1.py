@@ -220,11 +220,16 @@ def test_stage_transition_valid_and_invalid() -> None:
         )
         assert r.status_code == 200, r.text
 
-        # Invalid: opportunity_identified -> contacted (skips outreach_ready)
+        # Valid (event edge, Flow 5.8): opportunity_identified -> contacted.
         r = post_json(client, f"/api/v1/prospects/{pid}/stage", data={"stage": "contacted"})
+        assert r.status_code == 200, r.text
+        assert r.json()["stage"] == "contacted"
+
+        # Invalid: contacted -> converted (skips replied/interested)
+        r = post_json(client, f"/api/v1/prospects/{pid}/stage", data={"stage": "converted"})
         assert r.status_code == 409, f"Expected 409, got {r.status_code}"
 
-        # Invalid: new -> do_not_contact (not a valid transition)
+        # Invalid: unknown stage value
         r = post_json(client, f"/api/v1/prospects/{pid}/stage", data={"stage": "bogus"})
         assert r.status_code == 409
     finally:

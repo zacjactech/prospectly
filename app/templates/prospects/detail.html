@@ -61,10 +61,10 @@
       'researched': ['opportunity_identified', 'archived'],
       'opportunity_identified': ['outreach_ready', 'archived'],
       'outreach_ready': ['contacted', 'archived'],
-      'contacted': ['replied', 'follow_up_due', 'archived'],
-      'replied': ['interested', 'follow_up_due', 'archived'],
-      'interested': ['converted', 'follow_up_due', 'archived'],
-      'follow_up_due': ['replied', 'archived'],
+      'contacted': ['replied', 'follow_up_due', 'not_interested', 'archived'],
+      'replied': ['interested', 'follow_up_due', 'not_interested', 'archived'],
+      'interested': ['converted', 'follow_up_due', 'not_interested', 'archived'],
+      'follow_up_due': ['replied', 'not_interested', 'archived'],
       'converted': ['archived'],
       'not_interested': ['archived'],
       'do_not_contact': ['archived'],
@@ -85,6 +85,32 @@
     </form>
     <p class="muted small">Allowed next transitions only; anything else is rejected.</p>
   </div>
+</section>
+
+<section class="card">
+  <h3>Suppression</h3>
+  {% if prospect.do_not_contact %}
+  <p class="muted">
+    Suppressed{% if prospect.do_not_contact_reason %}: {{ prospect.do_not_contact_reason }}{% endif %}.
+    Drafts, approvals and WhatsApp actions are blocked.
+  </p>
+  <form method="post" action="/prospects/{{ prospect.id }}/do-not-contact/clear" class="action-group">
+    {{ csrf_field() }}
+    <label class="grow">Reason to clear (required, audit-logged)
+      <input type="text" name="reason" maxlength="500" required>
+    </label>
+    <button class="btn" type="submit" data-confirm="Clear suppression and return this prospect to the pipeline?">Clear suppression</button>
+  </form>
+  {% else %}
+  <form method="post" action="/prospects/{{ prospect.id }}/do-not-contact" class="action-group">
+    {{ csrf_field() }}
+    <label class="grow">Reason (optional)
+      <input type="text" name="reason" maxlength="500" placeholder="e.g. opt-out received on WhatsApp">
+    </label>
+    <button class="btn danger" type="submit" data-confirm="Block all outreach to this prospect?">Do not contact</button>
+  </form>
+  <p class="muted small">Blocks drafts, approvals and WhatsApp actions (Flow 8). Clearing requires a reason.</p>
+  {% endif %}
 </section>
 
 <section class="card">
@@ -182,6 +208,8 @@
   <h3>Outreach</h3>
   {% if prospect.do_not_contact %}
   <p class="muted">Suppressed — no drafts, approvals, or WhatsApp actions allowed.</p>
+  {% elif prospect.stage == 'not_interested' %}
+  <p class="muted">Not interested — outreach is terminal for this prospect (Flow 6).</p>
   {% elif active_message %}
   <div class="action-group">
     <span class="badge stage-{{ active_message.status|replace('_','-') }}">{{ active_message.status|replace('_',' ') }}</span>
