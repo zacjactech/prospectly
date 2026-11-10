@@ -27,8 +27,12 @@ _SECURITY_HEADERS = {
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
     # No inline scripts/styles anywhere in MVP templates (UI spec + CSP, SECURITY §2).
+    # The style hash allows exactly one exception: the .htmx-indicator CSS that
+    # the vendored (pinned) htmx.min.js injects into <head> — hash verified in
+    # browser against the blocked content; update only when re-vendoring htmx.
     "Content-Security-Policy": (
-        "default-src 'self'; script-src 'self'; style-src 'self'; "
+        "default-src 'self'; script-src 'self'; "
+        "style-src 'self' 'sha256-faU7yAF8NxuMTNEwVmBz+VcYeIoBQ2EMHW3WaVxCvnk='; "
         "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
     ),
 }

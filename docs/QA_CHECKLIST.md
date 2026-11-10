@@ -194,7 +194,7 @@ provider key required for live data) · `not implemented` = spec gap.
 
 ## Test suite
 
-`uv run pytest` — **280 tests pass, 0 failed** (2026-11-10); `ruff check`,
+`uv run pytest` — **281 tests pass, 0 failed** (2026-11-10); `ruff check`,
 `ruff format --check`, `mypy app` all clean.
 
 Coverage by area (newest first):
@@ -204,10 +204,11 @@ Coverage by area (newest first):
 - `test_notes.py` — 10: add/edit + activities, validation, both HTML routes
 - `test_research_polling.py` — 6: running→polling attrs, terminal→attrs
   dropped (self-stopping), findings inside the fragment, htmx vendored
-- `test_regressions_round4.py` — 12: partial message index (D1), template
+- `test_regressions_round4.py` — 13: partial message index (D1), template
   compile sweep + the three former 500 pages (D2), clear-reason 400 (D3),
   reply form + API (D4), merge identical-findings (N1), merge suppression
-  propagation (N3), worker claim resilience (N2)
+  propagation (N3), worker claim resilience (N2), **no inline event
+  handlers in any template** (CSP — found by the browser pass)
 - `test_auth.py` — 36: login gate, session cookie, redirects, rotation
 - `test_discovery_and_views.py` — 11: discovery trigger + worker e2e,
   saved views save/apply/whitelist, follow-up idempotency both surfaces
@@ -248,11 +249,41 @@ on defects D1 (message index), D2 (three 500 pages), D3 (clear-reason 422)
 (a596f8d..921437b): all 18 original findings RESOLVED; new findings N1–N4
 fixed or documented. Invariant grep re-confirmed: no WhatsApp send path.
 
+### Browser verification pass — 2026-11-10 (Playwright, headless Chromium)
+
+First real-browser pass over the previously cookie-jar-only behaviors
+(isolated instance on `127.0.0.1:8177`, seeded `running` research run):
+
+- **HTMX polling**: `hx-get` armed only while `running`; measured cadence
+  exactly every 2s (single healthy timer — no accumulation across swaps);
+  after the run flipped to terminal the attrs dropped, findings refreshed in
+  the same swap, run/re-run buttons rendered inside the polled region, and
+  the poll counter **froze** (91 → 91 over 5 quiet seconds) — self-stopping
+  confirmed in a live browser.
+- **Confirm dialogs**: initial-load `data-confirm` (Archive) → dialog shown,
+  zero POSTs, state unchanged; **HTMX-swapped** `data-confirm` (Delete
+  finding injected by a poll) → dialog shown, zero POSTs, finding intact —
+  the capture-phase delegation fix verified on swapped content.
+- **Console: 0 errors** after three fixes the pass uncovered:
+  1. `base.html` shipped an inline `onclick` the CSP silently blocked
+     (help backdrop was dead) → `data-hide` attribute + app.js handler;
+  2. the help **Close button** used `data-dismiss`, which adds `.dismiss` —
+     a class only `.toast` styles — so it was a no-op too (only `Escape`
+     ever closed help) → same `data-hide` fix, browser-re-verified both paths;
+  3. htmx's injected `.htmx-indicator` `<style>` was blocked by
+     `style-src 'self'` → its exact sha256 (browser-verified byte-for-byte
+     against the blocked content) added to CSP in `app/main.py`; favicon
+     404 silenced with `<link rel="icon" href="data:,">`.
+- Help overlay: `?` opens; Close button and backdrop both close (they
+  didn't before this pass).
+- Regression tests added: CSP carries the hash and never `unsafe-inline`
+  (`test_smoke.py`); no template may contain an inline event handler
+  (`test_regressions_round4.py`).
+
 ### Not verified in this pass (honest limits)
 
 - Live external providers (OSM/BizData/Tavily/Serper/DDGS), live website
   inspection, live AI providers — offline only, fakes where needed.
-- Real browser rendering/JS (flows replayed over HTTP with a cookie jar).
 - Backup **restore** and `alembic downgrade` (upgrade path tested).
 - Non-loopback bind with token (startup refusal tested; live LAN exposure
   not exercised) — `Secure` cookie flag is off by design for loopback.

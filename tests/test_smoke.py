@@ -67,7 +67,12 @@ def test_security_headers_present() -> None:
     finally:
         _cleanup()
     assert response.headers["X-Content-Type-Options"] == "nosniff"
-    assert "default-src 'self'" in response.headers["Content-Security-Policy"]
+    csp = response.headers["Content-Security-Policy"]
+    assert "default-src 'self'" in csp
+    # The only style-src exception is the hash of the .htmx-indicator CSS that
+    # the vendored htmx.min.js injects (browser-verified hash; see app/main.py).
+    assert "'sha256-faU7yAF8NxuMTNEwVmBz+VcYeIoBQ2EMHW3WaVxCvnk='" in csp
+    assert "unsafe-inline" not in csp
 
 
 def test_openapi_document_available() -> None:

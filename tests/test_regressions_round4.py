@@ -415,3 +415,24 @@ def test_claim_is_conditional_and_counts_attempts() -> None:
         assert second is None
     finally:
         _cleanup(db, path)
+
+
+def test_templates_have_no_inline_event_handlers() -> None:
+    """CSP `script-src 'self'` forbids inline handlers (main.py, UI spec).
+
+    A real-browser pass caught `base.html` shipping an `onclick` that the CSP
+    silently blocked — the help backdrop looked wired up but was dead. This
+    makes the whole class of defect impossible to re-ship.
+    """
+    import re
+
+    root = Path(templates.env.loader.searchpath[0])  # type: ignore[union-attr]
+    pattern = re.compile(
+        r"\son(click|change|submit|load|focus|blur|input|keydown|keyup|dblclick|mouseover)\s*="
+    )
+    offenders: list[str] = []
+    for path in sorted(root.rglob("*.html")):
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if pattern.search(line):
+                offenders.append(f"{path.relative_to(root)}:{lineno}")
+    assert not offenders, "inline event handlers blocked by CSP:\n" + "\n".join(offenders)

@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/static/css/app.css">
   <script src="/static/js/htmx.min.js" defer></script>
   <script src="/static/js/app.js" defer></script>
@@ -51,9 +52,12 @@
               <tr><td><kbd>Escape</kbd></td><td>Close help / close nav menu</td></tr>
             </tbody>
           </table>
-          <button class="btn" data-dismiss="shortcuts-help">Close</button>
+          <button class="btn" data-hide="shortcuts-help">Close</button>
         </div>
-        <div class="help-backdrop" onclick="document.getElementById('shortcuts-help').classList.add('hidden')"></div>
+        {# No inline handlers (CSP script-src 'self'). data-hide adds .hidden
+           (the class the help overlay uses); data-dismiss is toast-only —
+           it adds .dismiss, which is a no-op outside .toast. #}
+        <div class="help-backdrop" data-hide="shortcuts-help"></div>
       </div>
     </main>
   </div>

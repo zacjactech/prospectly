@@ -66,6 +66,16 @@
       if (target) target.classList.add("dismiss");
     });
   });
+
+  /* ----- Instant hide: [data-hide="id"] adds .hidden to the target -----
+     (The help overlay hides via .hidden; .dismiss only styles .toast, so
+     reusing data-dismiss for it was a silent no-op — browser-verified.) */
+  document.querySelectorAll("[data-hide]").forEach(function (el) {
+    el.addEventListener("click", function () {
+      var target = document.getElementById(el.getAttribute("data-hide"));
+      if (target) target.classList.add("hidden");
+    });
+  });
   document.querySelectorAll(".toast").forEach(function (toast) {
     setTimeout(function () { toast.classList.add("dismiss"); }, 6000);
   });
