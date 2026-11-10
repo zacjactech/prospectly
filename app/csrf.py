@@ -73,7 +73,16 @@ def csrf_field(context: dict) -> Markup:
 def _tokens_match(cookie_token: str | None, presented_token: str | None) -> bool:
     if not cookie_token or not presented_token:
         return False
-    return secrets.compare_digest(cookie_token, presented_token)
+    try:
+        # Compare bytes: secrets.compare_digest raises TypeError on non-ASCII
+        # str input, which a raw client could use to turn any mutating request
+        # into a 500 instead of a 403.
+        return secrets.compare_digest(
+            cookie_token.encode("utf-8", errors="surrogatepass"),
+            presented_token.encode("utf-8", errors="surrogatepass"),
+        )
+    except (UnicodeError, ValueError):
+        return False
 
 
 def _extract_multipart_token(body: bytes) -> str | None:

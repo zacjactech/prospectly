@@ -190,3 +190,17 @@ def test_multipart_missing_token_rejected() -> None:
         assert r.json()["code"] == "csrf_failure"
     finally:
         _cleanup(db, path)
+
+
+def test_non_ascii_token_fails_closed_without_exception() -> None:
+    """compare_digest raises TypeError on non-ASCII str input — a raw client
+    could have turned any mutating request into a 500. The comparison now
+    encodes to bytes and fails closed (403 semantics). Unit-level because
+    httpx refuses to put non-ASCII bytes on the wire (that's precisely why
+    the bug was only reachable by raw sockets)."""
+    from app.csrf import _tokens_match
+
+    assert _tokens_match("café", "tëst") is False
+    assert _tokens_match("ascii-ok", "tëst") is False
+    assert _tokens_match("tëst", "tëst") is True  # equal non-ASCII still compares
+    assert _tokens_match(None, "x") is False
