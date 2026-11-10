@@ -327,12 +327,41 @@ DDGS search + OSM discovery + template AI. Worker CLI processed every job.
    Unit-verified (`test_search_discovery_providers.py`, 9 tests);
    live re-test deferred — Overpass blocks this host (see above).
 
+## Live smoke — Phase 2, keyed — 2026-11-10
+
+Keys read from `.env` (booleans only — values never printed or logged).
+Note: `python-dotenv` warns *"could not parse statement starting at line 29"*
+— a comment lost its leading `#` (`Options: template | gemini | …`); harmless
+(the line is skipped, nothing lost) but the `#` should be re-added.
+
+- **Tavily (primary search) — PASS**: factory selected `TavilySearchProvider`;
+  two research runs → **both `succeeded`**; `debian.org` → `reachable`
+  (HTTP 200, real title, contact-path finding); identity findings carry
+  **real Tavily source URLs**; `provider_usage tavily/search` = **one row,
+  calls=2** — keyed same-day accumulation (H5). Quota spent: 2 of the 1,000
+  free-tier credits (caps still unenforced — watched manually per plan).
+- **Serper adapter — PASS**: direct live call returned 3 real results.
+- **Test-data artifact (not a defect)**: the prospect name "Debian Keyed
+  **Smoke** Co" made the query match smoke alarms — the search engine
+  answered the query it was given; keep test names free of the words being
+  searched.
+- **AI providers — NOT IMPLEMENTED (new gap, decision pending)**: with
+  `AI_PROVIDER=gemini` and `GEMINI_API_KEY` set, `get_generator()` still
+  returns `TemplateGenerator` (`app/ai/__init__.py` hardwires it). The
+  Phase-3 roadmap item *"gemini/groq/openrouter adapters with JSON
+  validation, retry, usage logging"* and binding **D7** (JSON-schema
+  validation, repair-retry, `ai_usage` logging, `origin='ai'` drafts) are
+  unbuilt: only the template floor exists, `ai_usage` is never written
+  (the Usage page's AI table is permanently empty), and all three AI keys
+  are inert.
+
 ### Not verified in this pass (honest limits)
 
-- Live external providers: **DDGS search + real website inspection
-  verified live (2026-11-10)**; Tavily/Serper/AI providers still
-  offline-only (Phase 2, keyed); OSM unreachable from this host
-  (406 at edge — re-test from an unblocked network).
+- Live external providers: **DDGS, Tavily, Serper and real website
+  inspection verified live (2026-11-10)**; AI providers cannot be
+  verified — adapters not implemented (Phase 2 gap above); OSM
+  unreachable from this host (406 at edge — re-test from an unblocked
+  network).
 - Backup **restore** and `alembic downgrade` (upgrade path tested).
 - Non-loopback bind with token (startup refusal tested; live LAN exposure
   not exercised) — `Secure` cookie flag is off by design for loopback.
