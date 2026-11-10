@@ -993,6 +993,35 @@ p {
   color: var(--color-warn);
 }
 
+/* Template drafts: zero-AI floor (D7) — deliberately understated. */
+.badge.stage-template {
+  background: var(--color-accent-light);
+  color: var(--color-text-subtle);
+}
+
+/* Aliases used by the import wizard and merge review (validation severity
+   words). Kept in the same vocabulary so every `stage-*` referenced by a
+   template has a definition. */
+.badge.stage-success {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.badge.stage-warn {
+  background: var(--color-warn-light);
+  color: var(--color-warn);
+}
+
+.badge.stage-danger {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.badge.stage-muted {
+  background: var(--color-accent-light);
+  color: var(--color-text-subtle);
+}
+
 .prospect-name {
   font-size: var(--fs-2xl);
   font-weight: var(--fw-semibold);

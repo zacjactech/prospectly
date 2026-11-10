@@ -63,10 +63,23 @@ Only if the tool becomes a shared product — **not needed for the current objec
 
 ## Cost-control engineering (built in)
 
-- Per-provider daily caps in settings (defaults conservative) + persisted usage counters → hard stop before surprise bills.
-- Google Places adapter (post-MVP) requests minimal field masks; place-ID-only refreshes where possible (free) per Google's own guidance.
-- AI calls log tokens per task; Usage page shows estimated spend for paid tiers.
-- No paid infrastructure in MVP: one process, one file database, no broker, no CDN.
+- **Enforced daily caps** (`TAVILY_DAILY_CAP`, `SERPER_DAILY_CAP`, `AI_DAILY_CAP`):
+  checked *before* the call, per provider per calendar day, summed across
+  kinds. At the cap the call is **skipped** (`0` blocks every call), the step
+  is reported as `skipped (daily cap reached: …)`, and the block is counted in
+  `provider_usage.rate_limited` — never silently, and never as "no results"
+  (P6). Unmetered sources (DDGS fallback, OSM/BizData, website fetches) have
+  no cap because there is nothing to spend. Settings → General shows
+  cap/used-today with a "cap reached — calls blocked" badge.
+- **AI accounting**: every model call (success *and* failure, repair retries
+  included) writes `ai_usage` (calls, ok/failed, prompt/completion tokens);
+  the Usage page reads those rows, so the AI cap and the visible numbers are
+  the same data. The zero-key `template` floor makes no external call and is
+  never capped (P11).
+- Google Places adapter (post-MVP) requests minimal field masks; place-ID-only
+  refreshes where possible (free) per Google's own guidance.
+- No paid infrastructure in MVP: one process, one file database, no broker, no
+  CDN.
 
 ## Summary
 

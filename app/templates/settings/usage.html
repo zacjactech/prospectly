@@ -15,6 +15,17 @@
 </section>
 
 <section class="card">
+  <h3>Daily caps</h3>
+  <div class="badge-row">
+    {% for key, label in [('tavily', 'Tavily'), ('serper', 'Serper'), ('ai', 'AI')] %}
+    {% set u = usage[key] %}
+    <span class="badge {% if u.reached %}stage-failed{% else %}stage-succeeded{% endif %}">{{ label }}: {{ u.used }} / {{ u.cap }}{% if u.reached %} — blocked{% endif %}</span>
+    {% endfor %}
+  </div>
+  <p class="muted small">A blocked call is counted in “Rate limited” and the research step is reported as skipped.</p>
+</section>
+
+<section class="card">
   <h3>Provider usage</h3>
   {% if providers %}
   <table class="data-table">

@@ -44,6 +44,9 @@ class MessageGenerator(Protocol):
 class TemplateGenerator:
     """No-AI floor: assembles a draft from context, no model, no key."""
 
+    provider_name = "template"
+    model = None
+
     async def generate(self, ctx: OutreachContext) -> GeneratedDraft:
         parts: list[str] = []
 

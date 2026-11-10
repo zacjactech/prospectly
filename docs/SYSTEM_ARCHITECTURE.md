@@ -148,9 +148,9 @@ replied → interested → follow_up_due ⇄ replied → converted
 | Trigger | Explicit user action or scheduled follow-up sweep (60s interval loop) |
 | Durability | Jobs in SQLite; restart resumes `queued`/`running` (stale `running` >10 min reclaimed) |
 | Retries | Exponential backoff + jitter, max 3, then `failed` with visible error |
-| Rate limits | Per-provider token bucket (persisted counters) + `asyncio.sleep` pacing; global daily caps configurable |
+| Rate limits | Per-provider **enforced** daily caps from `config.py` (`TAVILY_DAILY_CAP`, `SERPER_DAILY_CAP`, `AI_DAILY_CAP`) checked before each call against persisted `provider_usage`/`ai_usage` counters; a blocked call is skipped, reported in `research_runs.steps`, and counted in `rate_limited` |
 | Timeouts | Per-step timeout (default 60s); job-level deadline 15 min |
-| Observability | `provider_usage` rows (provider, calls, duration, status, tokens) + job attempts history |
+| Observability | `provider_usage` rows (provider, kind, calls, errors, rate_limited, period) + `ai_usage` rows (provider, model, task, calls, ok/failed, tokens) + job attempts history |
 
 ## 7. Provider & AI abstraction boundaries
 

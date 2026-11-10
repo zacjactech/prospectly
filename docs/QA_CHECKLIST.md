@@ -194,10 +194,16 @@ provider key required for live data) · `not implemented` = spec gap.
 
 ## Test suite
 
-`uv run pytest` — **291 tests pass, 0 failed** (2026-11-10); `ruff check`,
+`uv run pytest` — **319 tests pass, 0 failed** (2026-11-10); `ruff check`,
 `ruff format --check`, `mypy app` all clean.
 
 Coverage by area (newest first):
+- `test_ai_generators.py` — 17: adapter output validation, key-in-header
+  (D8), repair retry, citation integrity (P5), transient-failure retry vs
+  immediate 400 failure, factory selection + template fallback
+- `test_usage_caps.py` — 11: search/AI daily caps enforced (`0` blocks
+  all), skipped search never yields `no_website_found`, unmetered sources
+  uncapped, `ai_usage` written on success and failure
 - `test_findings_crud.py` — 18: forced provenance (P5), duplicate/collision
   409s, verify idempotency, AI first-edit audit, linked-delete guard, HTML
   + API parity incl. list filters
@@ -339,33 +345,104 @@ Note: `python-dotenv` warns *"could not parse statement starting at line 29"*
   (HTTP 200, real title, contact-path finding); identity findings carry
   **real Tavily source URLs**; `provider_usage tavily/search` = **one row,
   calls=2** — keyed same-day accumulation (H5). Quota spent: 2 of the 1,000
-  free-tier credits (caps still unenforced — watched manually per plan).
+  free-tier credits (caps were not yet enforced at this point — enforced
+  in the section below).
 - **Serper adapter — PASS**: direct live call returned 3 real results.
 - **Test-data artifact (not a defect)**: the prospect name "Debian Keyed
   **Smoke** Co" made the query match smoke alarms — the search engine
   answered the query it was given; keep test names free of the words being
   searched.
-- **AI providers — NOT IMPLEMENTED (new gap, decision pending)**: with
-  `AI_PROVIDER=gemini` and `GEMINI_API_KEY` set, `get_generator()` still
-  returns `TemplateGenerator` (`app/ai/__init__.py` hardwires it). The
-  Phase-3 roadmap item *"gemini/groq/openrouter adapters with JSON
-  validation, retry, usage logging"* and binding **D7** (JSON-schema
-  validation, repair-retry, `ai_usage` logging, `origin='ai'` drafts) are
-  unbuilt: only the template floor exists, `ai_usage` is never written
-  (the Usage page's AI table is permanently empty), and all three AI keys
-  are inert.
+- **AI adapters — GAP, closed in the section below** (recorded here as the
+  Phase-2 finding): with `AI_PROVIDER=gemini` and `GEMINI_API_KEY` set,
+  `get_generator()` still returned `TemplateGenerator`
+  (`app/ai/__init__.py` hardwired it) — the Phase-3 roadmap item *"gemini/
+  groq/openrouter adapters with JSON validation, retry, usage logging"*
+  and binding **D7** were unbuilt, `ai_usage` was never written, and all
+  three AI keys were inert. **Fixed 2026-11-10** — see *AI adapters +
+  enforced caps* below.
 
 ### Not verified in this pass (honest limits)
 
 - Live external providers: **DDGS, Tavily, Serper and real website
-  inspection verified live (2026-11-10)**; AI providers cannot be
-  verified — adapters not implemented (Phase 2 gap above); OSM
-  unreachable from this host (406 at edge — re-test from an unblocked
-  network).
+  inspection verified live (2026-11-10)**; AI providers and OSM were not
+  (adapters unbuilt / Overpass 406 at edge — both closed or recorded in
+  the next sections).
 - Backup **restore** and `alembic downgrade` (upgrade path tested).
 - Non-loopback bind with token (startup refusal tested; live LAN exposure
   not exercised) — `Secure` cookie flag is off by design for loopback.
 - Login rate limiting: none (documented in SECURITY §3).
+
+## Live smoke — Phase 3: AI adapters + enforced caps — 2026-11-10
+
+Keys from `.env` (values never printed); real Gemini calls, no money spent
+beyond the free tier. Closes the Phase-2 AI gap and review finding **#15
+(caps decorative)**.
+
+**Adapters (D7)**
+
+- `app/ai/providers.py`: `GeminiClient` (JSON `responseSchema`, key in the
+  `x-goog-api-key` **header**, never the URL) and `OpenAICompatClient`
+  (`/chat/completions` — Groq, OpenRouter, local Ollama).
+  `AIGenerator` validates output with Pydantic, allows **one repair retry**
+  on a validation failure, and rejects citations to finding ids that were
+  never provided (P5) — an ungrounded draft can never be produced.
+- `get_generator()` now honours `AI_PROVIDER`: `gemini`/`groq`/
+  `openrouter`/`ollama` selected from config, **missing key or unknown name
+  falls back to the template floor with a logged warning** (never silently
+  labelled `ai`).
+- **Live: `gemini-3.5-flash` returned a real draft** — `origin='ai'`,
+  `grounding=[17,18]` (real finding ids), submit → approve both 303. The
+  default `gemini-2.5-flash` was **retired for new keys** (404) — the
+  default is now `gemini-3.5-flash`, documented as a known-rot risk;
+  `AI_MODEL` overrides it.
+
+**Caps (finding #15 — were decorative, now enforced)**
+
+- `app/services/usage.py`: one place that reads `*_daily_cap` and writes
+  `provider_usage` / `ai_usage`. Per provider per calendar day, summed
+  across kinds; `used >= cap` blocks (so `0` blocks everything);
+  unmetered sources (DDGS, OSM, BizData, site fetch) have no cap.
+- Search: checked **before** the call → step reported
+  `skipped (daily cap reached: tavily)`, counted in `rate_limited`, and
+  (P6) a skipped search is never evidence for `no_website_found`.
+- AI: `generate_draft` blocks at the cap with `429` (HTML page + API), and
+  **the template floor is never capped** (it makes no external call, P11).
+- `ai_usage` is now written for success *and* failure (repair retries and
+  transport retries included) — the Usage page's AI table is no longer
+  permanently empty.
+
+**Live evidence (2026-11-10)**
+
+| Check | Result |
+|---|---|
+| Gemini draft | ✅ `origin='ai'`, grounded in findings `[17, 18]`, submit → approve OK |
+| AI usage accounting | ✅ `ai_usage gemini/gemini-3.5-flash calls=2 ok=1 failed=1 pt=1283 ct=941` (one call had failed live on a 503) |
+| Transient 503 from Gemini | ✅ observed live → one bounded retry added (`TRANSIENT_STATUS` 429/500/502/503/504); non-transient (400) still fails immediately |
+| Search cap hard stop | ✅ with `TAVILY_DAILY_CAP=2` and usage already at 2: research step reported `skipped (daily cap reached: tavily)`, `calls=2` unchanged, `rate_limited=1` |
+| AI cap hard stop | ✅ with `AI_DAILY_CAP=1`: first draft 303, second → **429** "daily AI cap reached (1/1 calls today)", no extra call made |
+| Settings → General | ✅ table shows cap / **used today** / configured with `2 / 2 — cap reached — calls blocked` and `AI (gemini) 2 / 5` |
+| Settings → Usage | ✅ cap strip (Tavily `2 / 2 blocked`) + AI rows from the live `ai_usage` |
+| Origin badge | ✅ message edit page shows `ai` badge + "AI-generated — verify every claim before sending (P5)" |
+
+**Tests:** `tests/test_ai_generators.py` (17: parse, key-in-header, repair
+retry, citation integrity, grounding-required, transient-retry, 400-not-
+retried, shape failure, factory selection + template fallback) and
+`tests/test_usage_caps.py` (11: cap blocks the call, `cap=0` blocks all,
+under-cap accumulates, unmetered never blocked, skipped search ≠
+`no_website_found`, AI cap blocks before any call, template never capped,
+usage recorded on success and failure, `usage_summary`). The suite now has
+an **autouse fixture that forces the template floor, clears every key and
+disables keyless discovery** — a developer's real `.env` can never turn a
+unit test into a live call (AGENTS §7).
+
+### Not verified in this pass (honest limits)
+
+- Groq / OpenRouter / Ollama adapters: **adapter-shape tested only**
+  (MockTransport), not called live — one provider per smoke keeps spend
+  bounded; each is the same `AIGenerator` over `OpenAICompatClient`.
+- Gemini free-tier **rate limits** under sustained load (single calls only).
+- `AI_MODEL` override against a second model id (the code path is tested;
+  the value is config-driven).
 
 ## Known gaps (spec promises not yet built)
 

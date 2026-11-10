@@ -59,7 +59,7 @@ Prospectly
 - **Tab: Overview** — profile fields (inline edit), source, tags, notes (add/edit), next follow-up, primary actions (Run research / Generate draft / stage transitions).
 - **Tab: Research** — findings grouped by kind; each finding row: statement · origin badge (`human`/`provider`/`ai`) · verification badge · confidence · source link (opens in new tab) · retrieved date · actions (Verify/Edit/Delete). Website check history sub-panel with outcome + signals. "Add finding" form.
 - **Tab: Opportunities** — cards *only here* (each is an evidence object): type, summary, rationale, linked evidence chips (click → jump to finding), Validate/Dismiss. Empty state explains the rule engine runs after research.
-- **Tab: Outreach** — message versions list (status timeline), current draft editor with character/line guidance, grounding panel (findings used), the gated action chain as **one primary button whose label reflects the next legal step**: `Submit for review → Approve → Open in WhatsApp → I have sent this message`. Secondary: edit, return to draft, start new outreach (guarded). After open: an explicit confirmation prompt "Did you send it?" with Yes/No — No returns to `approved`.
+- **Tab: Outreach** — message versions list (status timeline), current draft editor with character/line guidance, grounding panel (findings used), the gated action chain as **one primary button whose label reflects the next legal step**: `Submit for review → Approve → Open in WhatsApp → I have sent this message`. Secondary: edit, return to draft, start new outreach (guarded). After open: an explicit confirmation prompt "Did you send it?" with Yes/No — No returns to `approved`. AI-generated drafts carry an `ai` origin badge plus "verify every claim before sending" (P5); template drafts show `template`.
 - **Tab: Activity** — append-only timeline (icon, actor, description, timestamp; payload details expandable).
 
 ### 2.4 Outreach queue
@@ -76,8 +76,8 @@ Moved under Settings because CSV is not the default discovery path. 3-step wizar
 - **Profile:** your offer, target industries/categories, target locations, ideal-client signals — one editable form; drives automated discovery and personalizes drafts. Below it: **Automated discovery** card — a "Run discovery" button (queues a `discovery_job` + worker job; flash names the worker command) and a recent-runs table (status, candidates found, created, error).
 - **Saved views:** list of named list-filters with an **Apply** link (redirects to the filtered list) and delete; create form accepts structured list filters (unknown keys rejected with 400).
 - **Providers:** per provider: configured? (key present), enabled toggle, "Test" button (runs a trivial call, shows result), last error. Keys themselves are never displayed — only masked presence (`GEMINI_API_KEY · configured`).
-- **Usage:** table of provider calls/errors/rate-limits per day + AI tokens/costs estimate per day. Simple table, no charts.
-- **General:** category vocabulary editor, default follow-up days, daily caps, backup button + last-backup timestamp.
+- **Usage:** table of provider calls/errors/rate-limits per day + AI calls/tokens per day, with a daily-cap strip (used / cap, "blocked" when reached). Simple table, no charts.
+- **General:** category vocabulary editor, default follow-up days, daily caps with **used-today and a "cap reached — calls blocked" badge**, backup button + last-backup timestamp.
 - **Import (CSV):** secondary utility — Upload → Preview → Commit. Not the default discovery path.
 
 ### 2.8 Login (only when `APP_ACCESS_TOKEN` is set)

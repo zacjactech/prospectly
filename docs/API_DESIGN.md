@@ -100,14 +100,14 @@ HTMX partials return HTML fragments (`HX-Request` header honored); full page loa
 
 | Method | Path | Preconditions | Returns |
 |---|---|---|---|
-| POST | `/prospects/{id}/drafts` | not suppressed; stage allows outreach | `201 OutreachMessage` (`draft`) |
+| POST | `/prospects/{id}/drafts` | not suppressed (`403`); stage allows outreach (`409`); AI cap not reached (`429`); provider call succeeds (`502` on adapter failure) | `201 OutreachMessage` (`origin` = `ai` or `template`); AI spend is written to `ai_usage` even when generation fails |
 | PATCH | `/messages/{id}` | status ∈ {draft, pending_review, approved, opened_in_whatsapp}; `sent_confirmed` is terminal and rejects edits (`409`) | any change to `current_text` demotes status → `draft` (edits invalidate approval) |
 | POST | `/messages/{id}/submit` | non-empty text | `pending_review` |
 | POST | `/messages/{id}/approve` | `pending_review`; not suppressed; grounding ok or ack set | `approved` + `approved_at` |
 | POST | `/messages/{id}/open` | `approved` | `opened_in_whatsapp` + `{wa_me_url}` (**never marks sent**) |
 | POST | `/messages/{id}/confirm-sent` | `opened_in_whatsapp` (or explicit `force` + reason) | `sent_confirmed`; side effects: activity, `last_contacted_at`, stage `contacted`, default follow-up suggestion |
 
-**Error codes:** `409 invalid_transition`, `403 suppressed` (`do_not_contact`), `422 missing_grounding`.
+**Error codes:** `409 invalid_transition`, `403 suppressed` (`do_not_contact`), `422 missing_grounding`, `429` daily AI cap reached, `502` AI provider failure (invalid output after one repair retry, transport error, or unexpected response shape — the failed call is still recorded in `ai_usage`).
 
 ```json
 // POST /messages/7/open → 200

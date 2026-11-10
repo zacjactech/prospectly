@@ -2,9 +2,11 @@
 
 Pipeline steps (SYSTEM_ARCHITECTURE §4.1):
 1. Website inspection (SafeFetcher + SiteInspector)
-2. Web search (enabled SearchProvider)
-3. Optional discovery enrichment (OSM Overpass)
-4. Optional AI summarization (if configured)
+2. Web search (enabled SearchProvider, gated by the provider's daily cap)
+3. Optional discovery enrichment (OSM Overpass / BizData)
+
+Drafts are generated on demand from stored findings (D7) — research itself
+makes no AI call; opportunities come from the rule engine (D6).
 
 Each result is stored as a `findings` row with source metadata (P7).
 """
@@ -17,49 +19,17 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models import Finding, Prospect, ProviderUsage, ResearchRun
+from app.models import Finding, Prospect, ResearchRun
 from app.providers.factory import get_discovery_provider, get_search_provider
 from app.services.activity import log_activity
+from app.services.usage import provider_cap_reached
+from app.services.usage import record_provider_usage as _record_provider_usage
 from app.site_inspector import inspect
 
 # Record-level observation written only when a prospect has NO website URL.
 # It feeds the `no_standalone_website` evidence (opportunity rule engine) and
 # must never be written for prospects that DO have a URL (P5).
 NO_URL_STATEMENT = "No website URL recorded for this prospect"
-
-
-def _record_provider_usage(
-    db: Session,
-    *,
-    provider: str,
-    kind: str,
-    calls: int = 1,
-    errors: int = 0,
-    rate_limited: int = 0,
-) -> None:
-    """Record provider call accounting (SYSTEM_ARCHITECTURE §6).
-
-    Upserts into ``provider_usage`` keyed by (provider, kind, period).
-    """
-    from datetime import date as _date
-
-    today = _date.today()
-    row = db.query(ProviderUsage).filter_by(provider=provider, kind=kind, period=today).first()
-    if row is None:
-        row = ProviderUsage(
-            provider=provider,
-            kind=kind,
-            calls=calls,
-            errors=errors,
-            rate_limited=rate_limited,
-            period=today,
-        )
-        db.add(row)
-    else:
-        row.calls += calls
-        row.errors += errors
-        row.rate_limited += rate_limited
-    db.flush()
 
 
 def _now() -> datetime:
@@ -312,46 +282,61 @@ def run_research(
     # --- Step 2: Web search ---
     search_provider = get_search_provider()
     if search_provider:
-        try:
-            search_query = f"{prospect.business_name} {prospect.location_city or ''}".strip()
-            results = _run_sync(search_provider.search(search_query, max_results=5))
-            if results:
-                search_state = "results"
-                steps["search"] = f"ok ({len(results)} results)"
-                for r in results:
-                    _upsert_finding(
-                        db,
-                        prospect_id=prospect_id,
-                        research_run_id=research_run.id,
-                        kind="identity",
-                        statement=f"{r.get('title', '')} — {r.get('snippet', '')}",
-                        source_url=r.get("url"),
-                        source_type="search_result",
-                        verification_status="unverified",
-                        confidence="low",
-                        origin="provider",
-                    )
-            else:
-                search_state = "empty"
-                steps["search"] = "ok (no results)"
-        except Exception as exc:  # pragma: no cover - defensive
-            search_state = "failed"
-            steps["search"] = f"failed: {exc!s}"
-            errors.append(f"search: {exc!s}")
+        provider_name = getattr(search_provider, "provider_name", "search")
+        if provider_cap_reached(db, provider_name):
+            # Cost control (COST_ANALYSIS): the daily cap is a hard stop. The
+            # call is not made; the step is reported as skipped so a skipped
+            # search never reads as "no results" (P6).
+            search_state = "cap"
+            steps["search"] = f"skipped (daily cap reached: {provider_name})"
             _record_provider_usage(
                 db,
-                provider=getattr(search_provider, "provider_name", "search"),
+                provider=provider_name,
                 kind="search",
-                calls=1,
-                errors=1,
+                calls=0,
+                rate_limited=1,
             )
         else:
-            _record_provider_usage(
-                db,
-                provider=getattr(search_provider, "provider_name", "search"),
-                kind="search",
-                calls=1,
-            )
+            try:
+                search_query = f"{prospect.business_name} {prospect.location_city or ''}".strip()
+                results = _run_sync(search_provider.search(search_query, max_results=5))
+                if results:
+                    search_state = "results"
+                    steps["search"] = f"ok ({len(results)} results)"
+                    for r in results:
+                        _upsert_finding(
+                            db,
+                            prospect_id=prospect_id,
+                            research_run_id=research_run.id,
+                            kind="identity",
+                            statement=f"{r.get('title', '')} — {r.get('snippet', '')}",
+                            source_url=r.get("url"),
+                            source_type="search_result",
+                            verification_status="unverified",
+                            confidence="low",
+                            origin="provider",
+                        )
+                else:
+                    search_state = "empty"
+                    steps["search"] = "ok (no results)"
+            except Exception as exc:  # pragma: no cover - defensive
+                search_state = "failed"
+                steps["search"] = f"failed: {exc!s}"
+                errors.append(f"search: {exc!s}")
+                _record_provider_usage(
+                    db,
+                    provider=provider_name,
+                    kind="search",
+                    calls=1,
+                    errors=1,
+                )
+            else:
+                _record_provider_usage(
+                    db,
+                    provider=provider_name,
+                    kind="search",
+                    calls=1,
+                )
     else:
         steps["search"] = "skipped (no provider)"
 

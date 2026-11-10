@@ -95,7 +95,7 @@ All keys are documented in `.env.example`. Highlights:
 | `BIND_HOST` / `APP_ACCESS_TOKEN` | loopback by default; token **required** if bound beyond loopback. When set, a login gate (`/login`) protects every page and API route except `/healthz` and `/static/*` (12h sliding session) |
 | `TAVILY_API_KEY` / `SERPER_API_KEY` / … | optional search providers (feature-flagged by presence) |
 | `AI_PROVIDER` | `gemini` \| `groq` \| `openrouter` \| `ollama` \| `template` (default floor: `template`) |
-| `*_DAILY_CAP` | hard usage caps per provider |
+| `*_DAILY_CAP` | enforced daily caps per provider (checked before each call; `0` blocks every call) |
 | `PHONE_DEFAULT_COUNTRY` | ISO country code applied to national-format numbers during E.164 normalization (unset = international format required) |
 
 **User profile** (in Settings): what you offer, target industries/categories, target locations, ideal-client signals — drives automated discovery jobs and personalizes outreach drafts. This is where you configure discovery before adding prospects.

@@ -75,6 +75,16 @@ providers/
 - All AI calls: JSON-schema-validated output (Pydantic), one repair-retry on validation failure, usage tokens logged to `ai_usage`, and every produced finding/draft carries `origin='ai'`, `confidence='low'` until a human verifies it (P5).
 - Prompt inputs are **only** stored findings/fetches (grounding), never ungrounded web content, and each generated claim must cite finding IDs or be marked hypothesis.
 
+**Implementation status (2026-11-10):** `MessageGenerator` has concrete adapters —
+`template` (floor), `gemini` (`x-goog-api-key` header, native JSON
+`responseSchema`), and `groq`/`openrouter`/`ollama` via the OpenAI-compatible
+`/chat/completions` shape. Every call validates output with Pydantic, allows
+**one** repair retry, rejects citations that were not provided (P5), returns
+usage in `GeneratedDraft.meta`, and the service writes `ai_usage` for
+successful *and* failed calls. `Summarizer`/`OpportunityAnalyzer` remain
+interfaces only (opportunities come from the rule engine, D6); AI
+summarization is not part of the research pipeline yet.
+
 ## D8 — Configuration & secrets
 
 **Decision: `pydantic-settings` reading environment + `.env` file (gitignored); `.env.example` committed with placeholders.**

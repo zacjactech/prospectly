@@ -678,7 +678,13 @@ def dismiss_opportunity_api(
     "/prospects/{prospect_id}/drafts",
     response_model=OutreachMessageOut,
     status_code=status.HTTP_201_CREATED,
-    responses={404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
+    responses={
+        403: {"model": ErrorOut},
+        404: {"model": ErrorOut},
+        409: {"model": ErrorOut},
+        429: {"model": ErrorOut},
+        502: {"model": ErrorOut},
+    },
 )
 def generate_draft_api(
     prospect_id: int = Path(ge=1),
@@ -691,6 +697,16 @@ def generate_draft_api(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
         if error.startswith("suppressed:"):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
+        if error.startswith("cap:"):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=error.removeprefix("cap: "),
+            )
+        if error.startswith("ai:"):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=error.removeprefix("ai: "),
+            )
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
     assert message is not None
     return OutreachMessageOut.model_validate(message)

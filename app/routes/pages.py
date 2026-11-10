@@ -41,6 +41,7 @@ from app.services import profile as profile_service
 from app.services import prospect as prospect_service
 from app.services import retention as retention_service
 from app.services import saved_views as saved_views_service
+from app.services.usage import usage_summary
 from app.validation import (
     FollowUpFormData,
     OpportunityFormData,
@@ -689,6 +690,7 @@ def usage_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
             "app_name": settings.app_name,
             "providers": stats["providers"],
             "ai": stats["ai"],
+            "usage": usage_summary(db),
         },
     )
 
@@ -702,6 +704,7 @@ def general_settings_form(request: Request, db: Session = Depends(get_db)) -> HT
         context={
             "app_name": settings.app_name,
             "settings": settings,
+            "usage": usage_summary(db),
         },
     )
 
@@ -724,6 +727,7 @@ def general_settings_update(
                 context={
                     "app_name": settings.app_name,
                     "settings": settings,
+                    "usage": usage_summary(db),
                     "error": "Backup failed — is the database a SQLite file?",
                 },
             )
@@ -743,6 +747,7 @@ def general_settings_update(
                 context={
                     "app_name": settings.app_name,
                     "settings": settings,
+                    "usage": usage_summary(db),
                     "error": "Default follow-up days must be a number.",
                 },
             )
@@ -1515,6 +1520,10 @@ def draft_generate(
             return HTMLResponse("Prospect not found", status_code=404)
         if error.startswith("suppressed:"):
             return HTMLResponse(error, status_code=403)
+        if error.startswith("cap:"):
+            return HTMLResponse(error.removeprefix("cap: "), status_code=429)
+        if error.startswith("ai:"):
+            return HTMLResponse(error.removeprefix("ai: "), status_code=502)
         return HTMLResponse(error, status_code=409)
     assert message is not None
     return RedirectResponse(

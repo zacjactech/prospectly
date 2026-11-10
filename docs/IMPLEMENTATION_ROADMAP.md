@@ -43,7 +43,7 @@ Phased plan with **testable exit criteria** per milestone. Each phase ends with:
 ## Phase 3 — Opportunities + outreach + WhatsApp (L)
 
 - Rule engine producing evidence-linked `opportunities` (+ validation guard).
-- AI abstraction (`app/ai/`): interfaces, `template` adapter (no-AI floor), `gemini`/`groq`/`openrouter` adapters with JSON validation, retry, usage logging.
+- AI abstraction (`app/ai/`): interfaces, `template` adapter (no-AI floor), `gemini`/`groq`/`openrouter` adapters with JSON validation, retry, usage logging. **Done 2026-11-10** — `gemini` (JSON `responseSchema`) + `groq`/`openrouter`/`ollama` (OpenAI-compatible), Pydantic validation with one repair retry, citation integrity (grounding ⊆ provided findings), `ai_usage` written for success and failure; enforced daily caps (search + AI) shipped in the same pass.
 - Draft generation grounded in findings; draft editor; full approval state machine with guards (suppression, grounding ack).
 - `app/whatsapp.py` (normalize + `wa.me` build) + Open-in-WhatsApp flow + **explicit confirm-sent** step + default follow-up suggestion.
 - Outreach queue page; prospect Outreach tab; activity types for the whole chain.

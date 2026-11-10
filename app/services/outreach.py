@@ -18,10 +18,11 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.ai import get_generator
+from app.ai import AIError, get_generator
 from app.models import Finding, FollowUp, OutreachMessage, Prospect
 from app.services.activity import log_activity
 from app.services.prospect import transition_stage
+from app.services.usage import ai_cap_state, record_ai_usage
 from app.whatsapp import build_wa_me_url
 
 
@@ -147,7 +148,45 @@ def generate_draft(
 
     ctx = _build_context(prospect, opportunities, findings)
     generator = get_generator()
-    draft = asyncio.run(generator.generate(ctx))
+    provider_name = getattr(generator, "provider_name", "template")
+    model = getattr(generator, "model", None)
+
+    # Cost control (COST_ANALYSIS): hard stop at the AI daily cap. The
+    # template floor makes no external call, so it is never capped.
+    if provider_name != "template":
+        cap, used = ai_cap_state(db)
+        if used >= cap:
+            return None, f"cap: daily AI cap reached ({used}/{cap} calls today)"
+
+    try:
+        draft = asyncio.run(generator.generate(ctx))
+    except AIError as exc:
+        # Record the spend even on failure — the provider counted it.
+        record_ai_usage(
+            db,
+            provider=exc.provider,
+            model=exc.model,
+            task="draft",
+            calls=max(1, exc.calls),
+            ok_calls=exc.ok_calls,
+            failed_calls=max(1, exc.failed_calls),
+            prompt_tokens=exc.prompt_tokens,
+            completion_tokens=exc.completion_tokens,
+        )
+        return None, f"ai: {exc}"
+    if provider_name != "template":
+        meta = draft.meta or {}
+        record_ai_usage(
+            db,
+            provider=provider_name,
+            model=model,
+            task=str(meta.get("task", "draft")),
+            calls=int(meta.get("calls", 1)),
+            ok_calls=int(meta.get("ok_calls", 1)),
+            failed_calls=int(meta.get("failed_calls", 0)),
+            prompt_tokens=int(meta.get("prompt_tokens", 0)),
+            completion_tokens=int(meta.get("completion_tokens", 0)),
+        )
 
     return create_draft(
         db,

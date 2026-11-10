@@ -99,7 +99,7 @@
 
 <section class="card">
   <h3>Message history</h3>
-  <p class="muted">Status: {{ message.status|replace('_',' ') }} · Origin: {{ message.origin }} · Created {{ message.created_at.strftime('%b %d, %H:%M') }}</p>
+  <p class="muted">Status: {{ message.status|replace('_',' ') }} · Origin: <span class="badge stage-{{ message.origin|replace('_','-') }}">{{ message.origin }}</span>{% if message.origin == 'ai' %} <span class="muted small">AI-generated — verify every claim before sending (P5)</span>{% endif %} · Created {{ message.created_at.strftime('%b %d, %H:%M') }}</p>
   {% if message.approved_at %}<p class="muted small">Approved {{ message.approved_at.strftime('%b %d, %H:%M') }}</p>{% endif %}
   {% if message.opened_at %}<p class="muted small">Opened in WhatsApp {{ message.opened_at.strftime('%b %d, %H:%M') }}</p>{% endif %}
   {% if message.sent_confirmed_at %}<p class="muted small">Send confirmed {{ message.sent_confirmed_at.strftime('%b %d, %H:%M') }}</p>{% endif %}
