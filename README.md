@@ -92,7 +92,7 @@ All keys are documented in `.env.example`. Highlights:
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | defaults to local SQLite file |
-| `BIND_HOST` / `APP_ACCESS_TOKEN` | loopback by default; token **required** if bound beyond loopback |
+| `BIND_HOST` / `APP_ACCESS_TOKEN` | loopback by default; token **required** if bound beyond loopback. When set, a login gate (`/login`) protects every page and API route except `/healthz` and `/static/*` (12h sliding session) |
 | `TAVILY_API_KEY` / `SERPER_API_KEY` / … | optional search providers (feature-flagged by presence) |
 | `AI_PROVIDER` | `gemini` \| `groq` \| `openrouter` \| `ollama` \| `template` (default floor: `template`) |
 | `*_DAILY_CAP` | hard usage caps per provider |

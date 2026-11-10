@@ -22,8 +22,8 @@ Scope: a local-first, single-operator tool that stores personal contact data (na
 
 - Session cookie: `HttpOnly`, `SameSite=Strict`, `Secure` off only for pure-localhost HTTP (documented), path `/`.
 - Every state-changing request (forms and JSON) requires a per-session CSRF token (double-submit cookie pattern); enforced by middleware for `POST/PATCH/PUT/DELETE`.
-- **Access model:** default bind `127.0.0.1` (no auth needed for loopback). Optional `APP_ACCESS_TOKEN` env: if set, a login gate issues the session — required when binding beyond loopback (`BIND_HOST` ≠ 127.0.0.1 refuses to start without a token).
-- Session expiry: 12h idle timeout; token rotation on login.
+- **Access model:** default bind `127.0.0.1` (no auth needed for loopback). Optional `APP_ACCESS_TOKEN` env: if set, a login gate (`GET/POST /login`) issues a stateless signed session cookie `{expiry_unix}.{HMAC-SHA256(expiry)}` keyed by the token (`HttpOnly; SameSite=Strict; Path=/`, `Secure` off only for loopback HTTP). Every request except `/login`, `/healthz` and `/static/*` requires a valid session — including `/api/docs`, `/api/redoc`, `/api/openapi.json`. Unauthenticated API/JSON requests get `401 {"detail": …}`; HTML gets `302 /login?next=<local path>` (`next` accepts local paths only). The login POST stays CSRF-protected and deletes the `csrf_token` cookie so a fresh token is minted. `POST /logout` clears the session. Startup still refuses a non-loopback bind without a token.
+- Session expiry: 12h **sliding** idle timeout (cookie re-issued as `now+12h` on every authenticated response; no `Max-Age`, so it also dies with the browser). Rotating `APP_ACCESS_TOKEN` invalidates every outstanding session. No rate limiting on `/login` and no server-side revocation list — LAN exposure should sit behind TLS (reverse proxy); plain-HTTP LAN sends the token POST in clear text.
 
 ## 4. Secure local configuration & secret handling
 

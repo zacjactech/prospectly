@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
+from app.auth import AuthMiddleware
 from app.config import BASE_DIR, settings
 from app.csrf import CSRFMiddleware, csrf_field, csrf_token
 from app.logging_setup import setup_logging
@@ -66,13 +67,21 @@ def create_app() -> FastAPI:
 
     app.mount("/static", StaticFiles(directory=BASE_DIR / "app" / "static"), name="static")
 
-    from app.routes import api, pages
+    from app.routes import api, auth, pages
 
     app.include_router(pages.router)
+    app.include_router(auth.router)
     app.include_router(api.router, prefix="/api/v1")
 
     # CSRF protection (SECURITY_AND_PRIVACY.md §3): double-submit cookie.
     app.add_middleware(CSRFMiddleware)
+
+    # Access-token gate (SECURITY_AND_PRIVACY.md §3). Inert when
+    # APP_ACCESS_TOKEN is unset. Starlette builds the stack with the most
+    # recently added middleware outermost, so the gate runs *before* CSRF:
+    # gated requests are rejected without reading bodies, while the allowlisted
+    # POST /login still flows through CSRFMiddleware and is CSRF-checked.
+    app.add_middleware(AuthMiddleware)
 
     # Expose CSRF helpers to Jinja2 templates.
     pages.templates.env.globals["csrf_token"] = csrf_token
