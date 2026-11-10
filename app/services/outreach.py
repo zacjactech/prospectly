@@ -500,3 +500,58 @@ def create_follow_up(
         payload={"follow_up_id": follow_up.id, "due_date": str(due_date) if due_date else None},
     )
     return follow_up, None
+
+
+def complete_follow_up(
+    db: Session,
+    *,
+    follow_up_id: int,
+    note: str | None = None,
+    actor: str = "user",
+) -> tuple[FollowUp | None, str | None]:
+    """Mark an open follow-up done (Flow 7).
+
+    Only an ``open`` follow-up can complete: re-completing must not re-stamp
+    ``completed_at`` or duplicate the activity (one service layer, D3 — both
+    surfaces used to inline this logic and disagree on idempotency).
+    """
+    follow_up = db.get(FollowUp, follow_up_id)
+    if follow_up is None:
+        return None, "Follow-up not found"
+    if follow_up.status != "open":
+        return None, f"Follow-up already {follow_up.status}"
+    follow_up.status = "done"
+    follow_up.completed_at = _now()
+    db.flush()
+    log_activity(
+        db,
+        prospect_id=follow_up.prospect_id,
+        type="follow_up_completed",
+        actor=actor,
+        payload={"follow_up_id": follow_up_id, "note": note},
+    )
+    return follow_up, None
+
+
+def cancel_follow_up(
+    db: Session,
+    *,
+    follow_up_id: int,
+    actor: str = "user",
+) -> tuple[FollowUp | None, str | None]:
+    """Cancel an open follow-up (Flow 7). Same idempotency guard as complete."""
+    follow_up = db.get(FollowUp, follow_up_id)
+    if follow_up is None:
+        return None, "Follow-up not found"
+    if follow_up.status != "open":
+        return None, f"Follow-up already {follow_up.status}"
+    follow_up.status = "cancelled"
+    db.flush()
+    log_activity(
+        db,
+        prospect_id=follow_up.prospect_id,
+        type="follow_up_cancelled",
+        actor=actor,
+        payload={"follow_up_id": follow_up_id},
+    )
+    return follow_up, None

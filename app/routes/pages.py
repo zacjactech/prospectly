@@ -5,9 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -17,9 +17,10 @@ from sqlalchemy.orm import Session
 from app.cli import perform_backup
 from app.config import BASE_DIR, save_settings, settings
 from app.db import get_db
-from app.jobs.worker import queue_research_job
+from app.jobs.worker import queue_discover_job, queue_research_job
 from app.models import (
     Activity,
+    DiscoveryJob,
     Finding,
     FollowUp,
     OutreachMessage,
@@ -37,7 +38,6 @@ from app.services import profile as profile_service
 from app.services import prospect as prospect_service
 from app.services import retention as retention_service
 from app.services import saved_views as saved_views_service
-from app.services.activity import log_activity
 from app.validation import (
     FollowUpFormData,
     OpportunityFormData,
@@ -594,12 +594,14 @@ def prospect_unsuppress(
 @router.get("/settings/profile", response_class=HTMLResponse)
 def profile_form(request: Request, db: DbSession) -> HTMLResponse:
     profile = profile_service.get_or_create_profile(db)
+    discovery_jobs = db.query(DiscoveryJob).order_by(DiscoveryJob.created_at.desc()).limit(5).all()
     return templates.TemplateResponse(
         request=request,
         name="settings/profile.html",
         context={
             "app_name": settings.app_name,
             "profile": profile,
+            "discovery_jobs": discovery_jobs,
         },
     )
 
@@ -637,6 +639,36 @@ def profile_update(
     )
     return RedirectResponse(
         url=f"/settings/profile?flash={quote('Profile saved')}&flash_type=success",
+        status_code=303,
+    )
+
+
+@router.post("/settings/profile/discovery/run", response_class=HTMLResponse, response_model=None)
+def profile_discovery_run(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    """Queue a profile-driven discovery run (Flow 1, SYSTEM_ARCHITECTURE §4.1).
+
+    Creates the ``discovery_job`` row keyed to the profile and the backing
+    ``jobs`` row the worker claims; the worker (python -m app.cli worker)
+    picks it up — the app itself never runs providers in-request (D5).
+    """
+    profile = profile_service.get_or_create_profile(db)
+    if not (profile.target_industries or profile.target_locations):
+        return HTMLResponse(
+            "Set target industries or locations in your profile before running discovery.",
+            status_code=400,
+        )
+    discovery_job = DiscoveryJob(profile_id=profile.id, status="queued")
+    db.add(discovery_job)
+    db.flush()
+    queue_discover_job(db, profile_id=profile.id, discovery_job_id=discovery_job.id)
+    return RedirectResponse(
+        url=(
+            f"/settings/profile?flash={quote('Discovery queued — run the worker (python -m app.cli worker) to process it')}"
+            "&flash_type=success"
+        ),
         status_code=303,
     )
 
@@ -914,21 +946,81 @@ def saved_views_create(
     db: Session = Depends(get_db),
     name: str = Form(...),
     filters: str | None = Form(None),
+    stage: str | None = Form(None),
+    tag: str | None = Form(None),
+    category: str | None = Form(None),
+    location: str | None = Form(None),
+    q: str | None = Form(None),
+    include_archived: str | None = Form(None),
+    do_not_contact_only: str | None = Form(None),
 ) -> HTMLResponse | RedirectResponse:
-    """Create a saved view from the HTML form."""
+    """Create a saved view from the HTML form.
 
-    filters_dict = None
+    Accepts either a JSON ``filters`` blob or the structured fields the
+    Prospects list posts via "Save current view" — both are validated
+    against the list's whitelisted query keys (M3).
+    """
+    filters_dict: dict | None = None
     if filters and filters.strip():
         try:
-            filters_dict = json.loads(filters)
+            parsed = json.loads(filters)
         except json.JSONDecodeError:
             return HTMLResponse("Invalid JSON in filters field.", status_code=400)
+        if not isinstance(parsed, dict):
+            return HTMLResponse("filters must be a JSON object.", status_code=400)
+        unknown = saved_views_service.unknown_filter_keys(parsed)
+        if unknown:
+            return HTMLResponse("Unknown filter key(s): " + ", ".join(unknown), status_code=400)
+        filters_dict = parsed
+
+    structured = {
+        k: v
+        for k, v in {
+            "stage": stage,
+            "tag": tag,
+            "category": category,
+            "location": location,
+            "q": q,
+            "include_archived": include_archived,
+            "do_not_contact_only": do_not_contact_only,
+        }.items()
+        if v
+    }
+    if structured:
+        filters_dict = {**(filters_dict or {}), **structured}
 
     saved_views_service.create_saved_view(db, name=name, filters=filters_dict)
     return RedirectResponse(
         url=f"/settings/saved-views?flash={quote('View saved')}&flash_type=success",
         status_code=303,
     )
+
+
+@router.get("/prospects/views/{view_id}/apply", response_class=HTMLResponse, response_model=None)
+def saved_view_apply(
+    request: Request,
+    view_id: int,
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    """Apply a saved view: redirect to the Prospects list with its filters."""
+    view = saved_views_service.get_saved_view(db, view_id)
+    if view is None:
+        return RedirectResponse(
+            url="/settings/saved-views?flash="
+            + quote("Saved view not found")
+            + "&flash_type=error",
+            status_code=303,
+        )
+    clean = saved_views_service.sanitize_filters(view.filters) or {}
+    params = urlencode(
+        {
+            k: ("true" if v is True else str(v))
+            for k, v in clean.items()
+            if v not in (None, "", False)
+        }
+    )
+    target = f"/prospects?{params}" if params else "/prospects"
+    return RedirectResponse(url=target, status_code=303)
 
 
 @router.post(
@@ -1607,19 +1699,14 @@ def follow_up_complete(
     db: Session = Depends(get_db),
     note: str | None = Form(None),
 ) -> HTMLResponse | RedirectResponse:
-    follow_up = db.get(FollowUp, follow_up_id)
-    if follow_up is None:
-        return HTMLResponse("Follow-up not found", status_code=404)
-    follow_up.status = "done"
-    follow_up.completed_at = datetime.now(UTC)
-    db.flush()
-    log_activity(
-        db,
-        prospect_id=follow_up.prospect_id,
-        type="follow_up_completed",
-        actor="user",
-        payload={"follow_up_id": follow_up_id, "note": note},
+    follow_up, error = outreach_service.complete_follow_up(
+        db, follow_up_id=follow_up_id, note=note, actor="user"
     )
+    if error:
+        if error == "Follow-up not found":
+            return HTMLResponse("Follow-up not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    assert follow_up is not None
     return RedirectResponse(
         url=f"/prospects/{follow_up.prospect_id}?flash={quote('Follow-up completed')}&flash_type=success",
         status_code=303,
@@ -1636,11 +1723,14 @@ def follow_up_cancel(
     follow_up_id: int,
     db: Session = Depends(get_db),
 ) -> HTMLResponse | RedirectResponse:
-    follow_up = db.get(FollowUp, follow_up_id)
-    if follow_up is None:
-        return HTMLResponse("Follow-up not found", status_code=404)
-    follow_up.status = "cancelled"
-    db.flush()
+    follow_up, error = outreach_service.cancel_follow_up(
+        db, follow_up_id=follow_up_id, actor="user"
+    )
+    if error:
+        if error == "Follow-up not found":
+            return HTMLResponse("Follow-up not found", status_code=404)
+        return HTMLResponse(error, status_code=409)
+    assert follow_up is not None
     return RedirectResponse(
         url=f"/prospects/{follow_up.prospect_id}?flash={quote('Follow-up cancelled')}&flash_type=success",
         status_code=303,

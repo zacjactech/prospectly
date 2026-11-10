@@ -45,6 +45,9 @@
         <td class="muted small">{{ view.filters | tojson if view.filters else "—" }}</td>
         <td class="muted small">{{ view.created_at }}</td>
         <td class="text-right small">
+          {% if view.filters %}
+          <a class="btn small" href="/prospects/views/{{ view.id }}/apply">Apply</a>
+          {% endif %}
           <form method="post" action="/settings/saved-views/{{ view.id }}/delete" style="display:inline;">
             {{ csrf_field() }}
             <button class="btn danger small" type="submit" data-confirm="Delete this saved view?">Delete</button>

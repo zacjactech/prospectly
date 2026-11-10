@@ -144,7 +144,7 @@ Index: `(status, due_date)` for the dashboard query.
 ### 2.11 `activities` — append-only history (P: complete activity history)
 `id, prospect_id FK, type, actor ('user','system','ai'), payload JSON, created_at`.
 
-Types: `created`, `imported`, `edited`, `archived`, `unarchived`, `merged`, `research_started`, `research_finished`, `finding_added`, `finding_verified`, `finding_edited`, `opportunity_created`, `opportunity_validated`, `opportunity_dismissed`, `draft_created`, `draft_edited`, `draft_submitted`, `draft_approved`, `whatsapp_opened`, `message_sent_confirmed`, `message_not_sent`, `reply_received`, `stage_changed`, `follow_up_set`, `follow_up_completed`, `do_not_contact_set`, `do_not_contact_cleared`, `note_added`, `tag_added`.
+Types: `created`, `imported`, `edited`, `archived`, `unarchived`, `merged`, `research_started`, `research_finished`, `finding_added`, `finding_verified`, `finding_edited`, `opportunity_created`, `opportunity_validated`, `opportunity_dismissed`, `draft_created`, `draft_edited`, `draft_submitted`, `draft_approved`, `whatsapp_opened`, `message_sent_confirmed`, `message_not_sent`, `reply_received`, `stage_changed`, `follow_up_set`, `follow_up_completed`, `follow_up_cancelled`, `do_not_contact_set`, `do_not_contact_cleared`, `note_added`, `tag_added`.
 
 Never updated or deleted (no `updated_at`).
 

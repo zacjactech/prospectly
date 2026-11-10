@@ -47,13 +47,15 @@ Prospectly
 - **Responsibility:** scan, filter, triage.
 - Dense table (rows ~40px): Name · Category · Location · Website status · Stage · Last contact · Next follow-up · Flags (duplicate? suppressed? unverified?).
   **Status (Phase 2):** Next follow-up and the "requires review" flag are Phase 4 columns and are not rendered yet (showing a permanent "none" column would be a lie); the rest are live. Website status and stage badges use `stage-<value>` color mappings, where `no_website_found` reads as neutral **info**, never as an error (P6).
-- Filter bar: stage, category, tag, location, "requires review", archived toggle, free-text search. Filter state persists in URL (shareable/back-button safe).
+- Filter bar: stage, category, tag, location, "requires review", archived toggle, free-text search. Filter state persists in URL (shareable/back-button safe). When any filter is active, an inline **Save current view** form (name + save) appears beside the bar; saved views apply from Settings → Saved views (`GET /prospects/views/{id}/apply` redirects onto the list with the view's whitelisted filters).
 - Row click → detail. Hover reveals quick actions (Run research, Open WhatsApp — only when state allows).
 - Bulk selection limited to safe ops: add tag, archive, change source. **No bulk outreach actions exist anywhere** (P1).
 - Empty state: "No prospects yet — configure your Profile, run automated Discovery, or Add manually" + two buttons.
 
 ### 2.3 Prospect detail
 - **Header:** name, stage badge, key facts (phone with copy, email, website with "open" + status chip), suppression warning banner if `do_not_contact`.
+- **Stage card:** allowed-next-transitions select only (canonical steps + `not_interested` from post-contact stages); anything else is rejected server-side with 409.
+- **Suppression card:** when not suppressed — "Do not contact" button with optional reason input (confirm dialog names the prospect); when suppressed — reason + last-suppression context and a "Clear suppression" form with a **required** reason (Flow 8: clearing is explicit and audit-logged).
 - **Tab: Overview** — profile fields (inline edit), source, tags, notes (add/edit), next follow-up, primary actions (Run research / Generate draft / stage transitions).
 - **Tab: Research** — findings grouped by kind; each finding row: statement · origin badge (`human`/`provider`/`ai`) · verification badge · confidence · source link (opens in new tab) · retrieved date · actions (Verify/Edit/Delete). Website check history sub-panel with outcome + signals. "Add finding" form.
 - **Tab: Opportunities** — cards *only here* (each is an evidence object): type, summary, rationale, linked evidence chips (click → jump to finding), Validate/Dismiss. Empty state explains the rule engine runs after research.
@@ -71,11 +73,15 @@ Prospectly
 Moved under Settings because CSV is not the default discovery path. 3-step wizard: Upload → Preview (valid/duplicate/error sections with per-row reasons, row checkboxes) → Commit + result summary. Shows backup reminder before commit.
 
 ### 2.7 Settings
-- **Profile:** your offer, target industries/categories, target locations, ideal-client signals — one editable form; drives automated discovery and personalizes drafts.
+- **Profile:** your offer, target industries/categories, target locations, ideal-client signals — one editable form; drives automated discovery and personalizes drafts. Below it: **Automated discovery** card — a "Run discovery" button (queues a `discovery_job` + worker job; flash names the worker command) and a recent-runs table (status, candidates found, created, error).
+- **Saved views:** list of named list-filters with an **Apply** link (redirects to the filtered list) and delete; create form accepts structured list filters (unknown keys rejected with 400).
 - **Providers:** per provider: configured? (key present), enabled toggle, "Test" button (runs a trivial call, shows result), last error. Keys themselves are never displayed — only masked presence (`GEMINI_API_KEY · configured`).
 - **Usage:** table of provider calls/errors/rate-limits per day + AI tokens/costs estimate per day. Simple table, no charts.
 - **General:** category vocabulary editor, default follow-up days, daily caps, backup button + last-backup timestamp.
 - **Import (CSV):** secondary utility — Upload → Preview → Commit. Not the default discovery path.
+
+### 2.8 Login (only when `APP_ACCESS_TOKEN` is set)
+- Standalone page (does not extend the app chrome — nothing to leak behind a gate): one password-style token field + Sign in, `next` carried as a hidden local path. Wrong token re-renders with an inline error (401); success sets the session, rotates the CSRF cookie and redirects to `next`. Every other page/API redirects here (HTML) or returns 401 (JSON) until signed in. `POST /logout` (CSRF-protected) ends the session.
 
 ## 3. Main user journeys (screen-level)
 

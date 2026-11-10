@@ -63,6 +63,26 @@
       {% endif %}
     </div>
   </form>
+
+  {% if include_archived or do_not_contact_only or current_stage or current_tag or current_category or current_location or current_q %}
+  <form method="post" action="/settings/saved-views" class="filter-bar save-view-form">
+    {{ csrf_field() }}
+    <input type="hidden" name="stage" value="{{ current_stage or '' }}">
+    <input type="hidden" name="tag" value="{{ current_tag or '' }}">
+    <input type="hidden" name="category" value="{{ current_category or '' }}">
+    <input type="hidden" name="location" value="{{ current_location or '' }}">
+    <input type="hidden" name="q" value="{{ current_q or '' }}">
+    {% if include_archived %}<input type="hidden" name="include_archived" value="true">{% endif %}
+    {% if do_not_contact_only %}<input type="hidden" name="do_not_contact_only" value="true">{% endif %}
+    <div class="filter-chip filter-chip-search">
+      <label>Save this view</label>
+      <input type="text" name="name" required placeholder="view name" aria-label="Saved view name">
+    </div>
+    <div class="filter-actions">
+      <button class="btn" type="submit">Save view</button>
+    </div>
+  </form>
+  {% endif %}
 </section>
 
 {% if prospects %}

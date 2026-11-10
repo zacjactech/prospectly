@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+{% include "partials/flashes.html" %}
 {% if error %}
 <div class="flash error">{{ error }}</div>
 {% endif %}
@@ -36,4 +37,38 @@
     <a href="/" class="btn ghost">Cancel</a>
   </div>
 </form>
+
+<section class="card">
+  <h3>Automated discovery</h3>
+  <p class="muted small">
+    Searches for businesses matching your target industries and locations and
+    adds candidates to the pipeline as <code>new</code> (Flow 1). Queued runs
+    are processed by the worker: <code>python -m app.cli worker</code>.
+  </p>
+  <form method="post" action="/settings/profile/discovery/run" class="action-group">
+    {{ csrf_field() }}
+    <button class="btn primary" type="submit">Run discovery</button>
+  </form>
+
+  {% if discovery_jobs %}
+  <table class="data-table">
+    <thead>
+      <tr><th>Started</th><th>Status</th><th>Candidates</th><th>Created</th><th>Error</th></tr>
+    </thead>
+    <tbody>
+      {% for job in discovery_jobs %}
+      <tr>
+        <td class="muted small">{{ job.created_at }}</td>
+        <td><span class="badge stage-{{ job.status|replace('_','-') }}">{{ job.status|replace('_',' ') }}</span></td>
+        <td>{{ job.candidates_found }}</td>
+        <td>{{ job.prospects_created }}</td>
+        <td class="muted small">{{ job.error or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="muted small">No discovery runs yet.</div>
+  {% endif %}
+</section>
 {% endblock %}

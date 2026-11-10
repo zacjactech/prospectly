@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, File, HTTPException, Path, Query, UploadFile, status
@@ -20,7 +19,6 @@ from app.jobs.worker import queue_research_job
 from app.models import (
     Activity,
     Finding,
-    FollowUp,
     Prospect,
     ResearchRun,
     Source,
@@ -702,36 +700,41 @@ def create_follow_up_api(
 @router.post(
     "/follow-ups/{follow_up_id}/complete",
     response_model=FollowUpOut,
-    responses={404: {"model": ErrorOut}},
+    responses={404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
 )
 def complete_follow_up_api(
     follow_up_id: int = Path(ge=1),
     note: str | None = Body(None, embed=True),
     db: Session = Depends(get_db),
 ) -> FollowUpOut:
-    follow_up = db.get(FollowUp, follow_up_id)
-    if follow_up is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Follow-up not found")
-    follow_up.status = "done"
-    follow_up.completed_at = datetime.now(UTC)
-    db.flush()
+    follow_up, error = outreach_service.complete_follow_up(
+        db, follow_up_id=follow_up_id, note=note, actor="user"
+    )
+    if error:
+        if error == "Follow-up not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    assert follow_up is not None
     return FollowUpOut.model_validate(follow_up)
 
 
 @router.post(
     "/follow-ups/{follow_up_id}/cancel",
     response_model=FollowUpOut,
-    responses={404: {"model": ErrorOut}},
+    responses={404: {"model": ErrorOut}, 409: {"model": ErrorOut}},
 )
 def cancel_follow_up_api(
     follow_up_id: int = Path(ge=1),
     db: Session = Depends(get_db),
 ) -> FollowUpOut:
-    follow_up = db.get(FollowUp, follow_up_id)
-    if follow_up is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Follow-up not found")
-    follow_up.status = "cancelled"
-    db.flush()
+    follow_up, error = outreach_service.cancel_follow_up(
+        db, follow_up_id=follow_up_id, actor="user"
+    )
+    if error:
+        if error == "Follow-up not found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
+    assert follow_up is not None
     return FollowUpOut.model_validate(follow_up)
 
 

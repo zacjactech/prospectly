@@ -5,7 +5,7 @@ Two surfaces over one service layer (D3):
 1. **Pages** (`/`) — server-rendered Jinja2 + HTMX partials for the human UI.
 2. **JSON API** (`/api/v1`) — programmatic contract for tests, automation, and any future UI.
 
-Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamps ISO-8601 UTC; errors as `{ "error": { "code", "message", "details?" } }`; list endpoints support `?page=&page_size=&sort=&filter...`; **all state-changing JSON endpoints require header `X-CSRF-Token`** (from cookie) — session auth is cookie-based (loopback app with optional access token, see `SECURITY_AND_PRIVACY.md`).
+Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamps ISO-8601 UTC; errors as `{ "error": { "code", "message", "details?" } }` (FastAPI `HTTPException` paths — including the access gate's `401 {"detail": …}` — return bare `{"detail": …}`); list endpoints support `?page=&page_size=&sort=&filter...`; **all state-changing JSON endpoints require header `X-CSRF-Token`** (from cookie) — session auth is cookie-based: when `APP_ACCESS_TOKEN` is set, a login gate at `GET/POST /login` issues the session (see `SECURITY_AND_PRIVACY.md` §3).
 
 ---
 
@@ -31,7 +31,10 @@ Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamp
 | POST | `/prospects/{id}/follow-ups` · `/follow-ups/{fid}/complete` | Follow-ups |
 | POST | `/prospects/{id}/do-not-contact` · `/prospects/{id}/do-not-contact/clear` | Suppression (flag + stage; clear requires `reason`) |
 | GET | `/follow-ups` | Due/overdue list |
-| GET | `/settings`, `/settings/providers`, `/settings/usage`, `/settings/profile` | Config, provider status, usage, user profile |
+| GET | `/settings`, `/settings/providers`, `/settings/usage`, `/settings/profile` (POST `/settings/profile`) | Config, provider status, usage, user profile |
+| POST | `/settings/profile/discovery/run` | Queue profile-driven discovery (Flow 1: `discovery_job` + `jobs` row; processed by the worker) |
+| GET/POST | `/settings/saved-views` · POST `/{id}/delete` | Saved views CRUD — filters whitelisted to the list query keys (unknown keys → 400) |
+| GET | `/prospects/views/{id}/apply` | Redirect to `/prospects?` with the view's filters |
 | GET | `/healthz` | Liveness (no auth, no data) |
 
 HTMX partials return HTML fragments (`HX-Request` header honored); full page loads return complete templates. Flash/toast messages via `HX-Trigger` headers.
@@ -161,7 +164,7 @@ AI structured-output schemas reuse the same Pydantic models (`GeneratedDraft`, `
 |---|---|
 | 200/201/202/204 | success / created / accepted (async job) / no content |
 | 400 | malformed request (bad CSV, bad URL) |
-| 401 | missing/invalid access token (only if LAN mode enabled) |
+| 401 | missing/invalid access token **or session cookie** (only when `APP_ACCESS_TOKEN` is set); body `{"detail": …}`. Non-API HTML requests get `302 → /login?next=…` instead |
 | 403 | suppressed prospect action; CSRF failure |
 | 404 | unknown resource |
 | 409 | duplicate prospect; invalid state transition; active-message conflict |
