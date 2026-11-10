@@ -16,6 +16,8 @@ import httpx
 
 from app.config import settings
 
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+
 PRIVATE_IP_RANGES: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = [
     ipaddress.ip_network("127.0.0.0/8"),  # loopback
     ipaddress.ip_network("10.0.0.0/8"),  # RFC 1918
@@ -95,10 +97,17 @@ async def fetch(
 ) -> FetchResult:
     """Fetch a URL with SSRF and safety controls.
 
+    Redirects are followed manually, one hop at a time, and every hop is fully
+    re-validated (scheme, DNS, private/loopback IP) before it is requested.
+    This closes the TOCTOU hole where an allowed public host could redirect the
+    client onto a private IP (automatic ``follow_redirects`` never re-checks).
+    The redirect count is capped by ``max_redirects`` (5 by default).
+
     Raises SafeFetchError on any safety violation or network failure.
     Callers catch SafeFetchError and convert to appropriate outcome rows.
     """
     url = _validate_url(url)
+    max_hops = max_redirects or settings.http_max_redirects
 
     timeout = httpx.Timeout(
         timeout=timeout_seconds or settings.http_timeout_seconds,
@@ -107,22 +116,39 @@ async def fetch(
 
     async with httpx.AsyncClient(
         timeout=timeout,
-        follow_redirects=True,
-        max_redirects=max_redirects or settings.http_max_redirects,
+        follow_redirects=False,
     ) as client:
+        current_url = url
+        redirects_followed = 0
         try:
             start = asyncio.get_event_loop().time()
-            response = await client.get(url)
+            while True:
+                response = await client.get(current_url)
+
+                location = response.headers.get("location")
+                if response.status_code not in _REDIRECT_STATUSES or location is None:
+                    break
+                if redirects_followed >= max_hops:
+                    raise SafeFetchError(
+                        "redirect_loop",
+                        f"Too many redirects (limit {max_hops}): {url}",
+                    )
+
+                # Re-run the full SSRF validation on the redirect target.
+                next_url = str(httpx.URL(current_url).join(location))
+                current_url = _validate_url(next_url)
+                redirects_followed += 1
+
             elapsed_ms = int((asyncio.get_event_loop().time() - start) * 1000)
         except httpx.ConnectTimeout as exc:
-            raise SafeFetchError("timeout", f"Connection timed out: {url}") from exc
+            raise SafeFetchError("timeout", f"Connection timed out: {current_url}") from exc
         except httpx.ReadTimeout as exc:
-            raise SafeFetchError("timeout", f"Read timed out: {url}") from exc
+            raise SafeFetchError("timeout", f"Read timed out: {current_url}") from exc
         except httpx.ConnectError as exc:
             raise SafeFetchError("unreachable_http", f"Connection failed: {exc}") from exc
         except httpx.InvalidURL as exc:
             raise SafeFetchError("invalid_url", f"Invalid URL: {exc}") from exc
-        except httpx.TooManyRedirects as exc:
+        except httpx.TooManyRedirects as exc:  # pragma: no cover - auto-follow disabled
             raise SafeFetchError("redirect_loop", f"Too many redirects: {exc}") from exc
         except httpx.RequestError as exc:
             raise SafeFetchError("unreachable_http", f"Request failed: {exc}") from exc
