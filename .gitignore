@@ -24,3 +24,7 @@ build/
 # IDE
 .idea/
 .vscode/
+
+# Browser tool artifacts (Playwright MCP / playwright-cli page snapshots)
+.playwright-mcp/
+.playwright-cli/
