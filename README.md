@@ -70,6 +70,10 @@ py -m uv run alembic upgrade head
 # 5. Run
 py -m uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 # open http://127.0.0.1:8000
+
+# 6. Job worker (second terminal) — queued research/discovery jobs only
+#    process while this worker is running. Add --once to drain at most one job.
+py -m uv run python -m app.cli worker
 ```
 
 ### Quality gate (runs before every milestone)

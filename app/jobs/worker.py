@@ -15,10 +15,11 @@ import asyncio
 import time
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
-from app.models import Job, ResearchRun, Source
+from app.models import Job, Prospect, ResearchRun, Source
 from app.providers.factory import get_discovery_provider, get_search_provider
 from app.services import research as research_service
 from app.services.activity import log_activity
@@ -29,6 +30,9 @@ from app.services.prospect import check_duplicates, create_prospect
 STALE_JOB_MINUTES = 10
 # Base delay between worker loop iterations (seconds).
 POLL_INTERVAL_SECONDS = 2
+# Job types that may be retried after a processing failure. Anything else
+# (e.g. an unknown type) is terminal: retrying it can only fail again.
+RETRYABLE_JOB_TYPES = frozenset({"research", "discover"})
 
 
 def _now() -> datetime:
@@ -48,20 +52,33 @@ def claim_job(db: Session) -> Job | None:
         job.locked_at = None
         job.last_error = "Reclaimed after stale running state"
         db.flush()
-        log_activity(
-            db,
-            prospect_id=0,  # system-level, no specific prospect
-            type="job_reclaimed",
-            actor="system",
-            payload={"job_id": job.id, "type": job.type},
-        )
+
+        # `activities.prospect_id` is NOT NULL with an enforced FK, so a
+        # system-level row is not representable. Log only when the payload
+        # names a live prospect; otherwise the reclaim stays visible via
+        # `job.last_error`.
+        payload = job.payload or {}
+        prospect_id = payload.get("prospect_id")
+        if prospect_id is not None and db.get(Prospect, prospect_id) is not None:
+            log_activity(
+                db,
+                prospect_id=prospect_id,
+                type="job_reclaimed",
+                actor="system",
+                payload={"job_id": job.id, "type": job.type},
+            )
 
     db.flush()
 
-    # Claim the next queued job.
+    # Claim the next queued job. A NULL `run_after` means "no delay", so it
+    # must be treated as immediately due (jobs enqueued by the services do
+    # not set it).
     next_job: Job | None = (
         db.query(Job)
-        .filter(Job.status == "queued", Job.run_after <= _now())
+        .filter(
+            Job.status == "queued",
+            or_(Job.run_after.is_(None), Job.run_after <= _now()),
+        )
         .order_by(Job.created_at.asc())
         .first()
     )
@@ -73,10 +90,6 @@ def claim_job(db: Session) -> Job | None:
     next_job.attempts = (next_job.attempts or 0) + 1
     db.flush()
     return next_job
-    job.locked_at = _now()
-    job.attempts = (job.attempts or 0) + 1
-    db.flush()
-    return job
 
 
 def _run_research_job(db: Session, job: Job) -> None:
@@ -301,23 +314,49 @@ def schedule_retry(db: Session, job: Job) -> None:
     db.flush()
 
 
+def _finalize_failure(db: Session, job: Job, *, error: str | None = None) -> None:
+    """Leave the job failed, rescheduling it only when its type is retryable."""
+    job.status = "failed"
+    if error is not None:
+        job.last_error = error
+    if job.type in RETRYABLE_JOB_TYPES:
+        schedule_retry(db, job)
+    else:
+        db.flush()
+
+
 def process_one_job(db: Session) -> bool:
-    """Claim and process one job. Returns True if a job was processed."""
+    """Claim and process one job. Returns True if a job was processed.
+
+    Commit boundaries follow SYSTEM_ARCHITECTURE §5: the claim is committed
+    before any provider call, and the result is committed afterwards. No
+    network I/O ever happens inside an open transaction.
+    """
     job = claim_job(db)
     if job is None:
+        # Persist stale-job reclaim writes even when there is nothing to run.
+        db.commit()
         return False
+
+    job_id = job.id
+    # Claim must be durable before provider work starts, otherwise a crash
+    # (or the next loop iteration) would re-run the same job forever.
+    db.commit()
 
     try:
         process_job(db, job)
-        if job.status in ("succeeded", "partially_completed"):
-            # Already flushed by process_job.
-            pass
-        elif job.status == "failed":
-            schedule_retry(db, job)
-    except Exception:  # pragma: no cover - defensive
-        job.status = "failed"
-        job.last_error = "Unexpected error processing job"
-        schedule_retry(db, job)
+        if job.status == "failed":
+            _finalize_failure(db, job)
+        # succeeded / partially_completed are terminal as-is.
+        db.commit()
+    except Exception as exc:
+        # Discard any partial writes, then retry/fail based on the durable
+        # claim (attempts were incremented before the commit above).
+        db.rollback()
+        failed_job = db.get(Job, job_id)
+        if failed_job is not None:
+            _finalize_failure(db, failed_job, error=f"Unexpected error: {exc}")
+            db.commit()
 
     return True
 
@@ -328,17 +367,22 @@ def run_worker(once: bool = False) -> None:
     When ``once=True``, processes a single available job and exits.
     Otherwise loops forever, polling for new jobs.
     """
-    while True:
-        db = SessionLocal()
-        try:
-            processed = process_one_job(db)
-        finally:
-            db.close()
+    try:
+        while True:
+            db = SessionLocal()
+            try:
+                processed = process_one_job(db)
+            finally:
+                db.close()
 
-        if once or not processed:
             if once:
                 break
-            time.sleep(POLL_INTERVAL_SECONDS)
+            if not processed:
+                time.sleep(POLL_INTERVAL_SECONDS)
+    except KeyboardInterrupt:
+        # Ctrl+C exits cleanly; the in-flight job's claim commit (if any) is
+        # reclaimed after STALE_JOB_MINUTES.
+        return
 
 
 def queue_research_job(

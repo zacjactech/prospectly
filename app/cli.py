@@ -52,6 +52,14 @@ def backup() -> int:
     return 0
 
 
+def worker(*, once: bool = False) -> int:
+    """CLI entry point for `prospectly worker [--once]`."""
+    from app.jobs.worker import run_worker
+
+    run_worker(once=once)
+    return 0
+
+
 def export_openapi() -> int:
     """Write the OpenAPI contract to docs/openapi.json (API_DESIGN §5)."""
     from app.main import app
@@ -69,12 +77,20 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("backup", help="Snapshot the SQLite database into backups/")
     sub.add_parser("export-openapi", help="Write docs/openapi.json from the live app")
+    worker_parser = sub.add_parser(
+        "worker", help="Process queued research/discovery jobs until interrupted"
+    )
+    worker_parser.add_argument(
+        "--once", action="store_true", help="Process at most one job, then exit"
+    )
     args = parser.parse_args(argv)
 
     if args.command == "backup":
         return backup()
     if args.command == "export-openapi":
         return export_openapi()
+    if args.command == "worker":
+        return worker(once=args.once)
     parser.error(f"unknown command {args.command!r}")
     return 2
 
