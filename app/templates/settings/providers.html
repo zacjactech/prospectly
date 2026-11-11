@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <div class="header-row">
+    <div class="grow">
+      <div class="prospect-name">Providers</div>
+      <div class="badge-row">
+        <span class="badge muted">Configured · enabled · usage · caps · last failure</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a href="/settings/usage" class="btn ghost">Usage</a>
+      <a href="/settings/general" class="btn ghost">General</a>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Provider status</h3>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Provider</th><th>Role</th><th>Configured</th><th>Enabled</th>
+        <th>Calls today</th><th>Cap</th><th>Last failure</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>
+          <strong>{{ row.label }}</strong>
+          {% if not row.implemented %}<span class="badge stage-muted">not wired</span>{% endif %}
+          {% if row.note %}<div class="muted small">{{ row.note }}</div>{% endif %}
+        </td>
+        <td><span class="badge muted">{{ row.role }}</span></td>
+        <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.configured else 'no' }}</span></td>
+        <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.enabled else 'no' }}</span></td>
+        <td>{{ row.calls_today }}</td>
+        <td>
+          {% if row.cap is none %}
+            <span class="muted">—</span>
+          {% else %}
+            <span class="badge {% if row.cap_reached %}stage-failed{% else %}stage-succeeded{% endif %}">{{ row.calls_today }} / {{ row.cap }}</span>
+            {% if row.cap_reached %}<span class="badge stage-failed">blocked</span>{% endif %}
+          {% endif %}
+        </td>
+        <td>
+          {% if row.last_error %}
+            <span class="text-danger">{{ row.last_error }}</span>
+          {% else %}
+            <span class="muted">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted small">
+    Keys are never displayed or logged — only whether a key is present. This page is
+    read-only: enable/disable is controlled in <code>.env</code>, and the daily caps on
+    <a href="/settings/general">General</a> are enforced before every call.
+    Per-day counters are on <a href="/settings/usage">Usage</a>.
+  </p>
+</section>
+{% endblock %}

@@ -39,6 +39,7 @@ from app.services import opportunity as opportunity_service
 from app.services import outreach as outreach_service
 from app.services import profile as profile_service
 from app.services import prospect as prospect_service
+from app.services import providers as providers_service
 from app.services import retention as retention_service
 from app.services import saved_views as saved_views_service
 from app.services.usage import usage_summary
@@ -691,6 +692,23 @@ def usage_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
             "providers": stats["providers"],
             "ai": stats["ai"],
             "usage": usage_summary(db),
+        },
+    )
+
+
+@router.get("/settings/providers", response_class=HTMLResponse)
+def providers_settings_form(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    """Settings → Providers: configured/enabled status, usage, caps (§2.7).
+
+    Read-only by design: keys are never rendered, only presence booleans.
+    """
+    return templates.TemplateResponse(
+        request=request,
+        name="settings/providers.html",
+        context={
+            "app_name": settings.app_name,
+            "settings": settings,
+            "rows": providers_service.provider_status(db),
         },
     )
 

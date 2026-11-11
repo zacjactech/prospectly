@@ -24,6 +24,7 @@
         <a href="/" class="nav-link{% if request.url.path == '/' %} active{% endif %}">Dashboard</a>
         <a href="/prospects" class="nav-link{% if request.url.path == '/prospects' or request.url.path.startswith('/prospects/') %} active{% endif %}">Prospects</a>
         <a href="/settings/profile" class="nav-link{% if request.url.path.startswith('/settings/profile') %} active{% endif %}">Profile</a>
+        <a href="/settings/providers" class="nav-link{% if request.url.path.startswith('/settings/providers') %} active{% endif %}">Providers</a>
         <a href="/settings/usage" class="nav-link{% if request.url.path == '/settings/usage' %} active{% endif %}">Usage</a>
         <a href="/settings/general" class="nav-link{% if request.url.path == '/settings/general' %} active{% endif %}">General</a>
         <a href="/settings/import" class="nav-link{% if request.url.path == '/settings/import' %} active{% endif %}">Import</a>

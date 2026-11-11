@@ -49,6 +49,7 @@ from app.schemas import (
     ProspectCreate,
     ProspectOut,
     ProspectPatch,
+    ProviderStatusOut,
     ReplyIn,
     ResearchRunOut,
     ResearchStartOut,
@@ -69,6 +70,7 @@ from app.services import opportunity as opportunity_service
 from app.services import outreach as outreach_service
 from app.services import profile as profile_service
 from app.services import prospect as prospect_service
+from app.services import providers as providers_service
 from app.services import retention as retention_service
 from app.services import saved_views as saved_views_service
 from app.services.import_service import ImportError as ImportServiceError
@@ -398,6 +400,15 @@ def update_profile(
         ideal_signals=payload.ideal_signals,
     )
     return ProfileOut.model_validate(profile)
+
+
+@router.get("/settings/providers", response_model=list[ProviderStatusOut])
+def get_provider_status(db: DbSession) -> list[ProviderStatusOut]:
+    """Per-provider configured/enabled status (API_DESIGN §2.8).
+
+    Booleans and counters only — key values are never returned (D8).
+    """
+    return [ProviderStatusOut.model_validate(row) for row in providers_service.provider_status(db)]
 
 
 @router.post(

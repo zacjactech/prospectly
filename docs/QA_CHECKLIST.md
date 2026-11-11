@@ -1,9 +1,10 @@
-# QA Checklist — living document (last full pass: 2026-11-10)
+# QA Checklist — living document (last full pass: 2026-11-11)
 
 Full manual walkthrough of the user flows (USER_FLOWS.md). Each flow is
 verified against the running app and backed by regression tests in `tests/`.
 "Blocked" means a defect with no workaround; "not implemented" means a
-spec surface is still pending (currently none — see *Known gaps*).
+spec surface is still pending (two are explicitly deferred — see *Known
+gaps*).
 
 Run the app (Windows / project default):
 
@@ -194,10 +195,14 @@ provider key required for live data) · `not implemented` = spec gap.
 
 ## Test suite
 
-`uv run pytest` — **319 tests pass, 0 failed** (2026-11-10); `ruff check`,
+`uv run pytest` — **330 tests pass, 0 failed** (2026-11-11); `ruff check`,
 `ruff format --check`, `mypy app` all clean.
 
 Coverage by area (newest first):
+- `test_provider_status.py` — 11: Settings → Providers page + JSON twin,
+  key values never leak into either surface, Brave reported as config-only,
+  `enabled` follows the real factories (only the selected provider reads as
+  enabled), cap state and last failure from persisted data
 - `test_ai_generators.py` — 17: adapter output validation, key-in-header
   (D8), repair retry, citation integrity (P5), transient-failure retry vs
   immediate 400 failure, factory selection + template fallback
@@ -446,11 +451,26 @@ unit test into a live call (AGENTS §7).
 
 ## Known gaps (spec promises not yet built)
 
-**None as of 2026-11-10.** The last three — findings evidence CRUD, the
-notes surface (Flow 9), and HTMX research-progress polling — shipped in
-this pass and are covered by `test_findings_crud.py`, `test_notes.py` and
-`test_research_polling.py`. (The `POST /prospects/{id}/findings` and
-`/research/status` rows in API_DESIGN are now live, not "not implemented".)
+Two, both **explicitly deferred with a reason** (recorded here rather than
+silently dropped; the matching spec text now says so):
+
+1. **Providers page affordances** — the status page shipped 2026-11-11
+   (read-only; it 404'd before, closing the Phase 2 exit criterion *"Settings
+   → Providers status page"*). The UI spec's enable/disable **toggle** and
+   **"Test" button** are deferred: the toggle persists through `save_settings`,
+   which rewrites `.env` **and drops its comments** (owner decision needed),
+   and the Test button makes a live paid provider call from the UI (needs a
+   cap/consent decision).
+2. **`GET /settings` index** — API_DESIGN §1 listed a settings index route;
+   the nav has always linked straight to the sub-pages, so no index exists.
+   Amended in API_DESIGN to say so.
+
+Closed earlier and covered by tests: findings evidence CRUD, notes surface
+(Flow 9), HTMX research-progress polling (`test_findings_crud.py`,
+`test_notes.py`, `test_research_polling.py`), enforced daily caps
+(`test_usage_caps.py`), AI adapters (`test_ai_generators.py`). The
+`POST /prospects/{id}/findings` and `/research/status` rows in API_DESIGN
+are live, not "not implemented".
 
 ## Phase 5 — Hardening & Release (complete)
 

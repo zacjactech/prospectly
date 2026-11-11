@@ -32,7 +32,8 @@ Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamp
 | POST | `/prospects/{id}/follow-ups` · `/follow-ups/{fid}/complete` | Follow-ups |
 | POST | `/prospects/{id}/do-not-contact` · `/prospects/{id}/do-not-contact/clear` | Suppression (flag + stage; clear requires `reason`) |
 | GET | `/follow-ups` | Due/overdue list |
-| GET | `/settings`, `/settings/providers`, `/settings/usage`, `/settings/profile` (POST `/settings/profile`) | Config, provider status, usage, user profile |
+| GET | `/settings/providers` (HTML) · `/api/v1/settings/providers` (JSON) | Provider status: configured/enabled/usage/cap/last failure — **never the key values** (§2.8) |
+| GET | `/settings/usage`, `/settings/general`, `/settings/import`, `/settings/retention`, `/settings/profile` (POST `/settings/profile`) | Usage, general settings, CSV wizard, retention, user profile (there is no `/settings` index — the nav links to each sub-page) |
 | POST | `/settings/profile/discovery/run` | Queue profile-driven discovery (Flow 1: `discovery_job` + `jobs` row; processed by the worker) |
 | GET/POST | `/settings/saved-views` · POST `/{id}/delete` | Saved views CRUD — filters whitelisted to the list query keys (unknown keys → 400) |
 | GET | `/prospects/views/{id}/apply` | Redirect to `/prospects?` with the view's filters |

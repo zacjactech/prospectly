@@ -392,3 +392,24 @@ class RetentionSweepOut(BaseModel):
 
 class RetentionSweepIn(BaseModel):
     months: int = Field(default=12, ge=1, le=60)
+
+
+# ---------------------------------------------------------------------------
+# Provider status (Settings → Providers, API_DESIGN §2.8)
+# ---------------------------------------------------------------------------
+
+
+class ProviderStatusOut(BaseModel):
+    """Per-provider status. Never carries a key value — booleans only (D8)."""
+
+    provider: str
+    label: str
+    role: str
+    implemented: bool
+    configured: bool
+    enabled: bool
+    calls_today: int
+    cap: int | None = None
+    cap_reached: bool = False
+    last_error: str | None = None
+    note: str | None = None

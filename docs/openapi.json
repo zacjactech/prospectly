@@ -725,6 +725,28 @@
         }
       }
     },
+    "/settings/providers": {
+      "get": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "Providers Settings Form",
+        "description": "Settings → Providers: configured/enabled status, usage, caps (§2.7).\n\nRead-only by design: keys are never rendered, only presence booleans.",
+        "operationId": "providers_settings_form_settings_providers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/settings/general": {
       "get": {
         "tags": [
@@ -3461,6 +3483,32 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/providers": {
+      "get": {
+        "tags": [
+          "api"
+        ],
+        "summary": "Get Provider Status",
+        "description": "Per-provider configured/enabled status (API_DESIGN §2.8).\n\nBooleans and counters only — key values are never returned (D8).",
+        "operationId": "get_provider_status_api_v1_settings_providers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderStatusOut"
+                  },
+                  "type": "array",
+                  "title": "Response Get Provider Status Api V1 Settings Providers Get"
                 }
               }
             }
@@ -8066,6 +8114,88 @@
         },
         "type": "object",
         "title": "ProspectPatch"
+      },
+      "ProviderStatusOut": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "implemented": {
+            "type": "boolean",
+            "title": "Implemented"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "calls_today": {
+            "type": "integer",
+            "title": "Calls Today"
+          },
+          "cap": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cap"
+          },
+          "cap_reached": {
+            "type": "boolean",
+            "title": "Cap Reached",
+            "default": false
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "label",
+          "role",
+          "implemented",
+          "configured",
+          "enabled",
+          "calls_today"
+        ],
+        "title": "ProviderStatusOut",
+        "description": "Per-provider status. Never carries a key value — booleans only (D8)."
       },
       "ReplyIn": {
         "properties": {
