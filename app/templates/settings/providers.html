@@ -1,19 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="card">
-  <div class="header-row">
-    <div class="grow">
-      <div class="prospect-name">Providers</div>
-      <div class="badge-row">
-        <span class="badge muted">Configured · enabled · usage · caps · last failure</span>
-      </div>
-    </div>
-    <div class="header-actions">
-      <a href="/settings/usage" class="btn ghost">Usage</a>
-      <a href="/settings/general" class="btn ghost">General</a>
-    </div>
+<div class="page-bar">
+  <div>
+    <h1>Providers</h1>
+    <p class="muted small">Configured, enabled, usage, caps, and last failure — read-only status.</p>
   </div>
-</section>
+  <div class="header-actions">
+    <a href="/settings/usage" class="btn ghost">Usage</a>
+    <a href="/settings/general" class="btn ghost">General</a>
+  </div>
+</div>
 
 <section class="card">
   <h3>Provider status</h3>
@@ -40,7 +36,7 @@
           {% if row.cap is none %}
             <span class="muted">—</span>
           {% else %}
-            <span class="badge {% if row.cap_reached %}stage-failed{% else %}stage-succeeded{% endif %}">{{ row.calls_today }} / {{ row.cap }}</span>
+            <span class="badge {% if row.cap_reached %}stage-failed{% else %}muted{% endif %}">{{ row.calls_today }} / {{ row.cap }}</span>
             {% if row.cap_reached %}<span class="badge stage-failed">blocked</span>{% endif %}
           {% endif %}
         </td>

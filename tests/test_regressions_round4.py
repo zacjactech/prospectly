@@ -436,3 +436,47 @@ def test_templates_have_no_inline_event_handlers() -> None:
             if pattern.search(line):
                 offenders.append(f"{path.relative_to(root)}:{lineno}")
     assert not offenders, "inline event handlers blocked by CSP:\n" + "\n".join(offenders)
+
+
+def test_submit_for_review_forms_carry_current_text() -> None:
+    """Regression (2026-11-11 visual audit): the "Submit for review" forms on
+    the prospect detail and message edit pages omitted the required
+    ``current_text`` field, so every UI submit returned FastAPI's 422 —
+    only the service layer was exercised by the suite. Both forms must
+    render the field, and the post exactly as rendered must transition
+    draft → pending_review."""
+    import re
+
+    db, path = _make_db()
+    try:
+        prospect = _add_prospect(db, name="Submit Form Co", phone="442079460958")
+        msg, error = outreach_service.create_draft(
+            db, prospect_id=prospect.id, current_text="hello there"
+        )
+        assert error is None and msg is not None
+        db.commit()
+
+        client = _client(db)
+        for url in (f"/prospects/{prospect.id}", f"/messages/{msg.id}/edit"):
+            html = client.get(url).text
+            m = re.search(
+                r'<form[^>]*action="/messages/\d+/submit"[^>]*>(.*?)</form>',
+                html,
+                re.S,
+            )
+            assert m, f"no Submit-for-review form rendered at {url}"
+            assert 'name="current_text"' in m.group(1), (
+                f"submit form at {url} omits current_text (422 in the browser)"
+            )
+
+        r = post_form(
+            client,
+            f"/messages/{msg.id}/submit",
+            {"current_text": msg.current_text},
+            follow_redirects=False,
+        )
+        assert r.status_code in (302, 303, 307), f"{r.status_code}: {r.text[:200]}"
+        db.refresh(msg)
+        assert msg.status == "pending_review"
+    finally:
+        _cleanup(db, path)

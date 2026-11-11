@@ -1,25 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="card">
-  <div class="header-row">
-    <div class="grow">
-      <div class="prospect-name">Usage</div>
-      <div class="badge-row">
-        <span class="badge muted">Provider calls and AI tokens per day</span>
-      </div>
-    </div>
-    <div class="header-actions">
-      <a href="/settings/profile" class="btn ghost">Profile</a>
-    </div>
+<div class="page-bar">
+  <div>
+    <h1>Usage</h1>
+    <p class="muted small">Provider calls and AI tokens per day.</p>
   </div>
-</section>
+  <div class="header-actions">
+    <a href="/settings/profile" class="btn ghost">Profile</a>
+  </div>
+</div>
 
 <section class="card">
   <h3>Daily caps</h3>
   <div class="badge-row">
     {% for key, label in [('tavily', 'Tavily'), ('serper', 'Serper'), ('ai', 'AI')] %}
     {% set u = usage[key] %}
-    <span class="badge {% if u.reached %}stage-failed{% else %}stage-succeeded{% endif %}">{{ label }}: {{ u.used }} / {{ u.cap }}{% if u.reached %} — blocked{% endif %}</span>
+    <span class="badge {% if u.reached %}stage-failed{% else %}muted{% endif %}">{{ label }}: {{ u.used }} / {{ u.cap }}{% if u.reached %} — blocked{% endif %}</span>
     {% endfor %}
   </div>
   <p class="muted small">A blocked call is counted in “Rate limited” and the research step is reported as skipped.</p>

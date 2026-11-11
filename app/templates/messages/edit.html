@@ -52,7 +52,7 @@
     {% endfor %}
   </ul>
   {% else %}
-  <p class="muted">No grounded findings. You can still approve, but check the ungrounded acknowledgement below.</p>
+  <p class="muted">No grounded findings. You can still approve — you'll be asked to accept ungrounded content at the approval step.</p>
   {% endif %}
 </section>
 
@@ -63,6 +63,7 @@
     {% if message.status == "draft" %}
     <form method="post" action="/messages/{{ message.id }}/submit" data-confirm="Submit this draft for review?">
       {{ csrf_field() }}
+      <input type="hidden" name="current_text" value="{{ message.current_text }}">
       <button class="btn primary" type="submit">Submit for review</button>
     </form>
     {% elif message.status == "pending_review" %}

@@ -175,7 +175,7 @@ def test_brave_is_reported_as_config_only() -> None:
         brave = _row(payload, "brave")
         assert brave["implemented"] is False
         assert brave["enabled"] is False, "an unwired provider must never read as enabled"
-        assert "no adapter" in (brave["note"] or "")
+        assert "config only" in (brave["note"] or "")
     finally:
         _cleanup(client)
 

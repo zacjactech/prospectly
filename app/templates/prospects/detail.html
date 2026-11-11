@@ -72,6 +72,7 @@
     } %}
     <form method="post" action="/prospects/{{ prospect.id }}/stage" class="stage-form">
       {{ csrf_field() }}
+      <label>Change stage to</label>
       <select name="stage" aria-label="Next stage">
         {% for t in transitions.get(prospect.stage, []) %}
         <option value="{{ t }}">{{ t|replace('_',' ') }}</option>
@@ -172,7 +173,7 @@
       {{ csrf_field() }}
       <input type="text" name="type" placeholder="Opportunity type (e.g. no_standalone_website)" required>
       <input type="text" name="summary" placeholder="One-line summary" required>
-      <button class="btn primary" type="submit">Add opportunity</button>
+      <button class="btn" type="submit">Add opportunity</button>
     </form>
   </div>
   <ul class="mini-list">
@@ -230,11 +231,16 @@
     {% if active_message.status == "draft" %}
     <form method="post" action="/messages/{{ active_message.id }}/submit" data-confirm="Submit this draft for review?">
       {{ csrf_field() }}
+      <input type="hidden" name="current_text" value="{{ active_message.current_text }}">
       <button class="btn primary" type="submit">Submit for review</button>
     </form>
     {% elif active_message.status == "pending_review" %}
     <form method="post" action="/messages/{{ active_message.id }}/approve" data-confirm="Approve this message for sending?">
       {{ csrf_field() }}
+      <label class="checkbox-line">
+        <input type="checkbox" name="ungrounded_acknowledgement" value="1">
+        I accept ungrounded content
+      </label>
       <button class="btn primary" type="submit">Approve</button>
     </form>
     {% elif active_message.status == "approved" %}
@@ -291,7 +297,7 @@
       <input type="datetime-local" name="received_at">
     </div>
     <div class="action-group">
-      <button class="btn primary" type="submit">Record reply</button>
+      <button class="btn" type="submit">Record reply</button>
     </div>
   </form>
   {% endif %}
@@ -334,7 +340,7 @@
   <ul class="mini-list">
     {% for n in notes %}
     <li>
-      <span class="muted small">{{ n.updated_at.strftime('%b %d, %Y %H:%M') }}</span>
+      <span class="muted small mono">{{ n.updated_at.strftime('%b %d, %Y %H:%M') }}</span>
       <span>{{ n.body }}</span>
       <div class="row-actions">
         <details>
@@ -362,7 +368,7 @@
       <textarea name="body" rows="3" maxlength="2000" required placeholder="e.g. What was agreed on the call"></textarea>
     </div>
     <div class="action-group">
-      <button class="btn primary" type="submit">Add note</button>
+      <button class="btn" type="submit">Add note</button>
     </div>
   </form>
 </section>
@@ -375,7 +381,7 @@
     <li>
       <span class="actor {{ a.actor }}">{{ a.type|replace('_',' ') }}</span>
       <span class="muted small">{{ a.created_at.strftime('%b %d, %H:%M') }}</span>
-      {% if a.payload %}<span class="payload">{{ a.payload }}</span>{% endif %}
+      {% if a.payload %}<span class="payload">{{ a.payload|tojson if a.payload is mapping else a.payload }}</span>{% endif %}
     </li>
     {% endfor %}
   </ul>

@@ -216,6 +216,10 @@ textarea:focus-visible {
   color: var(--color-text-muted);
 }
 
+.mono {
+  font-family: var(--font-mono);
+}
+
 .small {
   font-size: var(--fs-xs);
 }
@@ -648,6 +652,13 @@ p {
   min-width: 0;
 }
 
+@media (max-width: 480px) {
+  /* Title takes its own row so header actions never crowd a wrapping name */
+  .header-row > .grow {
+    flex-basis: 100%;
+  }
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -675,6 +686,10 @@ p {
 }
 
 .grid-2 {
+  grid-template-columns: 1fr;
+}
+
+.grid-3 {
   grid-template-columns: 1fr;
 }
 
@@ -1060,6 +1075,31 @@ p {
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
+/* Native controls follow the accent — no UA blue sliders/checks */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"] {
+  accent-color: var(--color-accent);
+}
+
+/* File picker button: match the dark control language (no light UA gray) */
+input[type="file"]::file-selector-button {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 6px 12px;
+  margin-right: var(--sp-2);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease;
+}
+
+input[type="file"]::file-selector-button:hover {
+  border-color: var(--color-text-subtle);
+}
+
 .form-section {
   margin-bottom: var(--sp-5);
 }
@@ -1209,13 +1249,14 @@ p {
 .toasts {
   position: fixed;
   top: 60px; /* below the mobile header */
-  left: 50%;
-  transform: translateX(-50%);
+  right: var(--sp-4); /* right-anchored so toasts never cover the page title */
+  left: auto;
+  transform: none;
   z-index: 50;
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  width: min(100%, 420px);
+  width: min(100% - var(--sp-8), 420px);
   pointer-events: none;
 }
 
@@ -1608,7 +1649,19 @@ table.prospects .prospect-name {
 }
 
 .toggle-chip input {
-  display: none;
+  /* Visually hidden, still keyboard-focusable (display:none would drop it
+     from the tab order); the label carries the focus ring via :has(). */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.toggle-chip:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .toggle-chip:hover {
@@ -1933,6 +1986,16 @@ table.data-table tbody tr:last-child td {
   margin-bottom: var(--sp-3); /* separates the button row from data below it */
 }
 
+/* Inline reason/quick-add forms: the label stacks over a full-width control —
+   the old inline row squeezed the input and clipped its placeholder. */
+.action-group > label.grow {
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
 .action-group form {
   display: inline;
 }
@@ -2071,6 +2134,14 @@ table.data-table tbody tr:last-child td {
   margin-bottom: var(--sp-3);
 }
 
+.stage-form label {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--color-text);
+  margin-bottom: var(--sp-1);
+}
+
 .stage-form select {
   width: auto;
   min-width: 180px;
@@ -2148,6 +2219,12 @@ ul.spaced li .muted {
 @media (min-width: 768px) {
   .grid-2 {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-3 {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 

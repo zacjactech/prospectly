@@ -4,20 +4,16 @@
 <div class="flash error">{{ error }}</div>
 {% endif %}
 
-<section class="card">
-  <div class="header-row">
-    <div class="grow">
-      <div class="prospect-name">General settings</div>
-      <div class="badge-row">
-        <span class="badge muted">Defaults, vocabulary, caps, backup</span>
-      </div>
-    </div>
-    <div class="header-actions">
-      <a href="/settings/profile" class="btn ghost">Profile</a>
-      <a href="/settings/usage" class="btn ghost">Usage</a>
-    </div>
+<div class="page-bar">
+  <div>
+    <h1>General settings</h1>
+    <p class="muted small">Defaults, vocabulary, daily caps, and backup.</p>
   </div>
-</section>
+  <div class="header-actions">
+    <a href="/settings/profile" class="btn ghost">Profile</a>
+    <a href="/settings/usage" class="btn ghost">Usage</a>
+  </div>
+</div>
 
 <section class="card">
   <h3>Defaults</h3>
@@ -100,7 +96,7 @@
     <form method="post" action="/settings/general" data-confirm="Run a database backup now?">
       {{ csrf_field() }}
       <input type="hidden" name="backup" value="1">
-      <button class="btn primary" type="submit">Create backup</button>
+      <button class="btn" type="submit">Create backup</button>
     </form>
   </div>
 </section>

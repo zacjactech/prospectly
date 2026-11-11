@@ -77,7 +77,7 @@ SPECS: tuple[ProviderSpec, ...] = (
         key_attr="brave_api_key",
         usage_name="brave",
         step="search",
-        note="config only — no adapter is wired into the factory",
+        note="config only — not used for searches yet",
     ),
     ProviderSpec(
         "ddgs",
@@ -146,8 +146,7 @@ SPECS: tuple[ProviderSpec, ...] = (
         "template",
         "Template floor",
         "floor",
-        note="zero-key, zero-network drafts (P11) — never capped; "
-        "active when no AI provider is selected",
+        note="zero-key, zero-network drafts — never capped; active when no AI provider is selected",
     ),
 )
 

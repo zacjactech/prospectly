@@ -1,22 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="card">
-  <div class="header-row">
-    <div class="grow">
-      <div class="prospect-name">Outreach queue</div>
-      <div class="badge-row">
-        <span class="badge muted">Never lose an approved-but-unconfirmed message</span>
-      </div>
-    </div>
-    <div class="header-actions">
-      <a href="/" class="btn ghost">Dashboard</a>
-    </div>
+<div class="page-bar">
+  <div>
+    <h1>Outreach queue</h1>
+    <p class="muted small">Never lose an approved-but-unconfirmed message.</p>
   </div>
-</section>
+  <a href="/" class="btn ghost">Back to dashboard</a>
+</div>
 
 {% set groups = groups or {} %}
 
-<section class="grid grid-2">
+<section class="grid grid-3">
   {# Pending review — needs me #}
   <div class="card">
     <h3>Pending review</h3>
@@ -29,7 +23,7 @@
         <a class="src" href="/messages/{{ m.id }}/edit">Review</a>
       </li>
       {% else %}
-      <li><span class="muted">None.</span></li>
+      <li><span class="muted">None — submit a draft for review from a prospect's Outreach tab.</span></li>
       {% endfor %}
     </ul>
   </div>
@@ -46,7 +40,7 @@
         <a class="src" href="/messages/{{ m.id }}/open">Open</a>
       </li>
       {% else %}
-      <li><span class="muted">None.</span></li>
+      <li><span class="muted">None — approve a pending draft to make it ready here.</span></li>
       {% endfor %}
     </ul>
   </div>
@@ -72,7 +66,7 @@
         </div>
       </li>
       {% else %}
-      <li><span class="muted">None.</span></li>
+      <li><span class="muted">None — after opening a message in WhatsApp, confirm here whether you sent it.</span></li>
       {% endfor %}
     </ul>
   </div>

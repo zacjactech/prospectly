@@ -5,6 +5,13 @@
 <div class="flash error">{{ error }}</div>
 {% endif %}
 
+<div class="page-bar">
+  <div>
+    <h1>Profile</h1>
+    <p class="muted small">Your offer, target industries, locations, and ideal-client signals — drives discovery and drafts.</p>
+  </div>
+</div>
+
 <form method="post" action="/settings/profile">
   {{ csrf_field() }}
   <div class="card">
@@ -47,7 +54,7 @@
   </p>
   <form method="post" action="/settings/profile/discovery/run" class="action-group">
     {{ csrf_field() }}
-    <button class="btn primary" type="submit">Run discovery</button>
+    <button class="btn" type="submit">Run discovery</button>
   </form>
 
   {% if discovery_jobs %}

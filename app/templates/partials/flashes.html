@@ -5,7 +5,7 @@
 {% if error %}
   {% set flashes = flashes + [{"type": "error", "message": error}] %}
 {% endif %}
-{% if message %}
+{% if message is string %}
   {% set flashes = flashes + [{"type": message_type or "info", "message": message}] %}
 {% endif %}
 {# Flash carried across a redirect via URL query params (?flash=...&flash_type=...) #}
