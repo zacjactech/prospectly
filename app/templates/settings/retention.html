@@ -56,7 +56,7 @@
         <td><span class="badge stage-{{ p.stage }}">{{ p.stage }}</span></td>
         <td class="muted small">{{ p.updated_at }}</td>
         <td class="text-right small">
-          <form method="post" action="/retention/{{ p.id }}/clear" style="display:inline;">
+          <form method="post" action="/retention/{{ p.id }}/clear" class="form-inline">
             {{ csrf_field() }}
             <button class="btn ghost small" type="submit">Clear flag</button>
           </form>

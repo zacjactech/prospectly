@@ -113,3 +113,5 @@ Back up before major operations (import batches, bulk edits) and weekly. Keep `b
 ## License / data note
 
 Private project. It stores third-party business contact details — handle the database file as personal data (`docs/SECURITY_AND_PRIVACY.md`).
+
+The inline sidebar line icons in `app/templates/base.html` are derived from **[Lucide](https://lucide.dev)** and copied in as SVG paths (no icon font, no CDN). Lucide is licensed under the **ISC License**: © Lucide Contributors (portions © Cole Bemis 2013–2024, Feather, MIT). Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.

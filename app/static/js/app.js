@@ -3,31 +3,95 @@
 (function () {
   "use strict";
 
-  /* ----- Mobile nav: data-nav-toggle -> body.nav-open ----- */
+  /* ----- Sidebar drawer (mobile <768px): data-nav-toggle / data-nav-close -----
+     Same body.nav-open mechanism as the old top-bar dropdown, plus the a11y
+     contract: aria-expanded on the toggle, focus moves to the first nav link
+     on open, Tab is trapped inside the open drawer, Escape or a backdrop /
+     close-button click closes and returns focus to the toggle. At >=768px the
+     sidebar is persistent, so the drawer state is cleared on resize. */
   var toggle = document.querySelector("[data-nav-toggle]");
-  if (toggle) {
+  var sidenav = document.getElementById("sidenav");
+
+  var navIsOpen = function () {
+    return document.body.classList.contains("nav-open");
+  };
+
+  var closeNav = function (restoreFocus) {
+    if (!navIsOpen()) return;
+    document.body.classList.remove("nav-open");
+    if (toggle) toggle.setAttribute("aria-expanded", "false");
+    if (restoreFocus && toggle) toggle.focus();
+  };
+
+  var openNav = function () {
+    document.body.classList.add("nav-open");
+    if (toggle) toggle.setAttribute("aria-expanded", "true");
+    if (sidenav) {
+      var first = sidenav.querySelector(".nav-link");
+      if (first) first.focus();
+    }
+  };
+
+  if (toggle && sidenav) {
     toggle.addEventListener("click", function (e) {
       e.stopPropagation();
-      document.body.classList.toggle("nav-open");
+      if (navIsOpen()) closeNav(true);
+      else openNav();
     });
 
-    // Close when clicking outside the topbar.
-    document.addEventListener("click", function (e) {
-      if (!document.body.classList.contains("nav-open")) return;
-      if (e.target.closest(".topbar")) return;
-      document.body.classList.remove("nav-open");
-    });
-
-    // Close on Escape.
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") document.body.classList.remove("nav-open");
-    });
-
-    // Close after choosing a section.
-    document.querySelectorAll(".topbar-right .nav-link").forEach(function (link) {
-      link.addEventListener("click", function () {
-        document.body.classList.remove("nav-open");
+    // Backdrop and the close button carry data-nav-close.
+    document.querySelectorAll("[data-nav-close]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        closeNav(true);
       });
+    });
+
+    // Click outside the drawer closes it.
+    document.addEventListener("click", function (e) {
+      if (!navIsOpen()) return;
+      if (e.target.closest(".sidenav")) return;
+      closeNav(false);
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (!navIsOpen()) return;
+      if (e.key === "Escape") {
+        // Drawer is the top layer while open — don't also close the help.
+        e.stopImmediatePropagation();
+        closeNav(true);
+        return;
+      }
+      // Focus trap: Tab / Shift+Tab cycle within the open drawer.
+      if (e.key === "Tab") {
+        var items = sidenav.querySelectorAll("a[href], button:not([disabled])");
+        if (!items.length) return;
+        var first = items[0];
+        var last = items[items.length - 1];
+        var active = document.activeElement;
+        if (e.shiftKey && (active === first || !sidenav.contains(active))) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault();
+          first.focus();
+        } else if (!sidenav.contains(active)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    });
+
+    // Close after choosing a section (a real href navigates; this just
+    // restores the closed state for same-page/modified clicks).
+    sidenav.querySelectorAll(".nav-link").forEach(function (link) {
+      link.addEventListener("click", function () {
+        closeNav(false);
+      });
+    });
+
+    // >=768px: the sidebar is persistent — drop any leftover drawer state.
+    window.addEventListener("resize", function () {
+      if (navIsOpen() && window.innerWidth >= 768) closeNav(false);
     });
   }
 

@@ -479,3 +479,41 @@ are live, not "not implemented".
 - Performance: 5,000-prospect list <200ms, indexes verified via EXPLAIN QUERY PLAN
 - Docs consistency: BizData added to SYSTEM_ARCHITECTURE diagram, DATABASE_DESIGN source_type enum, RESEARCH_FINDINGS table, COST_ANALYSIS table
 - Tag `v0.1.0`: exists in git
+
+## Visual redesign browser pass — 2026-11-11 (charcoal + signal orange, grouped sidebar)
+
+- **Scope:** full UI re-skin (dark charcoal + orange accent) + top bar → grouped
+  left sidebar. Spec amendments recorded in `UI_UX_SPECIFICATION.md`
+  (opening, §1, §5, §10). No product/behavior changes; P1/P5/P6 verified in code.
+- **Playwright browser pass** (18 screenshots, reviewed by the orchestrator):
+  desktop 1440 (sidebar, dashboard pipeline/metrics, table + badge families,
+  filter bar, form validation, focus ring = 2px `rgb(255,107,26)` outline + glow,
+  toast, help panel, login + inline 401 error), icon rail at 1024, drawer at
+  375 (closed/open — `aria-expanded`, focus → first link, backdrop,
+  Escape → closed + focus restored, Tab wrap).
+- **Contrast (independently scripted, WCAG formula):** all text pairs ≥4.5:1
+  (worst: `--color-text-subtle` on raised = 4.97); accent-on-tint 5.47;
+  control boundaries ≥3:1 after correcting `--color-border-strong` to `#6a7280`
+  (handoff's `#3a3e46` claim was an arithmetic error: actual 1.56:1).
+  Inputs/filter chips/toggle chips use the strong border (WCAG 1.4.11).
+- **Reduced motion:** `--dur-*` compute to 0ms under
+  `prefers-reduced-motion: reduce`; pulsing `running` dot static.
+- **Deterministic:** `uv run pytest` 330 passed · `ruff check` / `ruff format
+  --check` clean · `mypy app` clean · 61/61 CSS vars defined, 0 orphans ·
+  0 old-palette refs, 0 `style=` attrs in templates, no `prefers-color-scheme`.
+- **Owner decisions applied during review:** Docs nav link removed (`/api/docs`
+  is an empty shell under the CSP — Swagger CDN blocked; revisit when a docs
+  surface exists); per-row Merge button uses new `.btn.danger-outline` so solid
+  red stays reserved for delete-grade actions.
+- **Known:** one pre-existing flaky network test
+  (`test_safe_fetcher_allows_public_url_validation`, DNS-timing; passes in
+  isolation and on re-run). Synthetic verification prospects were created and
+  removed (DB empty, `integrity_check ok`).
+- **Pipeline-style dashboard refresh (2026-11-11):** the dashboard pipeline
+  strip now renders as numbered flow cards (`01 QUALIFY → 02 OUTREACH →
+  03 CONVERT`) with orange arrows and per-phase totals in the header —
+  the moodboard's Nexus pattern, presentation-only (counts, links, stage
+  order and P6 zero-state unchanged). Verified live at 1440 and 375 with
+  3 synthetic prospects (1 transitioned to `researched` for mixed counts);
+  screenshots reviewed, then rows deleted — DB back to `0 prospects`,
+  `integrity_check ok`. Spec §2.1 updated in the same change.

@@ -1,6 +1,6 @@
 # UI/UX Specification
 
-Design direction: **professional operations tool** — information-dense, quiet, and legible for repeated daily use. Explicitly *not* the "AI dashboard" aesthetic: no gradient heroes, no floating card grids, no decorative donut charts, no color-coded-everything, no animation for its own sake.
+Design direction: **"charcoal + signal orange" operations console** — near-black charcoal surfaces (`#0b0c0e`–`#1f2126`) with 1px hairline borders, one vivid orange accent (`#ff6b1a` family) reserved for primary actions, active states, focus and running/`hot` statuses, and monospace micro-typography (uppercase group labels, tabular numeric readouts, log-style timestamps) against a system sans body. Influences: Nexus Pipeline dark dashboard (surfaces, accent discipline, numbered stages, pipeline-log type), evo-team/Academy grouped sidebars, oNeX line icons, the black+orange MARKETING poster (one loud orange element per screen). Dark-only — no `prefers-color-scheme` variant. Explicitly *not*: HUD/gauge decoration, gradients, glassmorphism, animated counters, color-coded-everything.
 
 Influences researched (2026): CRM UX best-practice literature (aufaitux, eseospace, designstudiouiux) emphasizing density + clarity over visual flourish; practitioner HTMX-vs-React write-ups confirming server-rendered CRUD patterns; Linear/Notion-style restraint (compact tables, keyboard-friendly filters, inline editing).
 
@@ -8,7 +8,7 @@ Influences researched (2026): CRM UX best-practice literature (aufaitux, eseospa
 
 ## 1. Information architecture & navigation
 
-**Amendment (2026-11-07):** the MVP ships a **persistent top bar**, not the left sidebar below. Rationale: with only Dashboard / Prospects / Profile there are 3 sections, and research on navigation patterns (NN/g) says a sidebar only pays for itself past ~8 sections; the top bar also keeps the table full-width for density. The sidebar returns when Follow-ups, Outreach and Settings land (Phase 4+). The IA tree below is the target state; the shipped nav shows the three items in bold.
+**Amendment (2026-11-11):** the app now ships a **grouped left sidebar** (WORK / SETTINGS), replacing the 2026-11-07 persistent top bar. Rationale: the live nav carries **10 sections** — past the ~8-section threshold this spec itself set for when a sidebar "pays for itself"; §7's responsive table already specified sidebar behavior (persistent ≥1200px, 56px icon rail 768–1199px, hamburger drawer <768px), so the top bar contradicted the spec's own responsive plan; and the moodboard-driven "charcoal + signal orange" redesign (see the opening) makes the grouped sidebar the strongest identity element while the dense table keeps ~all of its width. The IA tree below is what the sidebar renders, grouped.
 
 ```
 Prospectly
@@ -23,12 +23,12 @@ Prospectly
 │     ├── Providers      (keys/status, feature flags)
 │     ├── Usage          (provider + AI usage, errors, rate limits)
 │     └── General        (vocabulary, defaults, backup)
-└── Docs (link to /docs)
+└── Docs (target state only — not in the sidebar; a docs surface must exist first, and Swagger at /api/docs renders as an empty shell under the CSP)
 ```
 
 **Design rule:** the pipeline is never more than two clicks deep; every list page has one dominant primary action in the header (Add prospect / Import / Run research / Generate draft).
 
-**Design system:** `app/static/css/app.css` is the single source of visual truth — flat surfaces with 1px hairline borders (no shadow stacks), near-black primary buttons, blue reserved for links/focus, compact 13px table rows, semantic badges only for status. Behaviors live in `app/static/js/app.js` (CSP forbids inline handlers): mobile nav toggle, `data-confirm` prompts, whole-row navigation.
+**Design system:** `app/static/css/app.css` is the single source of visual truth — dark charcoal surfaces with 1px hairline borders, orange primary button, orange reserved for accent roles only (actions, active nav, focus, running/hot statuses, AI-origin badges), compact 13px table rows, mono uppercase section labels and mono tabular numerals for all readouts, semantic badges as dark tint + colored text + colored border (icon/word always present — never color alone). Behaviors live in `app/static/js/app.js` (CSP forbids inline handlers): mobile nav drawer, `data-confirm` prompts, whole-row navigation.
 
 ## 2. Pages & responsibilities
 
@@ -36,9 +36,9 @@ Prospectly
 - **Responsibility:** answer "what do I do next today?" — not analytics theater.
 - **Sections:**
   1. *Needs attention* queue (overdue follow-ups, drafts pending review, research runs failed, findings unverified) — the primary block, sorted by urgency. Empty state: "Nothing needs attention. ✓"
-  2. *Pipeline strip*: counts for every stage, grouped into three labelled display phases so the numbers read as a progression — **Qualify** (new, researched, opportunity, ready) · **Outreach** (contacted, replied, follow-up) · **Convert** (interested, converted). Each phase is its own bordered card of stage cells (not a funnel chart, not a single undifferentiated row). Phase grouping is presentation-only: stage order and semantics come from `SYSTEM_ARCHITECTURE.md` §3.2 and are unchanged.
+  2. *Pipeline strip*: counts for every stage, grouped into three labelled display phases so the numbers read as a progression — **Qualify** (new, researched, opportunity, ready) · **Outreach** (contacted, replied, follow-up) · **Convert** (interested, converted). Each phase is its own bordered card of stage cells (not a funnel chart, not a single undifferentiated row); since the 2026-11-11 pipeline-style refresh the cards are numbered **01–03** with a phase-total in the header and joined by orange flow arrows (presentation-only decoration — the numbers carry the order, so nothing depends on color or arrow direction). Phase grouping is presentation-only: stage order and semantics come from `SYSTEM_ARCHITECTURE.md` §3.2 and are unchanged.
   3. *Today*: follow-ups due today + recently replied.
-  4. *Metrics groups*: the nine operational metrics (`PRODUCT_BRIEF §8`) arranged as **three themed cards** — **Pipeline** (Total, Researched, Requires review) · **Outreach** (Approved, Sent, Replies) · **Results** (Interested, Follow-ups due, Converted). Each card is a bordered surface with an uppercase group label and left-label / right-value rows (tabular numerals). Empty values are dimmed; actionable backlogs (Requires review > 0, Follow-ups due > 0) read in `warn`. Cards sit in one column on mobile, three columns from 640px. Grouping is presentation-only: the metric definitions come from `app/services/dashboard.py` and are unchanged.
+  4. *Metrics groups*: the nine operational metrics (`PRODUCT_BRIEF §8`) arranged as **three themed cards** — **Pipeline** (Total, Researched, Requires review) · **Outreach** (Approved, Sent, Replies) · **Results** (Interested, Follow-ups due, Converted). Each card is a bordered surface with an uppercase mono group label and left-label / right-value rows (tabular numerals). Empty values are dimmed; actionable backlogs (Requires review > 0, Follow-ups due > 0) read in the accent (`hot` role, redesign 2026-11-11). Cards sit in one column on mobile, three columns from 640px. Grouping is presentation-only: the metric definitions come from `app/services/dashboard.py` and are unchanged.
 - All numbers link to the pre-filtered Prospects list.
 
 **Status (Phase 5):** the **pipeline strip** and all **nine metrics groups** are built and rendered honestly — real per-stage counts of non-archived prospects (`app/services/dashboard.py`, whose `PIPELINE_PHASES` defines the stage grouping and derives `PIPELINE_STAGES`), zero-filled and grayed when empty, every pipeline cell linking to `/prospects?stage=…`. The "Needs attention" queue is live. Empty dashboard: one sentence + Add prospect / Set up profile.
@@ -115,29 +115,55 @@ Moved under Settings because CSV is not the default discovery path. 3-step wizar
 
 ## 5. Design tokens
 
-Defined once in `static/css/tokens.css` (plain CSS custom properties; no framework):
+Defined once in `app/static/css/app.css` `:root` (plain CSS custom properties; no framework). Pre-composited solid hex for every tint — never `rgba(…)` overlays of the semantic hues, or the contrast table stops holding:
 
 ```css
-/* Color — neutral, single accent */
---bg:#fafafa; --surface:#ffffff; --border:#e4e4e7; --text:#18181b; --text-muted:#71717a;
---accent:#1d4ed8;        /* actions, links — one accent only */
---danger:#b91c1c; --success:#15803d; --warn:#b45309;
-/* Stage/status badges: neutral bg + colored text; color never the only signal (icon/text always present) */
+/* Surfaces & borders — charcoal stack, hairline structure
+   (text 15.08:1, muted 7.70:1 on surface) */
+--color-bg:#0b0c0e; --color-surface:#14161a; --color-surface-hover:#1b1e24;
+--color-surface-raised:#1f2126;      /* dialogs, tooltips, dropdowns, toasts */
+--color-border:#26292f; --color-border-strong:#6a7280;  /* control boundaries ≥3:1 (WCAG 1.4.11) */
+--shadow-1:0 1px 2px rgba(0,0,0,.4); --shadow-2:0 8px 24px rgba(0,0,0,.5);
 
-/* Type — system stack, tabular numerals for data */
---font: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
---fs-xs:.75rem; --fs-sm:.8125rem; --fs-base:.875rem; --fs-lg:1rem; --fs-xl:1.25rem;
+/* Text — warm-tinted white (15.08 / 7.70 / 5.58:1 on surface) */
+--color-text:#eceae6; --color-text-muted:#a6a9b0; --color-text-subtle:#8b8f97;
+
+/* Single accent — primary actions, active nav, focus, running/hot, AI origin */
+--color-accent:#ff6b1a; --color-accent-hover:#ff8340;   /* hover lightens on dark */
+--color-accent-light:#30201a;    /* pre-composited 12% orange over surface */
+--color-accent-border:#7a3d1c;   /* pre-composited 35% orange over surface */
+--glow-accent:0 0 20px rgba(255,107,26,.12);  /* CTA hover + active nav + focus rings */
+--color-link:#ff8a3d;            /* same family, one hue lighter (7.72:1) */
+--focus-ring:rgba(255,107,26,.28);
+
+/* Semantic — dark tint bg + colored text + colored border (word/icon always
+   present, never color alone) */
+--color-success:#4cc38a; --color-success-light:#122a1d; --color-success-border:#1e5c3a;
+--color-danger:#f87171;  --color-danger-light:#2b1512;  --color-danger-border:#6e2f28;
+--color-warn:#fbbf24;    --color-warn-light:#2a2110;    --color-warn-border:#7a5a18;
+--color-info:#56b8d8;    --color-info-light:#10262c;    --color-info-border:#1d5563;
+
+/* Type — system sans body + mono micro-typography; tabular numerals for data */
+--font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+--font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
+--tracking-label:.08em;            /* uppercase mono group/column labels */
+--fs-xs:11px; --fs-sm:13px; --fs-base:15px; --fs-lg:17px; --fs-xl:18px; --fs-3xl:28px;
 --fw-medium:500; --fw-semibold:600;
---lh-tight:1.25; --lh-normal:1.5;
+--lh-tight:1.3; --lh-normal:1.5;
 
-/* Space — 4px base */
---sp-1:4px … --sp-6:24px;  --row-h:40px;  --control-h:32px;
+/* Space & shape — 4px base */
+--sp-1:4px … --sp-8:32px;
+--radius-sm:4px; --radius-md:6px; --radius-lg:8px;
+--control-h:44px mobile / 36px ≥640px; --row-h:40px  /* row floor, rendered as td height (not a custom property) */;
 
-/* Motion — functional only, ≤150ms, respects prefers-reduced-motion */
---dur:120ms;
+/* Layout — grouped sidebar (spec §1 amendment 2026-11-11, §7) */
+--nav-w:15rem; --topbar-h:52px; --max-w:960px;
+
+/* Motion — functional only, ≤150ms; prefers-reduced-motion → 0ms / static */
+--dur-fast:120ms; --dur-base:150ms;
 ```
 
-Typography: one family, three sizes, two weights — hierarchy comes from weight/spacing, not color. Data tables use `font-variant-numeric: tabular-nums`.
+Typography: two families, strict role split — system sans for body/table/form text, mono for uppercase group labels, numeric readouts and log-style timestamps. Data tables use `font-variant-numeric: tabular-nums`. Hierarchy comes from weight/spacing/size, not color.
 
 ## 6. States (mandatory on every page/action)
 
@@ -174,4 +200,4 @@ Touch targets ≥40px on mobile. The mobile experience is **review/light-triage 
 
 ## 10. Explicit design exclusions
 
-Gradients, glassmorphism, animated counters, sparkline/donut decoration, colored sidebar, dark-mode-only styling (system `prefers-color-scheme` support is a post-MVP nicety), drag-and-drop Kanban (lists are faster to build, test, and keyboard-drive).
+Gradients and glow backdrops (the accent glow is confined to the primary button hover, active nav, and focus rings), glassmorphism, animated counters, sparkline/donut/gauge decoration, HUD dot-matrix visuals, per-item colored nav markers (orange is the only non-neutral UI color), poster-scale display typography and mascot artwork, drag-and-drop Kanban (lists are faster to build, test, and keyboard-drive). "Colored sidebar" and "dark-mode-only styling" are rescinded by the 2026-11-11 visual redesign decision: the UI is dark-only and the sidebar carries a single accent.

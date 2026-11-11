@@ -8,34 +8,36 @@
   <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body>
-  <div class="app-shell">
-    <main class="main">
-      <div class="page">
-        <h1>Sign in</h1>
-        <p class="muted">This instance is protected by an access token.</p>
-
-        {% if error %}
-        <div class="flash error" role="alert">{{ error }}</div>
-        {% endif %}
-
-        <form method="post" action="/login">
-          {{ csrf_field() }}
-          <input type="hidden" name="next" value="{{ next or '/' }}">
-          <div class="card">
-            <div class="form-section full-width">
-              <div class="field full">
-                <label for="access_token">Access token</label>
-                <input type="password" id="access_token" name="access_token"
-                       autocomplete="current-password" autofocus required>
-              </div>
-            </div>
-          </div>
-          <div class="action-group">
-            <button class="btn primary" type="submit">Sign in</button>
-          </div>
-        </form>
+  <!-- Standalone dark page: centered card + brand lockup, no app chrome
+       (spec §2.8 / redesign handoff §3). -->
+  <main class="auth-shell">
+    <div class="card auth-card">
+      <div class="brand auth-brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span class="brand-text">{{ app_name }}</span>
       </div>
-    </main>
-  </div>
+      <h1>Sign in</h1>
+      <p class="muted">This instance is protected by an access token.</p>
+
+      {% if error %}
+      <div class="flash error" role="alert">{{ error }}</div>
+      {% endif %}
+
+      <form method="post" action="/login">
+        {{ csrf_field() }}
+        <input type="hidden" name="next" value="{{ next or '/' }}">
+        <div class="form-section full-width">
+          <div class="field full">
+            <label for="access_token">Access token</label>
+            <input type="password" id="access_token" name="access_token"
+                   autocomplete="current-password" autofocus required>
+          </div>
+        </div>
+        <div class="action-group">
+          <button class="btn primary" type="submit">Sign in</button>
+        </div>
+      </form>
+    </div>
+  </main>
 </body>
 </html>

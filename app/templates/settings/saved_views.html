@@ -48,7 +48,7 @@
           {% if view.filters %}
           <a class="btn small" href="/prospects/views/{{ view.id }}/apply">Apply</a>
           {% endif %}
-          <form method="post" action="/settings/saved-views/{{ view.id }}/delete" style="display:inline;">
+          <form method="post" action="/settings/saved-views/{{ view.id }}/delete" class="form-inline">
             {{ csrf_field() }}
             <button class="btn danger small" type="submit" data-confirm="Delete this saved view?">Delete</button>
           </form>

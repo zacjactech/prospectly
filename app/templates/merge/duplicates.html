@@ -49,7 +49,7 @@
   <table class="data-table">
     <thead>
       <tr>
-        <th style="width:30px">Merge</th>
+        <th class="col-narrow">Merge</th>
         <th>Source (will be archived)</th>
         <th>Target (will be kept)</th>
         <th>Score</th>
@@ -64,7 +64,7 @@
             {{ csrf_field() }}
             <input type="hidden" name="source_id" value="{{ pair.source_id }}">
             <input type="hidden" name="target_id" value="{{ pair.target_id }}">
-            <button class="btn danger small" type="submit">Merge</button>
+            <button class="btn danger-outline small" type="submit">Merge</button>
           </form>
         </td>
         <td>

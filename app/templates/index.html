@@ -10,8 +10,17 @@
 <section aria-label="Pipeline">
   <div class="pipeline-strip">
     {% for phase, stages in pipeline_phases %}
+    {% set ns = namespace(total=0) %}
+    {% for s in stages %}{% set ns.total = ns.total + stage_counts[s] %}{% endfor %}
     <div class="pipeline-phase phase-{{ phase|lower }}">
-      <span class="pipeline-phase-label">{{ phase }}</span>
+      {# Numbered flow card (Nexus pattern): 01/02/03 · phase · phase total.
+         Grouping stays presentation-only — stage order/semantics come from
+         SYSTEM_ARCHITECTURE §3.2 (UI/UX spec §2.1). #}
+      <div class="pipeline-phase-head">
+        <span class="pipeline-phase-num" aria-hidden="true">{{ '%02d' % loop.index }}</span>
+        <span class="pipeline-phase-label">{{ phase }}</span>
+        <span class="pipeline-phase-total{% if not ns.total %} zero{% endif %}">{{ ns.total }}</span>
+      </div>
       <div class="pipeline-phase-cells">
         {% for s in stages %}
         <a class="pipeline-item{% if stage_counts[s] == 0 %} zero{% endif %}" href="/prospects?stage={{ s }}">
@@ -21,6 +30,7 @@
         {% endfor %}
       </div>
     </div>
+    {% if not loop.last %}<span class="pipeline-arrow" aria-hidden="true">→</span>{% endif %}
     {% endfor %}
   </div>
 </section>

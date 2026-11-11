@@ -68,7 +68,7 @@
     {% elif message.status == "pending_review" %}
     <form method="post" action="/messages/{{ message.id }}/approve">
       {{ csrf_field() }}
-      <label style="display:flex;align-items:center;gap:var(--sp-2);">
+      <label class="checkbox-line">
         <input type="checkbox" name="ungrounded_acknowledgement" value="1">
         I accept ungrounded content
       </label>

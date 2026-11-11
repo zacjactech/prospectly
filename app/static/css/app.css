@@ -1,47 +1,62 @@
-/* Prospectly operations UI — Attio-style density.
-   Flat surfaces, hairline borders, near-black primary, compact type.
-   Spec: docs/UI_UX_SPECIFICATION.md ("information-dense, quiet, legible"). */
+/* Prospectly operations UI — "charcoal + signal orange" operations console.
+   Dark-only (no light-theme media-query variant anywhere), 3-step charcoal
+   surfaces with hairline borders, one orange accent reserved for primary
+   actions / active states / focus / running & hot statuses / AI-origin, mono
+   micro-typography for group labels and numeric readouts.
+   Spec: docs/UI_UX_SPECIFICATION.md (redesign 2026-11-11). */
 
-/* ===== Tokens ===== */
+/* ===== Tokens =====
+   Semantic tint tokens (-light / -border) are PRE-COMPOSITED solids — never
+   rgba overlays of the hue over varying backgrounds, or the spec's contrast
+   table stops holding. */
 :root {
-  /* Surfaces: neutral grays, no blue tint */
-  --color-bg: #fafafa;
-  --color-surface: #ffffff;
-  --color-surface-hover: #f7f7f8;
-  --color-border: #e8e8eb;
-  --color-border-strong: #d4d4d8;
+  /* Native controls (select popups, date pickers, scrollbars, caret) follow
+     the dark palette instead of the UA light default. */
+  color-scheme: dark;
 
-  /* Text */
-  --color-text: #18181b;
-  --color-text-muted: #71717a;
-  --color-text-subtle: #a1a1aa;
+  /* Surfaces: charcoal 3-step stack + hairline borders (structure, not fill) */
+  --color-bg: #0b0c0e;
+  --color-surface: #14161a;
+  --color-surface-hover: #1b1e24;
+  --color-surface-raised: #1f2126; /* dialogs, tooltips, dropdowns, toasts */
+  --color-border: #26292f;
+  --color-border-strong: #6a7280; /* control boundaries: ≥3:1 vs surface/hover/raised (WCAG 1.4.11 — handoff intent, corrected value) */
 
-  /* Primary actions are near-black */
-  --color-accent: #18181b;
-  --color-accent-hover: #3f3f46;
-  --color-accent-light: #f4f4f5;
+  /* Text (warm-tinted white to sit with the orange accent) */
+  --color-text: #eceae6;
+  --color-text-muted: #a6a9b0;
+  --color-text-subtle: #8b8f97;
 
-  /* Links and focus rings stay blue (functional color only) */
-  --color-link: #2563eb;
-  --focus-ring: rgba(37, 99, 235, 0.35);
+  /* The single accent: primary actions, active nav, focus, running/hot */
+  --color-accent: #ff6b1a;
+  --color-accent-hover: #ff8340; /* hover lightens on dark, not darkens */
+  --color-accent-light: #30201a; /* pre-composited 12% orange over surface */
+  --color-accent-border: #7a3d1c; /* pre-composited 35% orange over surface */
+  --glow-accent: 0 0 20px rgba(255, 107, 26, 0.12); /* CTA hover + active nav */
 
-  /* Semantic: status only, never decoration */
-  --color-success: #15803d;
-  --color-success-light: #f0fdf4;
-  --color-success-border: #bbf7d0;
-  --color-danger: #b91c1c;
-  --color-danger-light: #fef2f2;
-  --color-danger-border: #fecaca;
-  --color-warn: #b45309;
-  --color-warn-light: #fffbeb;
-  --color-warn-border: #fde68a;
-  --color-info: #0e7490;
-  --color-info-light: #ecfeff;
-  --color-info-border: #a5f3fc;
+  /* Links and focus rings are the same orange family (one hue lighter) */
+  --color-link: #ff8a3d;
+  --focus-ring: rgba(255, 107, 26, 0.28);
 
-  /* Typography: compact scale */
+  /* Semantic: status only, never decoration — dark tint bg + colored text +
+     colored border; an icon or word always accompanies the color. */
+  --color-success: #4cc38a;
+  --color-success-light: #122a1d;
+  --color-success-border: #1e5c3a;
+  --color-danger: #f87171;
+  --color-danger-light: #2b1512;
+  --color-danger-border: #6e2f28;
+  --color-warn: #fbbf24;
+  --color-warn-light: #2a2110;
+  --color-warn-border: #7a5a18;
+  --color-info: #56b8d8;
+  --color-info-light: #10262c;
+  --color-info-border: #1d5563;
+
+  /* Typography: system sans body, mono micro-typography (labels, readouts) */
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
+  --tracking-label: 0.08em; /* uppercase mono group/column labels */
 
   --fs-xs: 0.6875rem;    /* 11px: badges, table headers */
   --fs-sm: 0.8125rem;    /* 13px: table rows, secondary */
@@ -76,15 +91,39 @@
   --dur-fast: 120ms;
   --dur-base: 150ms;
 
+  /* Elevation: borders carry structure, shadows carry only lift */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);   /* tooltips, sticky headers */
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.5);  /* dialogs */
+
   /* Layout */
   --control-h: 2.75rem; /* 44px on mobile; 36px at >=640px */
-  --topbar-h: 3.25rem;  /* 52px */
+  --topbar-h: 3.25rem;  /* 52px mobile header */
+  --nav-w: 15rem;       /* sidebar width at >=1200px (spec §7) */
   --max-w: 60rem;       /* 960px */
 }
 
 @media (min-width: 640px) {
   :root {
     --control-h: 2.25rem; /* 36px: desktop density */
+  }
+}
+
+/* Reduced motion: token durations drop to 0 and animations go static
+   (spec §8; functional transitions only, nothing decorative depends on them). */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -122,20 +161,30 @@ a:hover {
 a:focus-visible,
 button:focus-visible,
 [data-nav-toggle]:focus-visible {
-  outline: 2px solid rgba(37, 99, 235, 0.55);
+  outline: 2px solid var(--color-accent); /* solid ring = 6.36:1 on surface */
   outline-offset: 2px;
+  box-shadow: var(--glow-accent);
 }
 
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: none; /* box-shadow ring below covers fields */
+  /* The accent border + --focus-ring box-shadow from the field rules below is
+     the primary ring; this outline is its visible-on-any-bg companion. */
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
-/* ===== Scrollbars: thin, quiet, transparent track ===== */
+/* ===== Selection ===== */
+::selection {
+  background: var(--color-accent);
+  color: #140d07;
+}
+
+/* ===== Scrollbars: thin, dark, quiet ===== */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-text-subtle) transparent;
+  scrollbar-color: var(--color-border) transparent;
 }
 
 ::-webkit-scrollbar {
@@ -152,14 +201,14 @@ textarea:focus-visible {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: var(--color-text-subtle);
+  background-color: var(--color-border);
   background-clip: padding-box;
   border: 2px solid transparent; /* leaves a 6px visible thumb */
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-text-muted);
+  background-color: var(--color-border-strong);
 }
 
 /* ===== Utilities ===== */
@@ -187,68 +236,81 @@ textarea:focus-visible {
   color: var(--color-info);
 }
 
-/* ===== Layout Shell ===== */
-.app-shell {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
+/* Narrow checkbox/selection column (merge review, import preview) */
+.col-narrow {
+  width: 30px;
 }
 
-.topbar {
-  height: var(--topbar-h);
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+/* Row-level forms (delete/clear inside table cells) stay inline with siblings */
+.form-inline {
+  display: inline;
+}
+
+/* Single checkbox + label line (acknowledgements, filter toggles) */
+.checkbox-line {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: 0 var(--sp-3);
+}
+
+/* ===== Layout Shell (sidebar + main) =====
+   Mobile-first: <768px the sidebar is an off-canvas drawer behind a slim
+   header (hamburger + page title); 768–1199px it becomes a fixed 56px icon
+   rail; >=1200px it shows labels at --nav-w (spec §7 + §1 amendment
+   2026-11-11). One <aside class="sidenav"> before <main>. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+}
+
+.skip-link:focus {
+  left: var(--sp-2);
+  top: var(--sp-2);
+  z-index: 200;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+/* Slim mobile header: brand + hamburger + page title */
+.app-header {
   position: sticky;
   top: 0;
   z-index: 100;
-}
-
-.brand {
-  font-weight: var(--fw-semibold);
-  font-size: var(--fs-base);
-  color: var(--color-text);
-  letter-spacing: -0.02em;
-}
-
-.topbar-right {
+  height: var(--topbar-h);
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-header-title {
   margin-left: auto;
-}
-
-.nav-link {
-  display: flex;
-  align-items: center;
-  padding: 6px 10px;
-  border-radius: var(--radius-md);
-  color: var(--color-text-muted);
+  min-width: 0;
   font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
-  text-decoration: none;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
-}
-
-.nav-link:hover {
-  background: var(--color-accent-light);
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-.nav-link.active {
-  background: var(--color-accent-light);
-  color: var(--color-text);
-  font-weight: var(--fw-semibold);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mobile-menu-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: none;
   width: 40px;
   height: 40px;
   background: none;
@@ -263,14 +325,245 @@ textarea:focus-visible {
   height: 18px;
 }
 
+/* Brand lockup: 8px orange rounded-square dot + wordmark */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-base);
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+
+.brand:hover {
+  text-decoration: none;
+}
+
+.brand-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--color-accent);
+}
+
+/* Sidebar: off-canvas drawer below 768px, persistent rail above */
+.sidenav {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  width: min(84vw, 280px);
+  overflow-y: auto;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  transform: translateX(-100%);
+  visibility: hidden; /* closed drawer is unreachable by keyboard */
+  transition: transform var(--dur-base) ease, visibility 0s linear var(--dur-base);
+}
+
+body.nav-open .sidenav {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform var(--dur-base) ease, visibility 0s;
+}
+
+.sidenav-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.nav-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+.nav-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sidenav-nav {
+  padding: var(--sp-2) var(--sp-2) var(--sp-4);
+}
+
+.nav-group + .nav-group {
+  margin-top: var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Uppercase mono group label (evo-team MENU/OTHER pattern) */
+.nav-group-label {
+  display: block;
+  padding: var(--sp-2) 10px var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-text-muted);
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 40px; /* touch floor; drops to 32px at >=1200px (spec §4) */
+  padding: 0 10px;
+  border-left: 2px solid transparent; /* active-indicator slot */
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.nav-link svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.nav-link:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+/* Active = accent tint + 2px accent edge + accent text (the only signal) */
+.nav-link.active {
+  background: var(--color-accent-light);
+  border-left-color: var(--color-accent);
+  color: var(--color-accent);
+  font-weight: var(--fw-semibold);
+  box-shadow: var(--glow-accent);
+}
+
+/* Drawer backdrop (<768px only — the rail/full sidebar needs none) */
+.nav-backdrop {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  body.nav-open .nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    background: rgba(0, 0, 0, 0.6);
+  }
+}
+
 .main {
-  flex: 1;
+  min-width: 0;
   padding: var(--sp-5) var(--sp-4);
 }
 
 .page {
   max-width: var(--max-w);
   margin: 0 auto;
+}
+
+/* Icon rail: labels and group headers collapse, icons center, tooltips
+   come from the title attribute (aria-label kept in the markup). */
+@media (min-width: 768px) {
+  .app-header {
+    display: none;
+  }
+
+  .app-shell {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .sidenav {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    width: auto;
+    z-index: 1;
+    transform: none;
+    visibility: visible;
+    transition: none;
+  }
+
+  .sidenav-head {
+    justify-content: center;
+    padding: var(--sp-3) var(--sp-1);
+  }
+
+  .sidenav .brand-text,
+  .nav-group-label,
+  .nav-link .nav-text {
+    display: none;
+  }
+
+  .nav-close {
+    display: none;
+  }
+
+  .nav-group + .nav-group {
+    margin-top: var(--sp-1);
+    padding-top: var(--sp-1);
+  }
+
+  .nav-link {
+    justify-content: center;
+    padding: 0;
+    height: 40px;
+  }
+}
+
+/* Full sidebar with labels */
+@media (min-width: 1200px) {
+  .app-shell {
+    grid-template-columns: var(--nav-w) minmax(0, 1fr);
+  }
+
+  .sidenav-head {
+    justify-content: flex-start;
+    padding: var(--sp-3);
+  }
+
+  .sidenav .brand-text,
+  .nav-group-label,
+  .nav-link .nav-text {
+    display: inline;
+  }
+
+  .nav-group-label {
+    display: block;
+  }
+
+  .nav-group + .nav-group {
+    margin-top: var(--sp-2);
+    padding-top: var(--sp-2);
+  }
+
+  .nav-link {
+    justify-content: flex-start;
+    padding: 0 10px;
+    height: 32px;
+  }
 }
 
 /* ===== Typography ===== */
@@ -306,7 +599,7 @@ p {
 .card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: var(--sp-4);
   margin-bottom: var(--sp-4);
 }
@@ -317,12 +610,14 @@ p {
   margin-bottom: 0;
 }
 
+/* Card kicker = mono uppercase micro-label (Nexus card-label pattern) */
 .card > h3 {
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-label);
   color: var(--color-text-muted);
-  font-weight: var(--fw-semibold);
+  font-weight: var(--fw-medium);
   margin-bottom: var(--sp-3);
 }
 
@@ -388,39 +683,81 @@ p {
 }
 
 /* ===== Pipeline strip (dashboard) =====
+   Pipeline-style flow: three numbered phase cards (01–03) connected by orange
+   arrows, so the nine stage counts read as a left-to-right progression.
    Grouped into display phases (UI/UX spec §2.1): each phase is a labelled
-   cluster of stage cells, so the nine numbers read as a progression instead
-   of one undifferentiated row. Two cells per phase keeps labels legible. */
+   cluster of stage cells. Presentation-only — stage order and semantics come
+   from SYSTEM_ARCHITECTURE §3.2, and the numbers remain the chart (no
+   progress bars, no funnel fill). */
 .pipeline-strip {
-  display: grid;
-  grid-template-columns: 1fr; /* phases stack below 768px */
-  gap: var(--sp-6); /* 24px: the phases are separate cards, not one divided band */
+  display: flex;
+  flex-direction: column; /* stacked flow below 768px, arrows point down */
+  gap: var(--sp-2);
   margin-bottom: var(--sp-4);
 }
 
 .pipeline-phase {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
+  flex: 1; /* phases share one row height regardless of cell count */
   min-width: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* Card header: numbered stage card (Nexus 01/02/03 pattern) */
+.pipeline-phase-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pipeline-phase-num {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--color-accent);
 }
 
 .pipeline-phase-label {
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  font-weight: var(--fw-semibold);
+  font-weight: var(--fw-medium);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-label);
   color: var(--color-text-muted);
 }
 
+.pipeline-phase-total {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.pipeline-phase-total.zero {
+  color: var(--color-text-subtle);
+}
+
+/* Orange flow arrow between phase cards (decorative — the phase order is
+   also stated by the 01/02/03 numbers, so it is never color/shape-only) */
+.pipeline-arrow {
+  align-self: center;
+  color: var(--color-accent);
+  font-size: 18px;
+  line-height: 1;
+  transform: rotate(90deg); /* stacked flow points down */
+}
+
 .pipeline-phase-cells {
-  flex: 1; /* phases share one row height regardless of cell count */
+  flex: 1;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
 }
 
 .pipeline-item {
@@ -480,8 +817,9 @@ p {
 }
 
 .pipeline-count {
+  font-family: var(--font-mono);
   font-size: var(--fs-3xl);
-  font-weight: var(--fw-semibold);
+  font-weight: var(--fw-medium);
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
 }
@@ -505,7 +843,13 @@ p {
 
 @media (min-width: 768px) {
   .pipeline-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    flex-direction: row;
+    gap: var(--sp-3);
+    align-items: stretch;
+  }
+
+  .pipeline-arrow {
+    transform: none; /* horizontal flow: Qualify → Outreach → Convert */
   }
 }
 
@@ -523,18 +867,19 @@ p {
 .metric-group {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: 10px 14px 8px;
   min-width: 0;
 }
 
 .metric-group-label {
   display: block;
-  font-size: clamp(10px, 0.9vw, 11px);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   font-weight: var(--fw-medium);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-label);
   padding-bottom: 6px;
   margin-bottom: 2px;
   border-bottom: 1px solid var(--color-border);
@@ -549,7 +894,7 @@ p {
 }
 
 .metric-row + .metric-row {
-  border-top: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+  border-top: 1px solid var(--color-border);
 }
 
 .metric-row .metric-label {
@@ -563,8 +908,9 @@ p {
 }
 
 .metric-row .metric-count {
-  font-size: var(--fs-xl);
-  font-weight: var(--fw-semibold);
+  font-family: var(--font-mono);
+  font-size: var(--fs-base); /* 15px: mono tabular readout */
+  font-weight: var(--fw-medium);
   font-variant-numeric: tabular-nums;
   line-height: 1;
   color: var(--color-text);
@@ -572,12 +918,11 @@ p {
 
 .metric-row .metric-count.zero {
   color: var(--color-text-subtle);
-  font-weight: var(--fw-medium);
 }
 
-/* Actionable backlogs stand out without shouting. */
+/* Actionable backlogs stand out without shouting — accent, the "hot" role. */
 .metric-row .metric-count.hot {
-  color: var(--color-warn);
+  color: var(--color-accent);
 }
 
 @media (min-width: 640px) {
@@ -593,9 +938,9 @@ p {
   justify-content: center;
   height: var(--control-h);
   padding: 0 14px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
-  background: var(--color-surface);
+  background: var(--color-surface-hover);
   color: var(--color-text);
   font-family: inherit;
   font-size: var(--fs-sm);
@@ -604,34 +949,65 @@ p {
   white-space: nowrap;
   cursor: pointer;
   text-decoration: none;
-  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
 }
 
 .btn:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border-strong);
+  background: var(--color-surface-raised);
   text-decoration: none;
 }
 
+/* Primary = the one loud orange element on the screen (MARKETING poster
+   discipline): solid accent + near-black text (6.76:1), lightens + glows. */
 .btn.primary {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #ffffff;
+  color: #140d07;
 }
 
 .btn.primary:hover {
   background: var(--color-accent-hover);
   border-color: var(--color-accent-hover);
+  box-shadow: var(--glow-accent);
 }
 
 .btn.ghost {
   background: transparent;
+  border-color: transparent;
   color: var(--color-text-muted);
 }
 
 .btn.ghost:hover {
   background: var(--color-surface-hover);
   color: var(--color-text);
+}
+
+/* Destructive: solid danger + dark text (6.86:1) — word/label always present */
+.btn.danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #1a0d0b;
+  font-weight: var(--fw-semibold);
+}
+
+.btn.danger:hover {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  filter: brightness(1.08);
+}
+
+/* Destructive-adjacent but not delete-grade: outline keeps the red semantics
+   without a wall of solid red in dense lists (e.g. per-row Merge). */
+.btn.danger-outline {
+  background: transparent;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.btn.danger-outline:hover {
+  background: var(--color-danger-light);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 .btn.small {
@@ -641,7 +1017,7 @@ p {
 }
 
 .btn:disabled {
-  opacity: 0.55;
+  opacity: 0.4; /* WCAG 1.4.3 exempts disabled controls; state noted in a11y notes */
   cursor: not-allowed;
 }
 
@@ -656,6 +1032,34 @@ p {
 }
 
 /* ===== Forms ===== */
+
+/* Base treatment for controls that live outside .field / .filter-chip (inline
+   card forms: suppression reason, quick add, follow-ups) so none fall back to
+   the UA's light rendering. :where() keeps specificity at zero — component
+   rules below always win. */
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+       select,
+       textarea) {
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border-strong); /* control boundary ≥3:1 (WCAG 1.4.11) */
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+}
+
+:where(input)::placeholder,
+:where(textarea)::placeholder {
+  color: var(--color-text-subtle);
+}
+
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+       select,
+       textarea):focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
 .form-section {
   margin-bottom: var(--sp-5);
 }
@@ -686,9 +1090,9 @@ p {
   width: 100%;
   height: var(--control-h);
   padding: 0 10px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong); /* control boundary ≥3:1 (WCAG 1.4.11) */
   border-radius: var(--radius-md);
-  background: var(--color-surface);
+  background: var(--color-surface-hover);
   font-family: inherit;
   font-size: 1rem; /* 16px: prevents iOS zoom */
   color: var(--color-text);
@@ -707,13 +1111,13 @@ p {
 .field input:hover,
 .field select:hover,
 .field textarea:hover {
-  border-color: var(--color-border-strong);
+  border-color: var(--color-text-subtle);
 }
 
 .field input:focus,
 .field select:focus,
 .field textarea:focus {
-  border-color: var(--color-border-strong);
+  border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
@@ -798,11 +1202,13 @@ p {
 }
 
 /* ===== Toast notifications (flash messages) =====
-   Positioned top-center so they don't collide with the topbar. Auto-dismiss
-   after 6s; each toast can be dismissed manually. */
+   Positioned top-center so they don't clear the sticky mobile header. Auto-
+   dismiss after 6s; each toast can be dismissed manually. Raised surface +
+   hairline border with a 2px semantic-color left edge (icon/word always
+   accompanies the color — never color alone). */
 .toasts {
   position: fixed;
-  top: 60px; /* below topbar */
+  top: 60px; /* below the mobile header */
   left: 50%;
   transform: translateX(-50%);
   z-index: 50;
@@ -820,10 +1226,12 @@ p {
   gap: var(--sp-2);
   padding: 9px 12px;
   border-radius: var(--radius-md);
-  border: 1px solid;
+  border: 1px solid var(--color-border);
+  border-left-width: 2px; /* semantic edge — per-type below */
+  background: var(--color-surface-raised);
   font-size: var(--fs-sm);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  animation: toast-slide 120ms ease-out;
+  box-shadow: var(--shadow-1);
+  animation: toast-slide var(--dur-base) ease-out;
   max-width: 100%;
 }
 
@@ -843,10 +1251,10 @@ p {
   transition: all 180ms ease;
 }
 
-.toast.error { background: var(--color-danger-light); border-color: var(--color-danger-border); color: var(--color-danger); }
-.toast.info  { background: var(--color-info-light);  border-color: var(--color-info-border);  color: var(--color-info); }
-.toast.success { background: var(--color-success-light); border-color: var(--color-success-border); color: var(--color-success); }
-.toast.warn { background: var(--color-warn-light); border-color: var(--color-warn-border); color: var(--color-warn); }
+.toast.error  { border-left-color: var(--color-danger); color: var(--color-danger); }
+.toast.info   { border-left-color: var(--color-info);   color: var(--color-info); }
+.toast.success { border-left-color: var(--color-success); color: var(--color-success); }
+.toast.warn   { border-left-color: var(--color-warn);   color: var(--color-warn); }
 
 .toast-close {
   margin-left: auto;
@@ -861,7 +1269,11 @@ p {
 }
 .toast-close:hover { opacity: 1; }
 
-/* ===== Badges ===== */
+/* ===== Badges =====
+   Three-token contract per family: tint bg + colored text + colored border —
+   and a word/icon always accompanies the color (never color alone). Neutral
+   families ride the surface ramp so orange stays scarce: accent badges are
+   reserved for sent_confirmed, running and the AI origin (P5). */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -870,8 +1282,8 @@ p {
   font-size: var(--fs-xs);
   font-weight: var(--fw-medium);
   line-height: 1.6;
-  border: 1px solid transparent;
-  background: var(--color-accent-light);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-hover);
   color: var(--color-text-muted);
   white-space: nowrap;
   vertical-align: middle;
@@ -880,31 +1292,39 @@ p {
 .badge.danger {
   background: var(--color-danger-light);
   color: var(--color-danger);
+  border-color: var(--color-danger-border);
 }
 
 .badge.success {
   background: var(--color-success-light);
   color: var(--color-success);
+  border-color: var(--color-success-border);
 }
 
 .badge.warn {
   background: var(--color-warn-light);
   color: var(--color-warn);
+  border-color: var(--color-warn-border);
 }
 
 .badge.info {
   background: var(--color-info-light);
   color: var(--color-info);
+  border-color: var(--color-info-border);
 }
 
+/* Neutral: bg #1b1e24, border var(--color-border-strong), text #a6a9b0 */
 .badge.muted {
-  background: var(--color-accent-light);
-  color: var(--color-text-subtle);
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
+  border-color: var(--color-border-strong);
 }
 
+/* Neutral outline; the dotted edge reads as "metadata, not status" */
 .badge.tag {
   background: transparent;
-  border-color: var(--color-border);
+  border-style: dotted;
+  border-color: var(--color-border-strong);
   color: var(--color-text-muted);
 }
 
@@ -914,8 +1334,9 @@ p {
 .badge.stage-archived,
 .badge.stage-queued,
 .badge.stage-not-attempted {
-  background: var(--color-accent-light);
+  background: var(--color-surface-hover);
   color: var(--color-text-muted);
+  border-color: var(--color-border-strong);
 }
 
 .badge.stage-researched,
@@ -928,6 +1349,7 @@ p {
 .badge.stage-succeeded {
   background: var(--color-success-light);
   color: var(--color-success);
+  border-color: var(--color-success-border);
 }
 
 .badge.stage-opportunity-identified,
@@ -942,6 +1364,7 @@ p {
 .badge.stage-redirect-loop {
   background: var(--color-warn-light);
   color: var(--color-warn);
+  border-color: var(--color-warn-border);
 }
 
 .badge.stage-failed,
@@ -949,18 +1372,40 @@ p {
 .badge.stage-do-not-contact {
   background: var(--color-danger-light);
   color: var(--color-danger);
+  border-color: var(--color-danger-border);
 }
 
-/* P6: "no website" and in-progress are not errors */
+/* P6: "no website found" and outreach-ready are not errors — calm info,
+   never red. */
 .badge.stage-no-website-found,
-.badge.stage-running {
-  background: var(--color-info-light);
-  color: var(--color-info);
-}
-
 .badge.stage-outreach-ready {
   background: var(--color-info-light);
   color: var(--color-info);
+  border-color: var(--color-info-border);
+}
+
+/* In-progress = accent + pulsing dot (the dot is decoration only — the word
+   "running" carries the state, and it freezes under reduced motion). */
+.badge.stage-running {
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  border-color: var(--color-accent-border);
+}
+
+.badge.stage-running::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: running-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes running-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
 }
 
 /* Message status badges (Flow 5) */
@@ -969,16 +1414,19 @@ p {
 .badge.stage-opened_in_whatsapp {
   background: var(--color-warn-light);
   color: var(--color-warn);
+  border-color: var(--color-warn-border);
 }
 
 .badge.stage-approved {
   background: var(--color-success-light);
   color: var(--color-success);
+  border-color: var(--color-success-border);
 }
 
 .badge.stage-sent_confirmed {
   background: var(--color-accent-light);
   color: var(--color-accent);
+  border-color: var(--color-accent-border);
 }
 
 /* Origin badges (P5: origin is evidence metadata, never decoration) */
@@ -986,17 +1434,21 @@ p {
 .badge.stage-provider {
   background: var(--color-info-light);
   color: var(--color-info);
+  border-color: var(--color-info-border);
 }
 
+/* P5: AI origin is the most eye-catching badge on screen — accent family. */
 .badge.stage-ai {
-  background: var(--color-warn-light);
-  color: var(--color-warn);
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  border-color: var(--color-accent-border);
 }
 
-/* Template drafts: zero-AI floor (D7) — deliberately understated. */
+/* Template drafts: zero-AI floor (D7) — deliberately understated, neutral. */
 .badge.stage-template {
-  background: var(--color-accent-light);
-  color: var(--color-text-subtle);
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
+  border-color: var(--color-border-strong);
 }
 
 /* Aliases used by the import wizard and merge review (validation severity
@@ -1005,21 +1457,25 @@ p {
 .badge.stage-success {
   background: var(--color-success-light);
   color: var(--color-success);
+  border-color: var(--color-success-border);
 }
 
 .badge.stage-warn {
   background: var(--color-warn-light);
   color: var(--color-warn);
+  border-color: var(--color-warn-border);
 }
 
 .badge.stage-danger {
   background: var(--color-danger-light);
   color: var(--color-danger);
+  border-color: var(--color-danger-border);
 }
 
 .badge.stage-muted {
-  background: var(--color-accent-light);
-  color: var(--color-text-subtle);
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
+  border-color: var(--color-border-strong);
 }
 
 .prospect-name {
@@ -1049,7 +1505,7 @@ table.prospects .prospect-name {
 .filter-bar {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: var(--sp-3);
   display: flex;
   flex-wrap: wrap;
@@ -1057,12 +1513,18 @@ table.prospects .prospect-name {
   align-items: flex-end;
 }
 
+/* Each chip is a small bordered block with a mono micro-label inside it
+   (Nexus card-label pattern) — structure unchanged, treatment only. */
 .filter-chip {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
   flex: 1 1 140px;
+  padding: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }
 
 .filter-chip-search {
@@ -1070,11 +1532,12 @@ table.prospects .prospect-name {
 }
 
 .filter-chip label {
-  font-size: 10px;
-  font-weight: var(--fw-semibold);
-  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-label);
 }
 
 .filter-chip select,
@@ -1082,9 +1545,9 @@ table.prospects .prospect-name {
   width: 100%;
   height: var(--control-h);
   padding: 0 10px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong); /* control boundary ≥3:1 (WCAG 1.4.11) */
   border-radius: var(--radius-md);
-  background: var(--color-surface);
+  background: var(--color-surface-hover);
   font-family: inherit;
   font-size: var(--fs-sm);
   color: var(--color-text);
@@ -1097,12 +1560,12 @@ table.prospects .prospect-name {
 
 .filter-chip select:hover,
 .filter-chip input:hover {
-  border-color: var(--color-border-strong);
+  border-color: var(--color-text-subtle);
 }
 
 .filter-chip select:focus,
 .filter-chip input:focus {
-  border-color: var(--color-border-strong);
+  border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
@@ -1133,7 +1596,7 @@ table.prospects .prospect-name {
   padding: 0 12px;
   height: var(--control-h);
   border-radius: 999px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong); /* control boundary ≥3:1 (WCAG 1.4.11) */
   background: var(--color-surface);
   color: var(--color-text-muted);
   font-size: var(--fs-xs);
@@ -1153,16 +1616,17 @@ table.prospects .prospect-name {
   color: var(--color-text);
 }
 
+/* Active filter toggle: accent tint + accent border + accent text */
 .toggle-chip.active {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: #ffffff;
+  background: var(--color-accent-light);
+  border-color: var(--color-accent-border);
+  color: var(--color-accent);
 }
 
 .toggle-chip.active:hover {
-  background: var(--color-accent-hover);
-  border-color: var(--color-accent-hover);
-  color: #ffffff;
+  background: var(--color-accent-light);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 @media (min-width: 640px) {
@@ -1175,7 +1639,7 @@ table.prospects .prospect-name {
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   -webkit-overflow-scrolling: touch;
   margin-bottom: var(--sp-4);
@@ -1195,16 +1659,19 @@ table.prospects {
   min-width: 640px;
 }
 
+/* Header row = mono uppercase micro-label, no bg fill — a sorted column
+   would carry a 2px accent underline, but no client-side sort exists yet. */
 table.prospects th {
-  background: var(--color-bg);
+  background: transparent;
   text-align: left;
   padding: 7px 12px;
   border-bottom: 1px solid var(--color-border);
-  font-weight: var(--fw-semibold);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-medium);
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-label);
   white-space: nowrap;
 }
 
@@ -1232,6 +1699,18 @@ table.prospects tbody tr[data-href] {
 
 table.prospects tbody tr:hover td {
   background: var(--color-surface-hover);
+}
+
+/* Keyboard-highlighted row (j/k): 2px accent edge + hover surface — the
+   accent edge is the only selected/highlight signal. */
+table.prospects tbody tr.highlight td,
+table.data-table tbody tr.highlight td {
+  background: var(--color-surface-hover);
+}
+
+table.prospects tbody tr.highlight td:first-child,
+table.data-table tbody tr.highlight td:first-child {
+  box-shadow: inset 2px 0 0 var(--color-accent);
 }
 
 table.prospects td:first-child {
@@ -1283,12 +1762,19 @@ table.prospects td a:not(.btn):hover {
   table.prospects tbody tr td::before {
     content: attr(data-label);
     display: block;
-    font-size: 10px;
-    font-weight: var(--fw-semibold);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
     color: var(--color-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: var(--tracking-label);
     margin-bottom: 2px;
+  }
+
+  /* Stacked cards keep the accent-edge highlight signal */
+  table.prospects tbody tr.highlight,
+  table.data-table tbody tr.highlight {
+    box-shadow: inset 2px 0 0 var(--color-accent);
   }
 
   /* Actions row: keep buttons inline, full-width on mobile */
@@ -1330,11 +1816,12 @@ table.prospects td a:not(.btn):hover {
   table.data-table tbody tr td::before {
     content: attr(data-label);
     display: block;
-    font-size: 10px;
-    font-weight: var(--fw-semibold);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
     color: var(--color-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: var(--tracking-label);
     margin-bottom: 2px;
   }
 }
@@ -1349,15 +1836,16 @@ table.data-table {
 }
 
 table.data-table th {
-  background: var(--color-bg);
+  background: transparent;
   text-align: left;
   padding: 7px 12px;
   border-bottom: 1px solid var(--color-border);
-  font-weight: var(--fw-semibold);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-medium);
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-label);
   white-space: nowrap;
 }
 
@@ -1379,6 +1867,7 @@ table.data-table tbody tr:last-child td {
   }
 }
 
+/* EvidenceChip equivalent: mono source URL, muted → text color on hover */
 .truncate {
   display: inline-block;
   max-width: 180px;
@@ -1386,6 +1875,13 @@ table.data-table tbody tr:last-child td {
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: bottom;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+}
+
+.truncate:hover {
+  color: var(--color-text);
 }
 
 .row-actions {
@@ -1405,14 +1901,15 @@ table.data-table tbody tr:last-child td {
   }
 }
 
-/* ===== Empty states ===== */
+/* ===== Empty states =====
+   On the page background — no card, no dashed box (evo empty-submenu
+   restraint): one muted sentence + one action. */
 .empty {
   text-align: center;
   padding: var(--sp-8) var(--sp-4);
   color: var(--color-text-muted);
-  background: var(--color-surface);
-  border: 1px dashed var(--color-border-strong);
-  border-radius: var(--radius-lg);
+  background: transparent;
+  border: none;
   margin-bottom: var(--sp-4);
 }
 
@@ -1440,27 +1937,41 @@ table.data-table tbody tr:last-child td {
   display: inline;
 }
 
-/* ===== Activity list ===== */
+/* ===== Activity list (timeline) =====
+   Vertical hairline rail with 6px neutral dot markers (Nexus Pipeline Log);
+   dots stay neutral — CSS can't tell state-changing entries apart, and
+   orange must stay scarce. Timestamps are mono 11px subtle. */
 .activity-list {
   list-style: none;
   padding: 0;
   margin: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  border-left: 1px solid var(--color-border);
 }
 
 .activity-list li {
+  position: relative;
   display: flex;
   gap: var(--sp-3);
   align-items: baseline;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 8px 0 8px 18px;
   font-size: var(--fs-sm);
 }
 
-.activity-list li:last-child {
-  border-bottom: none;
+.activity-list li::before {
+  content: "";
+  position: absolute;
+  left: -3.5px;
+  top: 14px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+}
+
+.activity-list li .muted.small {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--color-text-subtle);
 }
 
 .actor {
@@ -1473,12 +1984,14 @@ table.data-table tbody tr:last-child td {
   color: var(--color-text-muted);
 }
 
+/* AI origin reads in the accent family (P5) */
 .actor.ai {
-  color: var(--color-warn);
+  color: var(--color-accent);
 }
 
 .payload {
   color: var(--color-text-subtle);
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   margin-left: auto;
 }
@@ -1563,16 +2076,16 @@ table.data-table tbody tr:last-child td {
   min-width: 180px;
   height: var(--control-h);
   padding: 0 24px 0 10px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong); /* control boundary ≥3:1 (WCAG 1.4.11) */
   border-radius: var(--radius-md);
-  background: var(--color-surface);
+  background: var(--color-surface-hover);
   font-family: inherit;
   font-size: var(--fs-sm);
   color: var(--color-text);
 }
 
 .stage-form select:focus {
-  border-color: var(--color-border-strong);
+  border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
@@ -1644,38 +2157,16 @@ ul.spaced li .muted {
   }
 }
 
-/* Mobile nav: dropdown panel under the topbar */
-@media (max-width: 639px) {
-  .topbar {
-    padding: 0 var(--sp-2) 0 var(--sp-3);
+/* Drawer (<768px): nav rows are comfortable touch targets — 44px row inside
+   the 40px touch floor (spec §7), label at body size; page scroll locks. */
+@media (max-width: 767px) {
+  body.nav-open {
+    overflow: hidden;
   }
-  .topbar-right {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 2px;
-    margin-left: 0;
-    padding: var(--sp-2);
-    background: var(--color-surface);
-    border-bottom: 1px solid var(--color-border);
-  }
-  body.nav-open .topbar-right {
-    display: flex;
-  }
-  .nav-link {
-    padding: 12px;
-    font-size: var(--fs-base);
-    min-height: 44px;
-  }
-}
 
-@media (min-width: 640px) {
-  .mobile-menu-toggle {
-    display: none;
+  .nav-link {
+    height: 44px;
+    font-size: var(--fs-base);
   }
 }
 
@@ -1696,19 +2187,19 @@ ul.spaced li .muted {
 .help-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.6); /* dialogs: flat, no blur (spec §10) */
 }
 
 .help-panel {
   position: relative;
-  background: var(--color-surface);
+  background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--sp-6);
   width: min(560px, 92vw);
   max-height: 85vh;
   overflow-y: auto;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-2);
 }
 
 .help-panel h3 {
@@ -1726,13 +2217,46 @@ ul.spaced li .muted {
   width: 110px;
 }
 
+/* kbd: mono 11px bordered key-cap */
 kbd {
   display: inline-block;
   padding: 1px 6px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  font-size: 0.75rem;
+  background: var(--color-surface-hover);
+  font-size: var(--fs-xs);
   font-family: var(--font-mono);
   font-weight: var(--fw-medium);
+}
+
+/* ===== Login (standalone — no app chrome, no backdrop decoration) ===== */
+.auth-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-5) var(--sp-4);
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  margin: 0 auto;
+  text-align: center;
+}
+
+.auth-card .form-section,
+.auth-card .field label,
+.auth-card .flash {
+  text-align: left;
+}
+
+.auth-card .action-group {
+  justify-content: center;
+}
+
+/* Brand lockup above the sign-in form (8px accent dot + wordmark) */
+.auth-brand {
+  display: flex;
+  width: fit-content;
+  margin: 0 auto var(--sp-5);
 }
