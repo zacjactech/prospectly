@@ -53,9 +53,8 @@
   min-height: 0;
 }
 
-/* The toolbar carries the URL-state filters (Phase A) and the primary
-   action. It is a single dense row that wraps on narrow screens — nested
-   card-in-toolbar styling was removed in the canvas-only pass. */
+/* One compact row: heading · Filters-panel trigger · active chips · saved
+   view · Manage · Add prospect. It wraps below 1024px (stacked flow). */
 .canvas-toolbar {
   flex: none;
   min-height: 44px;
@@ -68,95 +67,24 @@
   flex-wrap: wrap;
 }
 
-.canvas-toolbar .filter-bar {
-  flex: 1 1 720px;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  padding: 0;
-  gap: 10px;
-  align-items: center;
-}
-
-/* [hidden] must beat the author display rule above (same defect class as
-   .canvas-error[hidden]) — the mobile filter drawer relies on it. */
-.canvas-toolbar .filter-bar[hidden] {
-  display: none;
-}
-
-.canvas-toolbar .filter-chip {
-  flex: 0 1 auto;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  padding: 0;
-  background: transparent;
-  border: 0;
-}
-
-.canvas-toolbar .filter-chip label {
-  font-size: var(--fs-xs);
-  color: var(--color-text-subtle);
-}
-
-.canvas-toolbar .filter-chip select,
-.canvas-toolbar .filter-chip input {
-  height: 30px;
-  font-size: var(--fs-sm);
-  padding: 0 8px;
-}
-
-.canvas-toolbar .filter-chip-search {
-  flex: 1 1 180px;
-  min-width: 160px;
-}
-
-.canvas-toolbar .filter-chip-search input {
-  width: 100%;
-}
-
-.canvas-toolbar .filter-toggles {
-  display: flex;
-  gap: 6px;
-}
-
-.canvas-toolbar .toggle-chip {
-  height: 30px;
-  font-size: var(--fs-xs);
-}
-
-.canvas-toolbar .filter-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-/* Saved-view controls (base spec §1.2): a compact picker plus the
-   "Save this view" form shown only while filters are active. Both are
-   secondary to the filter bar, so they do not grow it. */
 .canvas-toolbar .views-picker {
   display: flex;
+  align-items: center;
+  gap: 6px;
   flex: 0 0 auto;
 }
 
 .canvas-toolbar .views-picker > span {
+  font-size: var(--fs-xs);
+  color: var(--color-text-subtle);
   white-space: nowrap;
 }
 
 .canvas-toolbar .views-picker select {
+  height: 30px;
+  padding: 0 8px;
+  font-size: var(--fs-sm);
   max-width: 180px;
-}
-
-.canvas-toolbar .save-view-form {
-  flex: 0 1 auto;
-}
-
-.canvas-toolbar .save-view-form .filter-chip-search {
-  flex: 0 1 180px;
-}
-
-.canvas-toolbar .save-view-form .filter-chip label {
-  white-space: nowrap;
 }
 
 /* ===== Active-filter summary (base spec §1.2) =====
@@ -253,13 +181,6 @@
   flex: 1;
 }
 
-/* The mobile filter toggle stays out of the flow until app.js reveals it
-   below 768px; [hidden] must beat .btn's display (same class of bug as
-   .canvas-error[hidden]). */
-.canvas-toolbar .filter-toggle[hidden] {
-  display: none;
-}
-
 /* Filters open the contracted 360px panel (§1.2/§4). */
 .canvas-toolbar .filter-open {
   display: inline-flex;
@@ -285,15 +206,6 @@
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
-}
-
-/* Legacy URL-state filter bar (Phase A) sits above the toolbar until the
-   Filters panel takes over (Phase B step 5). */
-.page--canvas > .toolbar {
-  flex: none;
-  margin: 0;
-  padding: var(--sp-3) var(--sp-4);
-  background: var(--color-bg);
 }
 
 .canvas-viewport {
@@ -1540,31 +1452,6 @@
   }
 }
 
-/* ===== Responsive toolbar (spec §V2.6) =====
-   1024–1439px: the filter row spans the toolbar so the Apply button never
-   orphans beside the heading; saved-view controls wrap below it. */
-@media (max-width: 1439px) {
-  .canvas-toolbar #canvas-filter-form {
-    flex: 1 1 100%;
-  }
-}
-
-/* 768–1023px: saved-view and save-form controls compact onto single rows
-   (the filter form is already full width from the rule above). */
-@media (max-width: 1023px) {
-  .canvas-toolbar .views-picker {
-    flex: 0 1 auto;
-  }
-
-  .canvas-toolbar .save-view-form {
-    flex: 1 1 auto;
-  }
-
-  .canvas-toolbar .save-view-form .filter-chip-search {
-    flex: 1 1 220px;
-  }
-}
-
 /* <1024: controls stack; Filters + Add share a row, chips wrap. */
 @media (max-width: 1023px) {
   .canvas-toolbar {
@@ -1577,26 +1464,6 @@
     flex: 1 1 100%;
   }
 
-  .canvas-toolbar .filter-bar {
-    flex: 1 1 100%;
-    gap: 8px;
-  }
-
-  .canvas-toolbar .filter-chip {
-    flex: 1 1 calc(50% - 4px);
-  }
-
-  .canvas-toolbar .filter-chip-search,
-  .canvas-toolbar .filter-toggles,
-  .canvas-toolbar .filter-actions,
-  .canvas-toolbar .save-view-form {
-    flex: 1 1 100%;
-  }
-
-  .canvas-toolbar .filter-actions {
-    justify-content: flex-end;
-  }
-
   .canvas-toolbar .views-picker {
     flex: 1 1 auto;
     min-width: 0;
@@ -1605,29 +1472,6 @@
   .canvas-toolbar .views-picker select {
     max-width: none;
     min-width: 0;
-  }
-
-  .canvas-toolbar .save-view-form {
-    flex: 1 1 100%;
-    gap: 6px;
-  }
-
-  .canvas-toolbar .save-view-form .filter-chip-search {
-    flex: 1 1 120px;
-    min-width: 0;
-  }
-
-  .canvas-toolbar .save-view-form .filter-chip label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .canvas-toolbar .save-view-form .filter-actions {
-    flex: 0 0 auto;
   }
 
   .canvas-toolbar > .btn.primary {
