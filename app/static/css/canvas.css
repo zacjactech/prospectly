@@ -76,15 +76,37 @@
 
 .canvas-toolbar .views-picker > span {
   font-size: var(--fs-xs);
-  color: var(--color-text-subtle);
+  font-weight: var(--fw-medium);
+  color: var(--color-text-muted);
   white-space: nowrap;
 }
 
 .canvas-toolbar .views-picker select {
-  height: 30px;
-  padding: 0 8px;
+  height: 32px;
+  padding: 0 28px 0 10px;
+  max-width: 190px;
   font-size: var(--fs-sm);
-  max-width: 180px;
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.canvas-toolbar .views-picker select:hover {
+  border-color: var(--color-text-subtle);
+}
+
+.canvas-toolbar .views-picker select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.canvas-toolbar .views-manage {
+  color: var(--color-text-muted);
+}
+
+.canvas-toolbar .views-manage:hover {
+  color: var(--color-text);
 }
 
 /* Stage lens (?stage=): keep every lane visible so the pipeline structure
@@ -103,7 +125,8 @@
    the hit area is at least 26px tall and focus uses the shared accent ring.
    Long values ellipsize instead of forcing the toolbar wider. */
 .canvas-toolbar .filter-summary {
-  flex: 1 1 auto;
+  flex: 1 1 100%;
+  order: 10;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -126,8 +149,8 @@
   align-items: center;
   gap: 6px;
   max-width: 100%;
-  min-height: 26px;
-  padding: 2px 8px;
+  min-height: 28px;
+  padding: 3px 9px;
   background: var(--color-accent-light);
   border: 1px solid var(--color-accent-border);
   border-radius: 999px;
@@ -165,7 +188,10 @@
 
 .filter-pill-clear {
   flex: 0 0 auto;
-  padding: 4px 6px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
   color: var(--color-text-muted);
   font-size: var(--fs-xs);
   text-decoration: underline;
@@ -1486,6 +1512,10 @@
 
   .canvas-toolbar h1 {
     flex: 1 1 100%;
+  }
+
+  .canvas-toolbar .toolbar-spacer {
+    display: none;
   }
 
   .canvas-toolbar > .btn.primary {

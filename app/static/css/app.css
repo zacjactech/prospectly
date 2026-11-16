@@ -360,12 +360,17 @@ textarea:focus-visible {
   text-decoration: none;
 }
 
-.brand-dot {
+.brand-mark {
   flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  background: var(--color-accent);
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  color: var(--color-text-muted);
+}
+
+.brand-mark svg {
+  width: 100%;
+  height: 100%;
 }
 
 /* Sidebar: off-canvas drawer below 768px, persistent rail above */
@@ -467,7 +472,9 @@ body.nav-open .sidenav {
 
 .rail-form {
   display: block;
-  margin: 0;
+  margin: 6px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-border);
 }
 
 /* <button> nav items (Shortcuts, Sign out) behave exactly like links. */
@@ -628,9 +635,9 @@ button.nav-link {
     display: none;
   }
 
-  .brand-dot {
-    width: 12px; /* rail brand dot per spec §1.1 (8px in the mobile header) */
-    height: 12px;
+  .brand-mark {
+    width: 18px;
+    height: 18px;
   }
 
   .nav-close {

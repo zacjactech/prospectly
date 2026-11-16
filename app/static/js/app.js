@@ -297,4 +297,19 @@
       }
     }
   });
+  /* Active section indicator: canvas views are buttons, Status is a link.
+     The existing .active rail treatment (accent edge + tint) is reused. */
+  (function markRailSection() {
+    var p = window.location.pathname;
+    var selector = null;
+    if (p === "/") selector = '[data-canvas-view="world"]';
+    else if (p === "/status") selector = 'a[href="/status"]';
+    else if (p === "/outreach") selector = '[data-canvas-view="outreach"]';
+    else if (p.indexOf("/prospects") === 0) selector = '[data-canvas-view="board"]';
+    if (!selector) return;
+    var el = document.querySelector(".sidenav " + selector);
+    if (!el) return;
+    el.classList.add("active");
+    el.setAttribute("aria-current", el.tagName === "A" ? "page" : "true");
+  })();
 })();

@@ -17,6 +17,7 @@
       <span>Filters</span>
       {% if active_filters %}<span class="filter-count" aria-hidden="true">{{ active_filters|length }}</span>{% endif %}
     </a>
+    <span class="toolbar-spacer" aria-hidden="true"></span>
 
     {# Removable URL-state filters (base spec §1.2): every active filter is a
        chip that links back to /prospects with the others preserved. Plain

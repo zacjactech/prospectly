@@ -9,13 +9,13 @@
   <meta name="csrf-token" content="{{ csrf_token(request) }}">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/static/css/app.css?v=26">
-  <link rel="stylesheet" href="/static/css/canvas.css?v=26">
+  <link rel="stylesheet" href="/static/css/app.css?v=27">
+  <link rel="stylesheet" href="/static/css/canvas.css?v=27">
   <script src="/static/js/htmx.min.js" defer></script>
-  <script src="/static/js/app.js?v=26" defer></script>
-  <script src="/static/js/panel.js?v=26" defer></script>
-  <script src="/static/js/canvas.js?v=26" defer></script>
-  <script src="/static/js/board.js?v=26" defer></script>
+  <script src="/static/js/app.js?v=27" defer></script>
+  <script src="/static/js/panel.js?v=27" defer></script>
+  <script src="/static/js/canvas.js?v=27" defer></script>
+  <script src="/static/js/board.js?v=27" defer></script>
 </head>
 {# Slim mobile header title, derived from the path so no content template
    needs a new block (spec §1 amendment 2026-11-11). #}
@@ -51,7 +51,7 @@
           <line x1="3" y1="18" x2="21" y2="18"></line>
         </svg>
       </button>
-      <a href="/" class="brand"><span class="brand-dot" aria-hidden="true"></span><span class="brand-text">{{ app_name }}</span></a>
+      <a href="/" class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2.5"></circle><circle cx="19" cy="6" r="2.5"></circle><circle cx="19" cy="18" r="2.5"></circle><path d="M7.4 11 16.6 6.9M7.4 13 16.6 17.1"></path></svg></span><span class="brand-text">{{ app_name }}</span></a>
       <span class="app-header-title">{{ page_title() }}</span>
     </header>
 
@@ -64,7 +64,7 @@
          (Lucide-derived, ISC — see README). -->
     <aside class="sidenav" id="sidenav" aria-label="Main navigation">
       <div class="sidenav-head">
-        <a href="/" class="brand" aria-label="{{ app_name }} — home"><span class="brand-dot" aria-hidden="true"></span><span class="brand-text">{{ app_name }}</span></a>
+        <a href="/" class="brand" aria-label="{{ app_name }} — home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2.5"></circle><circle cx="19" cy="6" r="2.5"></circle><circle cx="19" cy="18" r="2.5"></circle><path d="M7.4 11 16.6 6.9M7.4 13 16.6 17.1"></path></svg></span><span class="brand-text">{{ app_name }}</span></a>
         <button class="nav-close" type="button" aria-label="Close navigation" data-nav-close>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
