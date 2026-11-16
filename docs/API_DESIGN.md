@@ -2,7 +2,7 @@
 
 Two surfaces over one service layer (D3):
 
-1. **Pages** (`/`) — server-rendered Jinja2 + HTMX partials for the human UI.
+1. **Pages** (`/`) — one server-rendered **Pipeline Canvas** (`docs/design/pipeline-canvas.md` §V2) + HTMX partials for the human UI.
 2. **JSON API** (`/api/v1`) — programmatic contract for tests, automation, and any future UI.
 
 Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamps ISO-8601 UTC; errors as `{ "error": { "code", "message", "details?" } }` (FastAPI `HTTPException` paths — including the access gate's `401 {"detail": …}` — return bare `{"detail": …}`); list endpoints support `?page=&page_size=&sort=&filter...`; **all state-changing JSON endpoints require header `X-CSRF-Token`** (from cookie) — session auth is cookie-based: when `APP_ACCESS_TOKEN` is set, a login gate at `GET/POST /login` issues the session (see `SECURITY_AND_PRIVACY.md` §3).
@@ -11,13 +11,31 @@ Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamp
 
 ## 1. Pages (HTML)
 
+**Canvas-only contract (spec §V2).** Every page route renders the same
+`canvas/shell.html` world — setup-card cluster, stage board, outreach region,
+read-only wires — never a separate page layout. Two renderings per route:
+
+- **Plain GET** → the shell with that card's panel already open (`#panel-root`
+  pre-rendered). Closing the panel `history.replaceState`s to `/prospects`, so
+  a reload does not reopen it. No-JS users still read the content.
+- **`HX-Request: true`** → the panel body fragment only (what the panel loads
+  over HTMX).
+
+The nine setup cards (`/status`, `/settings/profile`, `/settings/providers`,
+`/settings/usage`, `/settings/general`, `/settings/import`,
+`/settings/saved-views`, `/settings/retention`, `/merge/duplicates`) each open
+a numbered mini-pipeline panel; the routes are unchanged, only the surface
+moved. Retired page templates are gone; `login.html` keeps its own chrome.
+
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/` | Dashboard |
-| GET | `/prospects` | List (filters: stage, tag, category, location, search, include-archived) |
-| GET/POST | `/prospects/new` | Manual add form |
-| GET/POST | `/settings/import` · `/settings/import/commit` | CSV upload + preview + confirm **(secondary Settings utility; not part of discovery flow)** |
-| GET | `/prospects/{id}` | Detail (tabs: Overview · Research · Opportunities · Outreach · Activity) |
+| GET | `/` | Canvas with the **Status** card open (attention queue · metrics · quick start) |
+| GET | `/status` | Status card alone (rail item + `g s` chord) |
+| GET | `/prospects` | Canvas (filters: stage, tag, category, location, search, include-archived) — the default landing surface; `HX-Request` → board fragment only |
+| GET | `/prospects/filters` | 360px Filters panel body (same filter fields + saved views); `HX-Request` → panel fragment only. Stage filter renders a single-zone lens |
+| GET/POST | `/prospects/new` | Manual add — opens as a canvas panel |
+| GET/POST | `/settings/import` · `/settings/import/commit` | CSV upload + preview + confirm, as a card panel **(secondary utility; not part of discovery flow)** |
+| GET | `/prospects/{id}` | Detail card panel (Overview · Research · Opportunities · Outreach · Activity) |
 | GET/POST | `/prospects/{id}/edit` | Edit |
 | POST | `/prospects/{id}/archive` · `/unarchive` | Soft archive |
 | POST | `/prospects/{id}/research/start` | Queue research run |
@@ -32,14 +50,17 @@ Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamp
 | POST | `/prospects/{id}/follow-ups` · `/follow-ups/{fid}/complete` | Follow-ups |
 | POST | `/prospects/{id}/do-not-contact` · `/prospects/{id}/do-not-contact/clear` | Suppression (flag + stage; clear requires `reason`) |
 | GET | `/follow-ups` | Due/overdue list |
-| GET | `/settings/providers` (HTML) · `/api/v1/settings/providers` (JSON) | Provider status: configured/enabled/usage/cap/last failure — **never the key values** (§2.8) |
-| GET | `/settings/usage`, `/settings/general`, `/settings/import`, `/settings/retention`, `/settings/profile` (POST `/settings/profile`) | Usage, general settings, CSV wizard, retention, user profile (there is no `/settings` index — the nav links to each sub-page) |
+| GET | `/settings/providers` (HTML) · `/api/v1/settings/providers` (JSON) | Provider status card: configured/enabled/usage/cap/last failure — **never the key values** (§2.8) |
+| GET | `/settings/usage`, `/settings/general`, `/settings/import`, `/settings/retention`, `/settings/profile` (POST `/settings/profile`) | Setup cards (usage, general settings, CSV wizard, retention, profile). No `/settings` index — the canvas setup cluster *is* the index |
 | POST | `/settings/profile/discovery/run` | Queue profile-driven discovery (Flow 1: `discovery_job` + `jobs` row; processed by the worker) |
-| GET/POST | `/settings/saved-views` · POST `/{id}/delete` | Saved views CRUD — filters whitelisted to the list query keys (unknown keys → 400) |
+| GET/POST | `/settings/saved-views` · POST `/{id}/delete` | Saved views card — filters whitelisted to the list query keys (unknown keys → 400) |
 | GET | `/prospects/views/{id}/apply` | Redirect to `/prospects?` with the view's filters |
+| GET | `/outreach` | Canvas framed on the outreach region (messages in flight); `HX-Request` → outreach region fragment only |
 | GET | `/healthz` | Liveness (no auth, no data) |
 
-HTMX partials return HTML fragments (`HX-Request` header honored); full page loads return complete templates. Flash/toast messages via `HX-Trigger` headers.
+HTMX partials return HTML fragments (`HX-Request` header honored); full page
+loads return the canvas shell with the card panel pre-opened. Flash/toast
+messages via `HX-Trigger` headers.
 
 ---
 

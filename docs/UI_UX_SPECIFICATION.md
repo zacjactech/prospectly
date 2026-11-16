@@ -8,7 +8,58 @@ Influences researched (2026): CRM UX best-practice literature (aufaitux, eseospa
 
 ## 1. Information architecture & navigation
 
-**Amendment (2026-11-11):** the app now ships a **grouped left sidebar** (WORK / SETTINGS), replacing the 2026-11-07 persistent top bar. Rationale: the live nav carries **10 sections** — past the ~8-section threshold this spec itself set for when a sidebar "pays for itself"; §7's responsive table already specified sidebar behavior (persistent ≥1200px, 56px icon rail 768–1199px, hamburger drawer <768px), so the top bar contradicted the spec's own responsive plan; and the moodboard-driven "charcoal + signal orange" redesign (see the opening) makes the grouped sidebar the strongest identity element while the dense table keeps ~all of its width. The IA tree below is what the sidebar renders, grouped.
+> **Superseded by Amendment V2 (2026-11-12) — canvas-only.** The grouped
+> sidebar IA below is retired from the *experience* (routes and deep links
+> survive). Read §V2 first; the rest of this section documents the pre-canvas
+> tree that the canvas replaced.
+
+### V2. Canvas-only IA (2026-11-12) — current
+
+The app has **one screen**: the Pipeline Canvas
+(`docs/design/pipeline-canvas.md` §V2 — binding contract). Three regions on a
+single pan/zoom world, joined by a fixed, read-only wire layer that explains
+what feeds what:
+
+```
+Pipeline Canvas (GET /prospects — the default surface)
+├── SETUP region — 9 cards, 3 × 3 (each opens its own mini-pipeline panel)
+│     Status · Profile · Providers · Import · Saved views · Retention
+│     Merge · Usage · General
+│     wires → board (discovery, drafts, research, adds candidates, filters,
+│                flags inactive, dedupes); Usage → Providers, General → Profile
+├── PIPE region — the stage board (phase bands + zones + cards)
+│     zones are the real stages from SYSTEM_ARCHITECTURE §3.2; drag = a
+│     server-validated stage transition only (409 on illegal, P1-safe)
+└── MSG region — the outreach region (pending_review → approved → opened)
+      wires ← board ("messages in flight")
+```
+
+**Rail (left):** Canvas group — Home / Board / Outreach / Status — then
+Shortcuts and Sign out. The settings tree is gone from the rail: the setup
+cluster *is* the index.
+
+**Every setup has its own card that opens its own pipeline.** A card click
+loads `GET <route>` over HTMX into a slide-over panel whose body is a numbered
+mini-pipeline (`01 … 0n` steps, arrows drawn by CSS) holding the *same real
+forms/fields/tables* as the retired page — nothing was simplified, only
+re-framed. Panels are modal at every breakpoint (focus trap, Escape, backdrop,
+dirty-form confirm, 2-level stacking ≥1400px).
+
+**Deep links (§V2.2):** a plain `GET` of any retired page route returns the
+canvas with that card's panel already open; closing it `history.replaceState`s
+to `/prospects`. So `/settings/profile`, `/merge/duplicates`, `/`, `/status`
+all keep working — they just land on the canvas. Login stays standalone.
+
+**Mobile (<768px, §V2.6):** no transform layer — the world stacks vertically
+in canonical order (setup cards → board bands/zones → outreach zones); wires
+and zoom controls are hidden.
+
+**Rail chords:** `g h` fit world · `g p` fit board · `g o` fit outreach ·
+`g s` open Status · `?` help.
+
+---
+
+**Amendment (2026-11-11) — retired sidebar:** the app now ships a **grouped left sidebar** (WORK / SETTINGS), replacing the 2026-11-07 persistent top bar. Rationale: the live nav carries **10 sections** — past the ~8-section threshold this spec itself set for when a sidebar "pays for itself"; §7's responsive table already specified sidebar behavior (persistent ≥1200px, 56px icon rail 768–1199px, hamburger drawer <768px), so the top bar contradicted the spec's own responsive plan; and the moodboard-driven "charcoal + signal orange" redesign (see the opening) makes the grouped sidebar the strongest identity element while the dense table keeps ~all of its width. The IA tree below is what the sidebar renders, grouped.
 
 ```
 Prospectly
@@ -32,6 +83,15 @@ Prospectly
 
 ## 2. Pages & responsibilities
 
+> **V2 (2026-11-12):** each "page" below is now a **card body** rendered inside
+> the card's mini-pipeline panel on the canvas (`app/templates/canvas/cards/*`
+> for the nine setup cards; `partials/panel_*` for prospect/message/research
+> detail). Responsibilities, fields and flows are unchanged — only the surface
+> moved from a full page to a panel. Section 2.4 (Outreach queue) is the
+> outreach *region* on the canvas; 2.5 (Follow-ups) is reached from the
+> Status card's attention queue; 2.1's pipeline strip is dropped (the board
+> carries stage counts with phase chips).
+
 ### 2.1 Dashboard
 - **Responsibility:** answer "what do I do next today?" — not analytics theater.
 - **Sections:**
@@ -47,7 +107,7 @@ Prospectly
 - **Responsibility:** scan, filter, triage.
 - Dense table (rows ~40px): Name · Category · Location · Website status · Stage · Last contact · Next follow-up · Flags (duplicate? suppressed? unverified?).
   **Status (Phase 2):** Next follow-up and the "requires review" flag are Phase 4 columns and are not rendered yet (showing a permanent "none" column would be a lie); the rest are live. Website status and stage badges use `stage-<value>` color mappings, where `no_website_found` reads as neutral **info**, never as an error (P6).
-- Filter bar: stage, category, tag, location, "requires review", archived toggle, free-text search. Filter state persists in URL (shareable/back-button safe). When any filter is active, an inline **Save current view** form (name + save) appears beside the bar; saved views apply from Settings → Saved views (`GET /prospects/views/{id}/apply` redirects onto the list with the view's whitelisted filters).
+- Filter bar: stage, category, tag, location, "requires review", archived toggle, free-text search. Filter state persists in URL (shareable/back-button safe). When any filter is active, an inline **Save current view** form (name + save) appears beside the bar; saved views apply from Settings → Saved views (`GET /prospects/views/{id}/apply` redirects onto the list with the view's whitelisted filters). **Canvas V2:** active filters also render as removable chips under the toolbar — each chip is a plain link preserving every other filter, and a stage filter exposes **Show all zones**; below 768px the filter form collapses behind a **Filters** toggle and chips wrap.
 - Row click → detail. Hover reveals quick actions (Run research, Open WhatsApp — only when state allows).
 - Bulk selection limited to safe ops: add tag, archive, change source. **No bulk outreach actions exist anywhere** (P1).
 - Empty state: "No prospects yet — configure your Profile, run automated Discovery, or Add manually" + two buttons.
@@ -99,7 +159,7 @@ Moved under Settings because CSV is not the default discovery path. 3-step wizar
 | Component | Usage |
 |---|---|
 | `DataTable` | sortable, filterable, URL-state, row actions; used by prospects, outreach, follow-ups, usage |
-| `FilterBar` | chips + selects + search; one implementation, URL-synced |
+| `FilterBar` | chips + selects + search; one implementation, URL-synced; removable active-filter chips (plain links) + mobile Filters drawer |
 | `StatusBadge` | stage / message status / verification / origin — one vocabulary, consistent colors (see tokens) |
 | `EvidenceChip` | source URL chip with favicon-less external-link icon + tooltip (type + retrieved date) |
 | `PrimaryActionButton` | context-aware label (see outreach chain); never renders when state forbids (disabled + tooltip reason instead) |

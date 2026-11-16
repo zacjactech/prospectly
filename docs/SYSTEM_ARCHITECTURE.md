@@ -49,6 +49,7 @@ No other runtime dependencies: no Redis, no Celery, no message broker, no micros
 | `app/jobs` | Queue claim/heartbeat/retry loop (discovery + research jobs) | services | business rules of its own |
 | `app/whatsapp` | Phone normalization, `wa.me` URL building | phonenumbers | any network I/O |
 | `app/templates` + `static` | Presentation | context from routes | business logic in Jinja (no complex expressions) |
+| `app/templates/canvas` + `static/js/{canvas,panel,board}.js` | **The Pipeline Canvas shell** (spec `docs/design/pipeline-canvas.md` §V2): one world — setup-card cluster, stage board, outreach region, fixed wires; pan/zoom, card→panel opening, drag→stage transition | routes' context, HTMX | business rules, sending/drafting logic (P1); user-rewirable wires (they are a fixed system map) |
 
 **Dependency rule:** arrows point inward — routes → services → (providers/ai/models). Enforced by review + a lint-level import-linter contract (optional Phase 1 tooling).
 

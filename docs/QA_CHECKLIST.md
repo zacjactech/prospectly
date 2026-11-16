@@ -1,4 +1,4 @@
-# QA Checklist — living document (last full pass: 2026-11-11)
+# QA Checklist — living document (last full manual pass: 2026-11-11; canvas contract pass: 2026-11-16)
 
 Full manual walkthrough of the user flows (USER_FLOWS.md). Each flow is
 verified against the running app and backed by regression tests in `tests/`.
@@ -195,8 +195,8 @@ provider key required for live data) · `not implemented` = spec gap.
 
 ## Test suite
 
-`uv run pytest` — **330 tests pass, 0 failed** (2026-11-11); `ruff check`,
-`ruff format --check`, `mypy app` all clean.
+`uv run pytest` — **374 tests pass, 0 failed** (2026-11-16); `ruff check`, `ruff format --check`, `mypy app` all clean. The 374 include the
+43-test canvas contract suite below (331 baseline + 43).
 
 Coverage by area (newest first):
 - `test_provider_status.py` — 11: Settings → Providers page + JSON twin,
@@ -517,3 +517,77 @@ are live, not "not implemented".
   3 synthetic prospects (1 transitioned to `researched` for mixed counts);
   screenshots reviewed, then rows deleted — DB back to `0 prospects`,
   `integrity_check ok`. Spec §2.1 updated in the same change.
+
+## Pipeline Canvas V2 — automated contract pass — 2026-11-16
+
+**Scope:** the canvas-only port specified in `docs/design/pipeline-canvas.md`
+§V2 (owner-approved 2026-11-12). One screen — setup-card cluster, stage board,
+outreach region — replaces the standalone pages; routes remain as deep links.
+Test tracker: `docs/design/canvas-implementation-tasks.md`.
+
+**Automated evidence** (`tests/test_canvas_contract.py`, 43 tests):
+
+| Contract | Check | Status |
+|---|---|---|
+| Deep links (§V2.2) | Every retired setup route (`/`, `/status`, all `/settings/*`, `/merge/duplicates`) returns the canvas shell with the right card pre-opened (`data-panel-open`) | pass |
+| HTMX branch | The same routes with `HX-Request: true` return the panel fragment only (no document/canvas chrome) | pass |
+| Dual render | Plain GET and HX fragment render the same card heading/body (one partial source) | pass |
+| Board fragment | `GET /prospects` + HX returns zones only; plain GET returns the full canvas | pass |
+| Rail v2 | No settings/merge links in the rail; Canvas + Shortcuts/Sign out only | pass |
+| Detail panels | `/prospects/new`, `/prospects/{id}`, `/prospects/{id}/edit`, `/prospects/{id}/research`, `/messages/{id}/edit` open the correct panel and render their content | pass |
+| Saved views toolbar | Picker lists `/prospects/views/{id}/apply`; the filters panel renders the "Save this view" form when filters are active | pass |
+| Filter chips + lens (B3) | Each active filter is a removable link that preserves the others; booleans stay truthy; stage lens renders a single matching zone and exposes **Show all zones**; nothing when unfiltered | pass — 5 tests |
+| Filters panel | `/prospects/filters` opens the 360px panel, HX returns its body only, and the toolbar button carries the current query | pass — `test_filters_panel_and_stage_lens` |
+| Outreach HX + panel posts (B4) | `/outreach` + HX returns the region fragment; panel forms `hx-post` to their own action (no 405 to the page URL); prospect form labels are explicitly associated; redirect `?flash=` confirmations render | pass — 3 tests |
+| Performance | 5,000-prospect canvas render stays under the Phase 5 budget after removing the per-render fuzzy-duplicate scan | pass — `test_phase5_performance.py` |
+
+**Responsive pass — 2026-11-16** (Playwright viewport emulation, local
+screenshots in gitignored `.ui-qa/phase-b/`):
+
+| Width | Evidence |
+|---|---|
+| 375 / 430 | Stacked canvas flow; toolbar 219/171px; **Filters** button (active count) opens the full-screen filters panel; chips wrap; no horizontal overflow (scrollWidth == innerWidth); console errors 0 |
+| 768 | Stacked flow (<1024 amendment: the world cannot fit at the 0.5 zoom floor); toolbar 155px; filters panel opens as a 360px slide-over; no overflow |
+| 1280 | Single 49px toolbar row (heading · Filters · chips · saved view · Manage · Add prospect); whole-world fit 54%, wire labels hidden below 0.75; no overflow |
+| 1440 | Single 49px toolbar row; whole-world fit 62% for the filtered view; 360px Filters panel; lens (`?stage=`) renders one zone; no overflow |
+
+**Raw screenshots (gitignored):** `.ui-qa/phase-b/1440-filtered.png`,
+`1440-overview.png`, `1440-filters-panel.png`, `1440-lens.png`,
+`1280-filtered.png`, `768-filtered.png`, `430-collapsed.png`,
+`375-collapsed.png`, `375-filters-panel.png`.
+
+**Amendment 2026-11-16:** the stacked flow applies below **1024px** (was
+768px). At 768 the whole world cannot fit at the 0.5 zoom floor, so tablet
+portrait gets the readable stacked flow; 1024+ keeps the pan/zoom canvas.
+Filters/saved views live in the 360px panel (§1.2/§V2.3); the toolbar is a
+single compact row with removable chips.
+
+**Accessibility evidence — 2026-11-16** (Playwright + axe-core 4.10 + Lighthouse):
+
+| Check | Result |
+|---|---|
+| axe-core WCAG 2.0/2.1 A+AA | **0 violations**, 24–25 passes at 1440 (canvas/chips), 375 (stacked), 375 + filters panel + Add-prospect panel, and `/outreach` + message panel |
+| Lighthouse accessibility | **1.0** (desktop); best-practices 1.0; SEO 0.75 (only missing meta description) |
+| Computed contrast | heading/muted 7.7:1 · subtle 6.03:1 · filter chip 5.47:1 · primary action 6.76:1 · zone title 7.7:1 (all ≥ AA) |
+| Focus trap / Escape / backdrop | panel focus wraps; Escape and backdrop close and restore invoker focus |
+| Dirty-form confirm | cancel keeps the panel + typed value; accept closes |
+| Keyboard map | `?` help, `/` search, `j`/`k` highlight, `Enter` open card, `m` move menu, `g p` 86% / `g o` 100% / `g s` Status panel, `+`/`−`/`0`/`f` |
+| Reduced motion | `prefers-reduced-motion: reduce` → 0.01ms transitions/animations |
+| Prospect form labels | 10 fields associated with explicit `for`/`id`; `test_prospect_form_labels_are_associated` |
+
+**Outreach interaction pass — 2026-11-16 (B4):** message card → panel →
+pending approve moved the card to Approved and refreshed the region; the
+approved panel offers only **Open in WhatsApp** (P1 — no auto-send); opened
+message → **Confirm sent** recorded the confirmation and removed it from the
+region. Fixed along the way: pan no longer captures setup/message link clicks;
+panel forms `hx-post` to their own action (previously 405 to the page URL);
+board/outreach regions refresh from HX fragments after panel posts.
+
+**Regression note:** the first canvas pass called `find_fuzzy_duplicates()` on
+every render as part of the setup-card meta line (~99 ms at 5,000 prospects,
+of a 113 ms response). The Merge card now computes pairs when opened; the meta
+line is a static advertisement. The Phase 5 budget is restored.
+
+**Not yet verified (open):**
+- Full manual re-walk of flows 0–11 after the canvas port (services are
+  unchanged and all flow tests pass, but the UI paths moved).

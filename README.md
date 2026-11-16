@@ -6,7 +6,7 @@ Discover prospects → research them with evidence → identify outreach opportu
 
 Default path: **configure your profile first** (what you sell, who you target, where), then run automated discovery jobs to find prospects — no CSV required to start.
 
-> **Status: Phase 5 complete — hardening & release candidate.** Requirements, research, and architecture decisions live in [`docs/`](docs/); work proceeds phase-by-phase against the exit criteria in `docs/IMPLEMENTATION_ROADMAP.md`.
+> **Status: `v0.2.0` — Pipeline Canvas V2.** Phases 0–5 shipped in `v0.1.0`; this release replaces the multi-page UI with one canvas screen (setup cards, stage board, outreach region, slide-over panels). See [`docs/design/pipeline-canvas.md`](docs/design/pipeline-canvas.md) and the task tracker [`docs/design/canvas-implementation-tasks.md`](docs/design/canvas-implementation-tasks.md). Requirements, research, and architecture decisions live in [`docs/`](docs/); work proceeds phase-by-phase against the exit criteria in `docs/IMPLEMENTATION_ROADMAP.md`.
 
 ## Product principles (non-negotiable)
 
@@ -32,6 +32,8 @@ Full list: `docs/PRODUCT_BRIEF.md` §4.
 | [docs/API_DESIGN.md](docs/API_DESIGN.md) | Pages + JSON API contracts |
 | [docs/USER_FLOWS.md](docs/USER_FLOWS.md) | The ten core journeys and their guards |
 | [docs/UI_UX_SPECIFICATION.md](docs/UI_UX_SPECIFICATION.md) | Navigation, pages, components, tokens, responsive/a11y |
+| [docs/design/pipeline-canvas.md](docs/design/pipeline-canvas.md) | Pipeline Canvas V2 design contract (canvas-only IA, panels, build order) |
+| [docs/design/canvas-implementation-tasks.md](docs/design/canvas-implementation-tasks.md) | Canvas V2 task tracker, test gate, open QA items |
 | [docs/SECURITY_AND_PRIVACY.md](docs/SECURITY_AND_PRIVACY.md) | Validation, SSRF, CSRF, outreach posture, checklist |
 | [docs/IMPLEMENTATION_ROADMAP.md](docs/IMPLEMENTATION_ROADMAP.md) | Phases with testable exit criteria |
 | [docs/COST_ANALYSIS.md](docs/COST_ANALYSIS.md) | Free / low-cost / scalable configurations |
