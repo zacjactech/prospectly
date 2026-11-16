@@ -11,7 +11,7 @@
   --zone-gap: 48px;
   --zone-head-h: 36px;
   --card-h: 64px;
-  --card-gap: 8px;
+  --card-gap: 12px;
   --zone-pad: 8px;
   --band-label-h: 36px;
 }
@@ -85,6 +85,17 @@
   padding: 0 8px;
   font-size: var(--fs-sm);
   max-width: 180px;
+}
+
+/* Stage lens (?stage=): focus the one zone; setup/outreach/wires would be
+   cropped context at this zoom, so they leave the surface entirely until
+   "Show all zones" clears the lens. */
+.board-lens .setup-cluster,
+.board-lens [data-region-label="setup"],
+.board-lens #outreach-root,
+.board-lens [data-region-label="outreach"],
+.board-lens .canvas-wires {
+  display: none;
 }
 
 /* ===== Active-filter summary (base spec §1.2) =====
@@ -1032,7 +1043,7 @@
   position: absolute;
   display: grid;
   grid-template-columns: repeat(3, 232px);
-  gap: 12px;
+  gap: 16px;
   width: max-content;
 }
 
@@ -1100,12 +1111,6 @@
   max-width: 168px;
 }
 
-.sc-wire-note {
-  font-size: var(--fs-xs);
-  color: var(--color-text-subtle);
-  white-space: nowrap;
-}
-
 .sc-warn {
   position: absolute;
   top: 10px;
@@ -1128,7 +1133,7 @@
 .outreach-region {
   display: grid;
   grid-template-columns: repeat(3, var(--zone-w));
-  gap: 16px;
+  gap: 20px;
   align-items: start;
 }
 
@@ -1136,7 +1141,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 8px;
+  padding: 10px;
 }
 
 .msg-zone-head {
@@ -1165,8 +1170,8 @@
 .msg-zone-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-top: 8px;
+  gap: 12px;
+  padding-top: 10px;
   min-height: 44px;
 }
 
@@ -1174,7 +1179,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface-hover);
-  padding: 8px;
+  padding: 10px;
 }
 
 .msg-card-main {
@@ -1219,27 +1224,6 @@
   stroke-width: 1.2;
   stroke-dasharray: 4 3;
   opacity: 0.55;
-}
-
-.wire-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  fill: var(--color-text-subtle);
-  /* Never hidden: §V2.8 requires labels legible at 0.5 zoom, and the
-     density flip (§2.5) is defined as hiding card meta, not annotations.
-     canvas.js counter-scales font-size so this stays ~10px on screen. */
-}
-
-/* Below 0.75 the counter-scaled labels collide at the bus midpoints
-   (browser-measured); the connectors remain, the annotations do not. */
-.canvas-world.labels-hidden .wire-label {
-  display: none;
-}
-
-/* Board-focused view: the setup cluster is above the viewport, so its wire
-   labels would float detached over the board header. */
-.canvas-world.setup-offscreen .wire-label {
-  display: none;
 }
 
 /* ===== Setup-card panel: mini-pipeline (spec §V2.3) =====
@@ -1436,7 +1420,7 @@
     position: static !important;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     width: auto;
-    gap: 8px;
+    gap: 12px;
   }
 
   .setup-card {
@@ -1454,14 +1438,24 @@
     white-space: normal;
   }
 
-  /* "to board · …" is wire lore; hide it where vertical space is precious. */
-  .sc-wire-note {
-    display: none;
-  }
-
   .canvas-zone {
     position: static !important;
     width: auto;
+  }
+
+  /* Stacked flow is never density-compact (spec §V2.6): cards keep their
+     meta + status rows even though the transform-layer zoom is clamped. */
+  .canvas-screen.density-compact .prospect-card {
+    height: var(--card-h);
+    padding: 5px 12px;
+  }
+
+  .canvas-screen.density-compact .pc-meta {
+    display: block;
+  }
+
+  .canvas-screen.density-compact .pc-foot {
+    display: flex;
   }
 
   .zone-body {
@@ -1471,6 +1465,15 @@
   .outreach-region {
     position: static !important;
     grid-template-columns: 1fr;
+  }
+}
+
+/* The Filters panel owns saved views; hide the toolbar picker until there
+   is room for it beside the chips and the primary action. */
+@media (max-width: 1279px) {
+  .canvas-toolbar .views-picker,
+  .canvas-toolbar .views-manage {
+    display: none;
   }
 }
 
@@ -1484,16 +1487,6 @@
 
   .canvas-toolbar h1 {
     flex: 1 1 100%;
-  }
-
-  .canvas-toolbar .views-picker {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .canvas-toolbar .views-picker select {
-    max-width: none;
-    min-width: 0;
   }
 
   .canvas-toolbar > .btn.primary {
@@ -1518,15 +1511,6 @@
 
   .filter-pill-text {
     max-width: 62vw;
-  }
-}
-
-/* Phones: saved views are one tap away inside the Filters panel, so drop
-   the extra toolbar row and start the board sooner. */
-@media (max-width: 767px) {
-  .canvas-toolbar .views-picker,
-  .canvas-toolbar .views-manage {
-    display: none;
   }
 
   /* Filters + Add share the action row; chips follow. */

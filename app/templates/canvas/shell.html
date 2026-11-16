@@ -8,7 +8,7 @@
 <div class="flash {{ message_type }}">{{ message }}</div>
 {% endif %}
 
-<div class="canvas-screen density-full" id="canvas-screen">
+<div class="canvas-screen density-full{% if current_stage %} board-lens{% endif %}" id="canvas-screen">
   <div class="canvas-toolbar">
     {# Accessible page heading (spec §1.2): the canvas has no other h1. #}
     <h1>{% if request.url.path == '/outreach' %}Outreach{% else %}Pipeline{% endif %}</h1>

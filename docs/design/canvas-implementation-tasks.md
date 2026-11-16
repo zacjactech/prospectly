@@ -124,12 +124,14 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done · `[!]` blocked.
 
 - [x] **D1. Screenshots at 375 / 430 / 768 / 1280 / 1440.** Captured
   2026-11-16 with Playwright viewport emulation (see D4 for paths). Final
-  responsive behavior: single 49px toolbar row at 1280/1440; first load fits
-  the **board** (93–100%), Home fits the whole world; 360px Filters panel;
-  stacked flow below **1024px** (amendment) with a 2-column setup cluster,
-  wire notes hidden and a **119px phone toolbar** (saved views move into the
-  panel). Wire annotations hide below 0.75 and when setup is off-screen.
-  Verified no horizontal overflow and no console errors at every width.
+  responsive behavior: single 49px toolbar row at 1024+ (saved view hidden
+  below 1280, available in Filters); board fit 93–100% on load (Home fits the
+  whole world at 60%); 360px Filters panel; stage lens hides setup/outreach/
+  wires and fits the single zone at 160%; stacked flow below **1024px** with
+  a 2-column setup cluster (board at 657px/547px), **119px phone toolbar**,
+  full card meta on mobile, 12px card gaps and 16px/12px setup gaps. Wire
+  annotations and setup “connects to” lines are removed (wires only).
+  Verified no overflow/console errors at every width.
 - [x] **D2. A11y + contrast evidence.** 2026-11-16 real-browser pass:
   - **axe-core 4.10** (WCAG 2.0/2.1 A+AA): **0 violations** at 1440 (canvas,
     chips) and 375 (filters collapsed, then drawer + Add-prospect panel open);
@@ -184,3 +186,4 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done · `[!]` blocked.
 | 2026-11-16 | D2 | axe-core 0 violations (1440/375, filters + panels), Lighthouse a11y 1.0, contrast pairs ≥ AA, focus trap/Escape/backdrop/dirty confirm/keyboard map/reduced motion verified. Prospect form labels associated + test. |
 | 2026-11-16 | E2 | Version bumped to `0.2.0` (minor: whole-app UI replacement). |
 | 2026-11-16 | D3 | Independent review PASS 91/100 after fixing its blockers: 360px Filters panel, single-zone stage lens, hidden wire labels below 0.75, 49px toolbar, stacked flow <1024 (amendment). |
+| 2026-11-16 | UX cleanup | Owner comments: toolbar fully responsive (49px 1024+, saved view hidden <1280, 119px phones); wire annotations and setup “connects to” text removed; card/setup/outreach gaps 12/16/12px; mobile cards keep meta/status; board-focused first load; corridor tightened 230→150px; copy pluralized. |

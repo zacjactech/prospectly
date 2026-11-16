@@ -20,10 +20,12 @@
 > floor, so tablet portrait gets the readable stacked flow. Filters and saved
 > views live in the contracted **360px Filters panel**; the toolbar is one
 > compact row (heading · Filters · chips · saved view · Add prospect). Wire
-> annotations hide below 0.75 zoom where they collide and whenever the setup
-> cluster is off-screen; `?stage=` renders a single-zone lens with **Show all
-> zones**. First load fits the **board** (Home fits the whole world); phones
-> use a 2-column setup grid and keep saved views in the panel.
+> annotations are removed (wires only) and setup cards show title + state
+> only; card/setup/outreach gaps are 12/16/12px. `?stage=` renders a
+> single-zone lens with **Show all zones** (setup/outreach/wires hidden while
+> the lens is active, zone fitted at 160%). First load fits the **board**
+> (Home fits the whole world); phones use a 2-column setup grid and keep
+> saved views in the panel.
 > **Owner request 2026-11-16:** plain wheel zooms at the pointer and
 > Ctrl/Cmd+wheel pans (§2.2).
 
@@ -209,7 +211,7 @@ The app has exactly **one screen**: the canvas world. It contains three region t
 2. **Setup-card cluster** — nine canvas cards (§V2.3), default-placed in a row above/left of the board.
 3. **Outreach message region** — the base-spec three message zones (pending_review → approved → opened_in_whatsapp), placed right of / below the board's 02 OUTREACH band.
 
-**Fixed wires** (read-only system map, SVG in the wires layer, 1.5px `--color-border`, mono `--fs-xs` midpoint labels in `--color-text-subtle`, aria-hidden; text also stated on each card as "connects to …"):
+**Fixed wires** (read-only system map, SVG in the wires layer, 1.5px `--color-border`, aria-hidden; no midpoint labels — the nine setup cards carry their own titles/state, per owner request 2026-11-16):
 | From → To | Label |
 |---|---|
 | Profile → Board | discovery + drafts |
@@ -232,7 +234,7 @@ Wires recompute rAF-throttled with zone/card drags. Wires are decoration-for-exp
 - Old page templates are retired *as pages*: their inner content moves into card-panel partials (dual-render rule applies: one partial source, page-wrapper markup like `page-bar` headers deleted). Tests asserting retired structure are updated to the new contract — every test change reported with justification.
 
 ## V2.3 The nine setup cards + their mini-pipelines
-Each card: compact canvas card (base card anatomy minus stage rows): 16px stroke icon, title (13px semibold), one-line live state (mono `--fs-xs`, e.g. `caps 0/1000 · backup never`, `needs attention: 3`), warn dot when actionable, `connects to …` line. Click/Enter → panel (base §4 widths: 480 default) containing a **mini-pipeline**: 3–5 connected step-cards laid out horizontally (stacked in the mobile sheet), numbered `01…0n` (Nexus grammar), arrows between; each step is a collapsible section holding the card's actual real content (existing forms/tables/stats — no new features, no fake data):
+Each card: compact canvas card (base card anatomy minus stage rows): 16px stroke icon, title (13px semibold), one-line live state (mono `--fs-xs`, e.g. `caps 0/1000 · backup never`, `needs attention: 3`), warn dot when actionable. No `connects to …` line (owner request 2026-11-16 — title + state only). Click/Enter → panel (base §4 widths: 480 default) containing a **mini-pipeline**: 3–5 connected step-cards laid out horizontally (stacked in the mobile sheet), numbered `01…0n` (Nexus grammar), arrows between; each step is a collapsible section holding the card's actual real content (existing forms/tables/stats — no new features, no fake data):
 
 | Card | Mini-pipeline steps (content source) |
 |---|---|
@@ -260,12 +262,12 @@ No transform layer (base rule). Screen = setup cards as a vertical list (tap →
 
 ## V2.7 Build order v2 (replaces base §8.2; shippable each step)
 - **A1 — shell + engine + board:** rail v2, panel system + csrf meta, canvas engine (pan/zoom/localStorage/wires layer), prospect board (zones/cards/wires per base), drag-to-stage + Move menu, world skeleton with setup-card cluster rendered (cards open their panels — Status card fully contented), route content-negotiation (§V2.2 branches).
-- **A2 — cards + mini-pipelines:** all nine cards' mini-pipeline panels (extract content into partials, retire page wrappers), wire labels complete, Status dot, `g` chords v2, `?` help update.
+- **A2 — cards + mini-pipelines:** all nine cards' mini-pipeline panels (extract content into partials, retire page wrappers), wires complete (midpoint labels removed), Status dot, `g` chords v2, `?` help update.
 - **A3 — outreach region + polish:** message zone region + message cards + panel, filters/saved-views/lens toolbar, mobile stacked flow + card list, full keyboard map, a11y pass.
 - Test-impact rule: 331 baseline must be restored green each phase; test edits only where the approved contract changed (§V2.2), each justified in the commit.
 
 ## V2.8 QA additions (extends base §8.3)
 - Direct-URL landing: every retired route returns canvas + correct card pre-opened (test per route).
-- Wire layer: recomputes on region/card drag; labels legible at 0.5 zoom; aria-hidden.
+- Wire layer: recomputes on region/card drag; annotations removed (wires only, aria-hidden).
 - Card loop: click → panel → content matches old page's content (dual-render grep test).
 - No settings links anywhere in the rail/canvas chrome (grep).

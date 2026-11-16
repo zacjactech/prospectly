@@ -107,17 +107,6 @@
     if (!world) return;
     world.style.transform =
       "translate(" + panX + "px, " + panY + "px) scale(" + zoom + ")";
-    /* Low zoom turns wire labels into colliding microtext (browser-verified
-       at fit: "dedupesflags inactivefilters"). Keep the connectors and drop
-       the annotations below 0.75; card/zone chrome uses the density switch. */
-    world.classList.toggle("labels-hidden", zoom < 0.75);
-    /* Board-focused views put the setup cluster above the viewport; its wire
-       labels would otherwise float detached over the board header. */
-    var setup = world.querySelector('[data-region="setup"]');
-    if (setup) {
-      var setupBottom = (parseFloat(setup.style.top) || 0) + setup.offsetHeight;
-      world.classList.toggle("setup-offscreen", panY + setupBottom * zoom < 0);
-    }
   }
 
   function updateDensity() {
@@ -194,7 +183,7 @@
     fitElement(null, FIT_PAD);
   }
 
-  function fitElement(el, pad) {
+  function fitElement(el, pad, maxZoom) {
     var b = null;
     if (el) {
       b = {
@@ -210,7 +199,8 @@
     var rect = vp.getBoundingClientRect();
     if (rect.width < 10 || rect.height < 10) return;
     var p = pad || FIT_PAD;
-    var z = Math.min((rect.width - p * 2) / b.w, (rect.height - p * 2) / b.h, 1);
+    var cap = typeof maxZoom === "number" ? maxZoom : 1;
+    var z = Math.min((rect.width - p * 2) / b.w, (rect.height - p * 2) / b.h, cap);
     z = clampZoom(z);
     setView(
       z,
@@ -225,7 +215,7 @@
 
   /* Fit just the stage board (rail "Board") — the board's wrapper has no
      layout box of its own because zones are absolutely positioned. */
-  function fitBoard() {
+  function fitBoard(maxZoom) {
     var parts = zones.concat(labels);
     if (!parts.length) return;
     var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -237,7 +227,8 @@
     });
     fitElement(
       { offsetLeft: minX, offsetTop: minY, offsetWidth: maxX - minX, offsetHeight: maxY - minY },
-      56
+      56,
+      maxZoom
     );
   }
 
@@ -269,18 +260,11 @@
       setup.style.top = setupLabel.offsetHeight + "px";
       setupLabel.style.left = "0px";
       setupLabel.style.top = "0px";
-      /* Corridor budget (spec §V2.1): the space between the setup cluster
-         and the board label carries the card→card lanes, both label rows and
-         the trunk. 170px is the minimum that fits them all at 0.5 zoom,
-         where counter-scaled labels are ~20px tall in world units. */
-      /* Corridor budget (spec §V2.1): the band between the setup cluster and
-         the board label carries the two card→card exit lanes and labels, both
-         board-label rows and the trunk. At 72px the board-label rows landed
-         *inside* the cluster. 230px gives ≥8px between every baseline at 0.5
-         zoom — the worst case, where counter-scaled labels are 20px tall in
-         world units. Width still bounds fit() at 1440×900, so this costs no
-         zoom: height has ~90px of slack before it binds. */
-      dy = setup.offsetHeight + setupLabel.offsetHeight + 230;
+      /* Corridor budget (owner cleanup 2026-11-16): with wire annotations
+         gone, this band only needs the two card→card exit lanes and the
+         board trunk — 150px keeps the wires clear without a large empty
+         gap between setup and the board. */
+      dy = setup.offsetHeight + setupLabel.offsetHeight + 150;
     }
 
     var byBand = {};
@@ -384,25 +368,12 @@
     return d + " L" + last.x + " " + last.y;
   }
 
-  function wire(g, pts, label, labelAt, anchor) {
+  function wire(g, pts) {
     var path = document.createElementNS(SVG_NS, "path");
     path.setAttribute("d", busPath(pts, 10));
     path.setAttribute("class", "system-wire");
     path.setAttribute("marker-end", "url(#pl-wire-arrow)");
     g.appendChild(path);
-    if (label && labelAt) {
-      var text = document.createElementNS(SVG_NS, "text");
-      text.setAttribute("class", "wire-label");
-      text.setAttribute("x", labelAt.x);
-      text.setAttribute("y", labelAt.y);
-      text.setAttribute("text-anchor", anchor || "middle");
-      /* Counter-scale so a label keeps its ~10px on-screen size at every
-         zoom — spec §V2.8 requires it legible at 0.5. Redrawn on every
-         setView, so this never goes stale. */
-      text.style.fontSize = 10 / zoom + "px";
-      text.textContent = label;
-      g.appendChild(text);
-    }
   }
 
   function midY(card) {
@@ -861,10 +832,20 @@
     applyDefaultLayout();
     applyStoredZones();
 
-    /* First load: fit-to-content capped at 1.0 — unless a stored view
-       exists (spec §2.2/§2.6). */
+    /* First load: a stage lens frames its single zone regardless of stored
+       pan/zoom (shared `?stage=` links must be readable); otherwise restore
+       the stored view, or fit the board. */
     var b = boardState();
-    if (typeof b.zoom === "number" && typeof b.panX === "number" && typeof b.panY === "number") {
+    var lensStage = new URLSearchParams(window.location.search).get("stage");
+    if (lensStage) {
+      /* A lens is the whole surface: allow up to 1.6× so one zone does not
+         float in a mostly empty viewport (normal board fit caps at 1.0). */
+      fitBoard(1.6);
+    } else if (
+      typeof b.zoom === "number" &&
+      typeof b.panX === "number" &&
+      typeof b.panY === "number"
+    ) {
       zoom = clampZoom(b.zoom);
       panX = b.panX;
       panY = b.panY;
