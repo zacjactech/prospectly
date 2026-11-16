@@ -611,3 +611,22 @@ line is a static advertisement. The Phase 5 budget is restored.
 - **Consistency:** Flow references removed; “candidates” → “prospects”;
   Merge node/drawer renamed Duplicates; links blue, filter/phase/region chips
   neutral, destructive actions outlined.
+
+## Design-skill audit — 2026-11-16
+
+**Impeccable detector** (1440/390; `/prospects`, `/prospects/1`, `/settings/profile`,
+`/outreach`, `/settings/usage`): after fixes, no quality warnings. Remaining
+`nested-cards` warnings are the board's intentional structure (stage lanes
+containing prospect cards), not decorative card stacks.
+
+**Taste Skill browser consistency** (1440/390): fixed the genuine findings —
+clipped prospect meta, flat heading scale, off-screen keyboard focus, run-on
+zone/message headings, missing description/share metadata, and sub-44px mobile
+targets. Remaining FAILs are marketing-page rules that do not apply to a
+full-bleed app canvas and are waived with reasons: container margins,
+hero-screen fold, three intentional button variants, setup-card navigation
+links, lane/card nesting, and "the section needs a visual" (the canvas is the
+visual). Open WARNs: copy length, no marketing moment, logout form status line,
+and label-centre/stranded-action on setup cards.
+
+**Lighthouse after the pass:** accessibility 1.0 · best-practices 1.0 · SEO 1.0.

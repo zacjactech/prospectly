@@ -284,6 +284,20 @@
     setView(z, rect.left + avail / 2 - wx * z, rect.top + rect.height / 2 - wy * z);
   }
 
+  /* Bring a focused card into view without changing zoom — keyboard users
+     must never tab to an off-screen setup/prospect card. */
+  function ensureVisible(el) {
+    if (!vp || !el) return;
+    var r = el.getBoundingClientRect();
+    var v = vp.getBoundingClientRect();
+    if (r.top >= v.top && r.bottom <= v.bottom && r.left >= v.left && r.right <= v.right) {
+      return;
+    }
+    var wx = (r.left + r.width / 2 - v.left - panX) / zoom;
+    var wy = (r.top + r.height / 2 - v.top - panY) / zoom;
+    setView(zoom, v.left + v.width / 2 - wx * zoom, v.top + v.height / 2 - wy * zoom);
+  }
+
   function fitOutreach() {
     fitElement(world ? world.querySelector('[data-region="outreach"]') : null, 56);
   }
@@ -756,6 +770,11 @@
   document.addEventListener("htmx:afterSwap", function (e) {
     var t = e.detail.target;
     if (t && t.id === "board-root") init();
+  });
+
+  document.addEventListener("focusin", function (e) {
+    var el = e.target.closest && e.target.closest(".setup-card, .prospect-card");
+    if (el) ensureVisible(el);
   });
 
   window.PlCanvas = {

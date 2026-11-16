@@ -20,7 +20,7 @@
   <header class="zone-head">
     <h2 class="zone-title" id="zone-title-{{ zone.key }}">{{ zone.label }}
       <span class="zone-count" data-zone-count{% if zone_hot.get(zone.key) %} data-hot="{{ zone_hot.get(zone.key) }}"{% endif %}>
-        <span data-count>{{ zcards|length }}</span><span class="sr-only"> prospects</span>
+        <span class="zone-sep" aria-hidden="true">·</span><span data-count>{{ zcards|length }}</span><span class="sr-only"> prospects</span>
       </span>
     </h2>
   </header>

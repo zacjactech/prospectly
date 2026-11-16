@@ -11,7 +11,7 @@
 <div class="canvas-screen density-full{% if current_stage %} board-lens{% endif %}" id="canvas-screen">
   <div class="canvas-toolbar">
     {# Accessible page heading (spec §1.2): the canvas has no other h1. #}
-    <h1>{% if request.url.path == '/outreach' %}Messages{% else %}Pipeline{% endif %}</h1>
+    <h1>{% if request.url.path == '/outreach' %}Message pipeline{% else %}Prospect pipeline{% endif %}</h1>
     <a class="btn filter-open" href="{{ filters_href }}" data-panel-href="{{ filters_href }}" data-panel-width="360" aria-label="Open filters{% if active_filters %} ({{ active_filters|length }} active){% endif %}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z"></path></svg>
       <span>Filters</span>

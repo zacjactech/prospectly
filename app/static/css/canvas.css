@@ -10,7 +10,7 @@
   --zone-w: 264px;
   --zone-gap: 48px;
   --zone-head-h: 36px;
-  --card-h: 68px;
+  --card-h: 72px;
   --card-gap: 12px;
   --zone-pad: 8px;
   --band-label-h: 36px;
@@ -206,12 +206,10 @@
    a deliberate departure from the display-size h1 elsewhere. */
 .canvas-toolbar h1 {
   margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-medium);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
-  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 1.375rem;
+  font-weight: var(--fw-semibold);
+  color: var(--color-text);
 }
 
 .canvas-toolbar .toolbar-spacer {
@@ -365,7 +363,7 @@
   gap: var(--sp-2);
   margin: 0;
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: 1.0625rem;
   font-weight: var(--fw-medium);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
@@ -389,6 +387,11 @@
 
 .zone-count[data-hot="accent"] {
   color: var(--color-accent);
+}
+
+.zone-sep {
+  margin-right: 6px;
+  color: var(--color-text-subtle);
 }
 
 .zone-count[data-hot]::before {
@@ -593,7 +596,8 @@
 
 .pc-meta {
   margin-top: 4px;
-  height: 14px;
+  height: 16px;
+  line-height: 16px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1298,13 +1302,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  font-size: var(--fs-sm);
+  font-size: 1.0625rem;
   font-weight: 600;
   margin: 0;
 }
 
 .msg-zone-head .muted {
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   margin: 0;
 }
 
@@ -1384,6 +1388,8 @@
 
 .panel-body > .panel-heading + .muted.small {
   margin-top: 12px;
+  font-size: var(--fs-sm);
+  text-wrap: pretty;
 }
 
 /* Tables stay reachable: the card scrolls horizontally, first column keeps
@@ -1438,6 +1444,7 @@
 .panel-body .card > .muted:only-child,
 .panel-body .card .muted.small {
   font-size: var(--fs-sm);
+  text-wrap: pretty;
 }
 
 .panel-body > .muted.small {
@@ -2023,4 +2030,47 @@ input[type="file"]::file-selector-button {
 
 .zone-title {
   color: var(--color-text);
+}
+
+
+/* Touch floor for the controls that stay interactive on phones (6.40). */
+@media (max-width: 1023px) {
+  .skip-link,
+  .mobile-menu-toggle,
+  .brand {
+    min-height: 44px;
+  }
+
+  .pc-icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .prospect-card {
+    height: auto;
+    min-height: var(--card-h);
+  }
+
+  .pc-foot {
+    height: auto;
+    min-height: 44px;
+  }
+
+  .msg-card-main {
+    min-height: 44px;
+  }
+
+  .msg-card-actions .btn {
+    min-height: 44px;
+  }
+}
+
+/* Real icon on message cards (avoids a wall of text-only cards). */
+.msg-card-icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-right: 5px;
+  color: var(--color-text-muted);
+  vertical-align: -2px;
 }

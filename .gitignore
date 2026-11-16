@@ -31,3 +31,7 @@ build/
 
 # Visual QA evidence (screenshots, axe reports)
 .ui-qa/
+
+# Design-skill working artifacts
+.taste-skill/
+.impeccable/

@@ -7,15 +7,25 @@
      HttpOnly, so the token must travel in the page (spec §8.1 risk 3). The
      middleware accepts it back as the X-CSRF-Token header (app/csrf.py). #}
   <meta name="csrf-token" content="{{ csrf_token(request) }}">
+  <meta name="description" content="Prospectly — a local-first prospect pipeline and WhatsApp outreach workspace.">
+  <meta property="og:title" content="{{ app_name }} — prospect pipeline">
+  <meta property="og:description" content="Discover, research, draft and approve WhatsApp outreach in one local-first workspace.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="/static/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="/static/og.png">
+  <meta name="theme-color" content="#0b0c0e">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/static/css/app.css?v=31">
-  <link rel="stylesheet" href="/static/css/canvas.css?v=31">
+  <link rel="stylesheet" href="/static/css/app.css?v=38">
+  <link rel="stylesheet" href="/static/css/canvas.css?v=38">
   <script src="/static/js/htmx.min.js" defer></script>
-  <script src="/static/js/app.js?v=31" defer></script>
-  <script src="/static/js/panel.js?v=31" defer></script>
-  <script src="/static/js/canvas.js?v=31" defer></script>
-  <script src="/static/js/board.js?v=31" defer></script>
+  <script src="/static/js/app.js?v=38" defer></script>
+  <script src="/static/js/panel.js?v=38" defer></script>
+  <script src="/static/js/canvas.js?v=38" defer></script>
+  <script src="/static/js/board.js?v=38" defer></script>
 </head>
 {# Slim mobile header title, derived from the path so no content template
    needs a new block (spec §1 amendment 2026-11-11). #}
