@@ -571,7 +571,7 @@ single compact row with removable chips.
 | Computed contrast | heading/muted 7.7:1 · subtle 6.03:1 · filter chip 5.47:1 · primary action 6.76:1 · zone title 7.7:1 (all ≥ AA) |
 | Focus trap / Escape / backdrop | panel focus wraps; Escape and backdrop close and restore invoker focus |
 | Dirty-form confirm | cancel keeps the panel + typed value; accept closes |
-| Keyboard map | `?` help, `/` search, `j`/`k` highlight, `Enter` open card, `m` move menu, `g p` 86% / `g o` 100% / `g s` Status panel, `+`/`−`/`0`/`f` |
+| Keyboard map | `?` help, `/` search, `j`/`k` highlight, `Enter` open card, `m` move menu, `g p` 86% / `g o` 100% / `g s` Status panel, `+`/`−`/`0`/`f`; plain wheel zooms at the pointer, Ctrl/Cmd+wheel pans (browser-verified) |
 | Reduced motion | `prefers-reduced-motion: reduce` → 0.01ms transitions/animations |
 | Prospect form labels | 10 fields associated with explicit `for`/`id`; `test_prospect_form_labels_are_associated` |
 

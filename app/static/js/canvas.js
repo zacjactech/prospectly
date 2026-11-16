@@ -794,15 +794,18 @@
   function onWheel(e) {
     if (!vp) return;
     e.preventDefault();
+    /* Owner request 2026-11-16: plain wheel zooms at the pointer; Ctrl/Cmd +
+       wheel moves the canvas (deltaX/deltaY). Trackpad pinch also arrives as
+       ctrl+wheel, so pinch now pans rather than zooms. */
     if (e.ctrlKey || e.metaKey) {
-      /* Trackpad pinch synthesizes ctrl+wheel — zoom at the cursor. */
-      zoomAt(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1), e.clientX, e.clientY);
+      panX -= e.deltaX;
+      panY -= e.deltaY;
+      applyTransform();
+      scheduleSave();
       return;
     }
-    panX -= e.deltaX;
-    panY -= e.deltaY;
-    applyTransform();
-    scheduleSave();
+    if (e.deltaY === 0) return;
+    zoomAt(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1), e.clientX, e.clientY);
   }
 
   /* ----- keyboard (spec §6.2 — Phase A: zoom keys) ----- */

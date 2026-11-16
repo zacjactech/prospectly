@@ -21,7 +21,8 @@
 > views live in the contracted **360px Filters panel**; the toolbar is one
 > compact row (heading · Filters · chips · saved view · Add prospect). Wire
 > annotations hide below 0.75 zoom where they collide; `?stage=` renders a
-> single-zone lens with **Show all zones**.
+> single-zone lens with **Show all zones**. **Owner request 2026-11-16:**
+> plain wheel zooms at the pointer and Ctrl/Cmd+wheel pans (§2.2).
 
 Status: implementation-ready · saved from ui-design session ses_e33218438ffeMMCNavEpP5XSif
 Orchestrator adjustments applied: (1) rail group dividers = plain hairlines with title tooltips (no clipped text); (2) `g s` → /settings/profile (no /settings index exists); (3) engineer must verify CSRF header acceptance before relying on X-CSRF-Token.
@@ -72,8 +73,8 @@ New: app/static/js/canvas.js, app/static/css/canvas.css (tokens only; constants 
 | Input | Behavior |
 |---|---|
 | drag empty canvas | pan (Pointer Events + setPointerCapture, grab cursor) |
-| wheel | pan deltaX/deltaY |
-| Ctrl/Cmd+wheel | zoom at cursor (trackpad pinch synthesizes this) |
+| wheel | zoom at cursor |
+| Ctrl/Cmd+wheel | pan deltaX/deltaY (trackpad pinch also arrives as ctrl+wheel) |
 | touch two-finger | disabled <1024 (no transform layer); ≥1024 tablets same synthetic path |
 | keyboard | +/= in, − out, 0 reset 100%, f fit; step ×/÷1.25 |
 - Zoom clamp 0.5–2.0. Anchor = cursor (wheel) or viewport center (keys/buttons).
