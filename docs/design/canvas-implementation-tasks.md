@@ -124,12 +124,12 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done · `[!]` blocked.
 
 - [x] **D1. Screenshots at 375 / 430 / 768 / 1280 / 1440.** Captured
   2026-11-16 with Playwright viewport emulation (see D4 for paths). Final
-  responsive behavior: single 49px toolbar row at 1280/1440 (heading ·
-  Filters · chips · saved view · Add prospect); whole-world fit hides wire
-  annotations below 0.75; 360px Filters panel; stacked flow below **1024px**
-  (amendment: 768 cannot fit the world at the 0.5 zoom floor) with a
-  155–219px toolbar. Verified no horizontal overflow and no console errors
-  at every width.
+  responsive behavior: single 49px toolbar row at 1280/1440; first load fits
+  the **board** (93–100%), Home fits the whole world; 360px Filters panel;
+  stacked flow below **1024px** (amendment) with a 2-column setup cluster,
+  wire notes hidden and a **119px phone toolbar** (saved views move into the
+  panel). Wire annotations hide below 0.75 and when setup is off-screen.
+  Verified no horizontal overflow and no console errors at every width.
 - [x] **D2. A11y + contrast evidence.** 2026-11-16 real-browser pass:
   - **axe-core 4.10** (WCAG 2.0/2.1 A+AA): **0 violations** at 1440 (canvas,
     chips) and 375 (filters collapsed, then drawer + Add-prospect panel open);

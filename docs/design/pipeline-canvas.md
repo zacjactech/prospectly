@@ -20,9 +20,12 @@
 > floor, so tablet portrait gets the readable stacked flow. Filters and saved
 > views live in the contracted **360px Filters panel**; the toolbar is one
 > compact row (heading · Filters · chips · saved view · Add prospect). Wire
-> annotations hide below 0.75 zoom where they collide; `?stage=` renders a
-> single-zone lens with **Show all zones**. **Owner request 2026-11-16:**
-> plain wheel zooms at the pointer and Ctrl/Cmd+wheel pans (§2.2).
+> annotations hide below 0.75 zoom where they collide and whenever the setup
+> cluster is off-screen; `?stage=` renders a single-zone lens with **Show all
+> zones**. First load fits the **board** (Home fits the whole world); phones
+> use a 2-column setup grid and keep saved views in the panel.
+> **Owner request 2026-11-16:** plain wheel zooms at the pointer and
+> Ctrl/Cmd+wheel pans (§2.2).
 
 Status: implementation-ready · saved from ui-design session ses_e33218438ffeMMCNavEpP5XSif
 Orchestrator adjustments applied: (1) rail group dividers = plain hairlines with title tooltips (no clipped text); (2) `g s` → /settings/profile (no /settings index exists); (3) engineer must verify CSRF header acceptance before relying on X-CSRF-Token.

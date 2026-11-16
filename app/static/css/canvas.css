@@ -1236,6 +1236,12 @@
   display: none;
 }
 
+/* Board-focused view: the setup cluster is above the viewport, so its wire
+   labels would float detached over the board header. */
+.canvas-world.setup-offscreen .wire-label {
+  display: none;
+}
+
 /* ===== Setup-card panel: mini-pipeline (spec §V2.3) =====
    Vertical numbered steps: real content inside each step, an arrow between
    steps drawn by CSS (no extra markup, no inline styles). */
@@ -1428,13 +1434,29 @@
 
   .setup-cluster {
     position: static !important;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: auto;
+    gap: 8px;
+  }
+
+  .setup-card {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .sc-icon {
+    width: 24px;
+    height: 24px;
   }
 
   .sc-state {
     max-width: none;
     white-space: normal;
+  }
+
+  /* "to board · …" is wire lore; hide it where vertical space is precious. */
+  .sc-wire-note {
+    display: none;
   }
 
   .canvas-zone {
@@ -1496,5 +1518,28 @@
 
   .filter-pill-text {
     max-width: 62vw;
+  }
+}
+
+/* Phones: saved views are one tap away inside the Filters panel, so drop
+   the extra toolbar row and start the board sooner. */
+@media (max-width: 767px) {
+  .canvas-toolbar .views-picker,
+  .canvas-toolbar .views-manage {
+    display: none;
+  }
+
+  /* Filters + Add share the action row; chips follow. */
+  .canvas-toolbar h1 {
+    order: 0;
+  }
+
+  .canvas-toolbar .filter-open,
+  .canvas-toolbar > .btn.primary {
+    order: 1;
+  }
+
+  .canvas-toolbar .filter-summary {
+    order: 2;
   }
 }

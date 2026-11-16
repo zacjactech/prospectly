@@ -111,6 +111,13 @@
        at fit: "dedupesflags inactivefilters"). Keep the connectors and drop
        the annotations below 0.75; card/zone chrome uses the density switch. */
     world.classList.toggle("labels-hidden", zoom < 0.75);
+    /* Board-focused views put the setup cluster above the viewport; its wire
+       labels would otherwise float detached over the board header. */
+    var setup = world.querySelector('[data-region="setup"]');
+    if (setup) {
+      var setupBottom = (parseFloat(setup.style.top) || 0) + setup.offsetHeight;
+      world.classList.toggle("setup-offscreen", panY + setupBottom * zoom < 0);
+    }
   }
 
   function updateDensity() {
@@ -865,12 +872,12 @@
       updateZoomReadout();
       updateDensity();
     } else {
-      /* Opening view = fit the whole world (spec §2.1/§V2.1). Wire labels
-         are hidden below 0.75 so the overview does not become colliding
-         microtext; Home (rail / g h) re-fits the same world. /outreach
-         starts framed on its own region. */
+      /* Opening view = the full stage board (§6.1: "full board … fit on
+         load"). Fitting the whole world lands at 54–62% on laptops, which
+         shrinks card copy into microtext; Home (rail / g h) still fits the
+         entire world for orientation. /outreach opens on its own region. */
       if (window.location.pathname === "/outreach") fitOutreach();
-      else fit();
+      else fitBoard();
     }
 
     vp.addEventListener("pointerdown", onPointerDown);

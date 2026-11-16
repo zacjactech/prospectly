@@ -371,20 +371,29 @@ def _setup_cluster_context(db: Session) -> dict:
     # its pairs when opened; the meta line only advertises the surface.
     needs_count = sum(int(i.get("count") or 0) for i in needs)
     industries = len(profile.target_industries or [])
+    calls_label = "call" if calls == 1 else "calls"
+    industries_label = "industry" if industries == 1 else "industries"
+    categories = len(settings.category_vocabulary or [])
+    categories_label = "category" if categories == 1 else "categories"
     card_states = {
         "status": {
-            "meta": f"{needs_count} need attention" if needs_count else "all clear",
+            "meta": (
+                f"{needs_count} need{'s' if needs_count == 1 else ''} attention"
+                if needs_count
+                else "all clear"
+            ),
             "warn": needs_count > 0,
         },
         "profile": {
-            "meta": f"{'offer set' if profile.offer else 'no offer'} · {industries} industries",
+            "meta": f"{'offer set' if profile.offer else 'no offer'} · {industries} "
+            f"{industries_label}",
             "warn": not profile.offer,
         },
         "providers": {"meta": f"{configured}/{len(provider_rows)} configured", "warn": False},
-        "usage": {"meta": f"{calls} provider calls today", "warn": False},
+        "usage": {"meta": f"{calls} provider {calls_label} today", "warn": False},
         "general": {
             "meta": f"{settings.default_follow_up_days}d follow-up · "
-            f"{len(settings.category_vocabulary or [])} categories",
+            f"{categories} {categories_label}",
             "warn": False,
         },
         "import": {"meta": "CSV → candidates", "warn": False},

@@ -546,10 +546,10 @@ screenshots in gitignored `.ui-qa/phase-b/`):
 
 | Width | Evidence |
 |---|---|
-| 375 / 430 | Stacked canvas flow; toolbar 219/171px; **Filters** button (active count) opens the full-screen filters panel; chips wrap; no horizontal overflow (scrollWidth == innerWidth); console errors 0 |
-| 768 | Stacked flow (<1024 amendment: the world cannot fit at the 0.5 zoom floor); toolbar 155px; filters panel opens as a 360px slide-over; no overflow |
-| 1280 | Single 49px toolbar row (heading · Filters · chips · saved view · Manage · Add prospect); whole-world fit 54%, wire labels hidden below 0.75; no overflow |
-| 1440 | Single 49px toolbar row; whole-world fit 62% for the filtered view; 360px Filters panel; lens (`?stage=`) renders one zone; no overflow |
+| 375 / 430 | Stacked canvas flow; **119px toolbar** (Filters + Add share a row, chips below, saved views live in the panel); setup cluster is a **2-column grid** (9 cards in 5 rows, wire notes hidden) so the board starts at ~641px instead of ~1000px; no overflow/console errors |
+| 768 | Stacked flow; toolbar 155px; 2-column setup cluster (332px, board at 575px); filters panel is a slide-over; no overflow |
+| 1280 | Single 49px row; opening view fits the **board** at 93% (labels hidden below setup); whole world remains on Home; no overflow |
+| 1440 | Single 49px row; board fit at **100%** (readable card copy); Home fits all regions at ~54% with wire labels hidden when setup is off-screen; 360px Filters panel; lens one zone |
 
 **Raw screenshots (gitignored):** `.ui-qa/phase-b/1440-filtered.png`,
 `1440-overview.png`, `1440-filters-panel.png`, `1440-lens.png`,
@@ -557,10 +557,11 @@ screenshots in gitignored `.ui-qa/phase-b/`):
 `375-collapsed.png`, `375-filters-panel.png`.
 
 **Amendment 2026-11-16:** the stacked flow applies below **1024px** (was
-768px). At 768 the whole world cannot fit at the 0.5 zoom floor, so tablet
-portrait gets the readable stacked flow; 1024+ keeps the pan/zoom canvas.
-Filters/saved views live in the 360px panel (§1.2/§V2.3); the toolbar is a
-single compact row with removable chips.
+768px) because the world cannot fit at the 0.5 zoom floor at 768. At phone
+widths the setup cluster is a 2-column grid with wire notes hidden and saved
+views live only in the Filters panel; first load fits the **board** (Home
+fits the whole world). Wire annotations hide below 0.75 zoom and whenever
+the setup cluster is off-screen.
 
 **Accessibility evidence — 2026-11-16** (Playwright + axe-core 4.10 + Lighthouse):
 
