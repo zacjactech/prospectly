@@ -19,8 +19,9 @@
 > **1024px**, not 768px — at 768 the full world cannot fit at the 0.5 zoom
 > floor, so tablet portrait gets the readable stacked flow. Filters and saved
 > views live in the contracted **360px Filters panel**; the toolbar is one
-> compact row (heading · Filters · chips · saved view · Add prospect). Wire
-> annotations are removed (wires only) and setup cards show title + state
+> compact row (heading · Filters · chips · saved view · Add prospect). Card
+> height is 68px with 12px gaps; density stays full at board fit (floor 0.75).
+> Wire annotations are removed (wires only) and setup cards show title + state
 > only; card/setup/outreach gaps are 12/16/12px. `?stage=` renders a
 > single-zone lens with **Show all zones** (setup/outreach/wires hidden while
 > the lens is active, zone fitted at 160%). First load fits the **board**
@@ -66,7 +67,7 @@ Persistent 56px icon rail (≥768px) + full-bleed canvas viewport + 44px per-scr
 Unchanged: 52px header + hamburger off-canvas drawer (existing app.js logic); drawer keeps text labels.
 
 ## 2. Canvas engine
-New: app/static/js/canvas.js, app/static/css/canvas.css (tokens only; constants ZONE_W=264, ZONE_GAP=48, ZONE_HEAD=36, CARD_H=64, CARD_GAP=8, ZONE_PAD=8, GRID=8 mirrored in CSS).
+New: app/static/js/canvas.js, app/static/css/canvas.css (tokens only; constants ZONE_W=264, ZONE_GAP=48, ZONE_HEAD=36, CARD_H=68, CARD_GAP=12, ZONE_PAD=8, GRID=8 mirrored in CSS).
 
 ### 2.1 Layers
 - Viewport height calc(100vh - 44px) ≥1024px.
@@ -92,7 +93,7 @@ New: app/static/js/canvas.js, app/static/css/canvas.css (tokens only; constants 
 - Four phase bands: 01 QUALIFY (4) · 02 OUTREACH (3) · 03 CONVERT (2) · TERMINAL (1). Phase chip: 24px square, accent-light bg, accent text, mono, radius-sm. Phase label row 36px above its band.
 - Default: horizontal row per band, 48px gaps; first load = fit-to-content capped 1.0.
 - Zone drag: pointer on frame/header only; 8px grid snap; 1px dashed --color-border-strong alignment guides at ±4px edge/center alignment; guides not persisted.
-- Card stacks: 8px gaps; zone body max-height = 4×(CARD_H+CARD_GAP) then internal scroll.
+- Card stacks: 12px gaps; zone body max-height = 4×(CARD_H+CARD_GAP) then internal scroll.
 - Wires: straight right-mid → next canonical left-mid; recompute rAF-throttled on zone drag.
 
 ### 2.4 States
@@ -102,8 +103,8 @@ New: app/static/js/canvas.js, app/static/css/canvas.css (tokens only; constants 
 - Error: page-level flash banner with request ID; last-known board stays.
 
 ### 2.5 Density (zoom-linked)
-- density-full (zoom ≥0.8): 64px cards (name/meta/flags).
-- density-compact (<0.8): 40px (name + dots); meta row hidden. Fit lands ~0.5–0.7 → default scan = compact; zoom reveals detail.
+- density-full (zoom ≥0.75): 68px cards (name/meta/flags).
+- density-compact (<0.75): 40px (name + dots); meta row hidden. Board fit lands 0.75–1.0 on laptops (full cards); whole-world fit and narrow canvases switch to compact.
 
 ### 2.6 localStorage
 Key pl.canvas.v1, one JSON blob, version in-band:
@@ -112,7 +113,7 @@ Key pl.canvas.v1, one JSON blob, version in-band:
 - cardOrder pruned to server payload IDs each load; cap 500/zone (beyond → server order); unknown IDs append bottom. Multi-tab last-write-wins (documented contract).
 
 ## 3. Cards & nodes
-### 3.1 Prospect card (<article>, 64px, surface bg, hairline, radius-md, 12px h-pad)
+### 3.1 Prospect card (<article>, 68px, surface bg, hairline, radius-md, 12px h-pad)
 1. Row1: business_name 13px fw-semibold truncate; right: 6px status dot — --color-warn follow-up due/overdue, --color-accent requires review; never color-alone (paired with flags row text).
 2. Row2 mono --fs-xs muted tabular: category · city ("none" as subtle — P6 honesty).
 3. Row3: StatusBadge vocabulary at --fs-xs: stage, website-status (no_website_found = info, never red — P6), Suppressed/Archived, ai origin accent on active message (P5).
@@ -167,7 +168,7 @@ No new endpoints; only content-negotiation branches on existing GETs.
 | Region | ≥1024 | 768–1023 | <768 |
 |---|---|---|---|
 | Shell | 56px rail | 56px rail | header + drawer (existing) |
-| Canvas | full board, density-full ≥0.8, fit on load | stacked flow: canonical zones, sticky headers, density-full always, no transform/zoom cluster | same stacked flow |
+| Canvas | full board, density-full ≥0.75, fit on load | stacked flow: canonical zones, sticky headers, density-full always, no transform/zoom cluster | same stacked flow |
 | Panels | widths; stacking ≥1400 | widths clamped, no stack | full-screen sheets |
 | Cards | hover quick-actions | same | actions always visible, 44px targets |
 | Tables (conventional) | all columns | existing expand | existing stacked rows |
@@ -191,7 +192,7 @@ Opening: "Design direction (amended 2026-11-11 — Pipeline Canvas redesign). Th
 
 ## 8. Implementation plan
 ### 8.1 Files
-New JS: canvas.js (world/pan/zoom/clamps/density 0.8/rAF wires/localStorage pl.canvas.v1/zone drag snap+guides), board.js (card drag 4px threshold/ghost/hit-test/optimistic move + POST /prospects/{id}/stage with CSRF/409 revert+toast/cardOrder persistence/Move menu), panel.js (dialog stack/HTMX loading/focus trap/Escape priority/≥1400 stacking/dirty confirm/mobile sheet). New CSS: canvas.css (viewport/world/zones/cards/panels/cluster/stacked-flow media; tokens only).
+New JS: canvas.js (world/pan/zoom/clamps/density 0.75/rAF wires/localStorage pl.canvas.v1/zone drag snap+guides), board.js (card drag 4px threshold/ghost/hit-test/optimistic move + POST /prospects/{id}/stage with CSRF/409 revert+toast/cardOrder persistence/Move menu), panel.js (dialog stack/HTMX loading/focus trap/Escape priority/≥1400 stacking/dirty confirm/mobile sheet). New CSS: canvas.css (viewport/world/zones/cards/panels/cluster/stacked-flow media; tokens only).
 Templates: base.html (rail swap, #panel-root, <meta name="csrf-token" content="{{ csrf_token(request) }}">, new script/css includes). New partials: canvas_board.html, card_prospect.html, card_message.html, canvas_outreach.html, panel_detail.html (extracted from detail sections), panel_message.html (from messages/edit), panel_filters.html (from list filter bar + save-view form). Rewritten: prospects/list.html → thin wrapper over canvas_board.html; detail.html + messages/edit.html keep full-page markup by INCLUDING the same section partials (dual rendering, one source). Retired: prospects table markup + row data-href; app.js j/k retargets to cards. Untouched: login, settings/*, merge, all message POST flows, services; only server touch = GET content-negotiation branches in pages.py (listed routes) on HX-Request.
 ### 8.2 Build order (shippable each step)
 1. Shell + panels (rail swap, panel system, csrf meta, detail/message open as panels over existing table). 2. Canvas engine + Prospects board read-only. 3. Drag-to-stage + Move menu + cardOrder persistence (server-validated writes, 409 toasts). 4. Outreach board + message panel. 5. Filters/saved views/lens + dashboard entry links. 6. Mobile stacked flow + keyboard map + a11y + QA.

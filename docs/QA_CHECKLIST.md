@@ -546,7 +546,7 @@ screenshots in gitignored `.ui-qa/phase-b/`):
 
 | Width | Evidence |
 |---|---|
-| 375 / 430 | Stacked flow; **119px toolbar**; setup cluster **2-column** (398px; board starts 657px); **12px card gap**, 12px setup gap; full card meta/status rows (mobile is never density-compact); no overflow/console errors |
+| 375 / 430 | Stacked flow; **119px toolbar**; setup cluster **2-column** (398px; board starts 657px); **68px cards with 12px gaps**, 12px setup gap; full card meta/status rows (mobile is never density-compact); no overflow/console errors |
 | 768 | Stacked flow; **111px toolbar**; setup 348px (board at 547px); 12px card/setup gaps; no overflow |
 | 1280 | One **49px** toolbar row (saved view hidden below 1280, available in Filters); board fit at 93% |
 | 1440 | One **49px** toolbar row; board fit at **100%**; Home fits the whole world at 60% with no wire text (wires only); `?stage=` hides setup/outreach/wires and focuses the single zone at 160% |

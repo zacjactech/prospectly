@@ -10,7 +10,7 @@
   --zone-w: 264px;
   --zone-gap: 48px;
   --zone-head-h: 36px;
-  --card-h: 64px;
+  --card-h: 68px;
   --card-gap: 12px;
   --zone-pad: 8px;
   --band-label-h: 36px;
@@ -564,7 +564,7 @@
 }
 
 .pc-meta {
-  margin-top: 2px;
+  margin-top: 4px;
   height: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -583,7 +583,7 @@
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  margin-top: 2px;
+  margin-top: 4px;
   height: 20px;
   min-width: 0;
 }

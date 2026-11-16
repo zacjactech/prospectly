@@ -15,7 +15,7 @@
   var MIN_ZOOM = 0.5;
   var MAX_ZOOM = 2;
   var ZOOM_STEP = 1.25;
-  var DENSITY_FLOOR = 0.8; // spec §2.5
+  var DENSITY_FLOOR = 0.75; // spec §2.5, amended 2026-11-16: board fit at small laptops lands here
   var STORE_KEY = "pl.canvas.v1";
   var STORE_VERSION = 1;
   var BOARD = "prospects";
@@ -305,7 +305,10 @@
       boardLabel.style.top = Math.max(0, dy - boardLabel.offsetHeight) + "px";
     }
     if (outreach && outreachLabel) {
-      var ox = maxRight + 120;
+      /* Board-focused fit must not leave a clipped message card peeking in
+         at the right edge; 200px keeps the region fully off-canvas until
+         the user fits Home/Outreach. */
+      var ox = maxRight + 200;
       outreach.style.left = ox + "px";
       outreach.style.top = dy + "px";
       outreachLabel.style.left = ox + "px";

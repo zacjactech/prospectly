@@ -129,9 +129,10 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done · `[!]` blocked.
   whole world at 60%); 360px Filters panel; stage lens hides setup/outreach/
   wires and fits the single zone at 160%; stacked flow below **1024px** with
   a 2-column setup cluster (board at 657px/547px), **119px phone toolbar**,
-  full card meta on mobile, 12px card gaps and 16px/12px setup gaps. Wire
-  annotations and setup “connects to” lines are removed (wires only).
-  Verified no overflow/console errors at every width.
+  full card meta on mobile, **68px cards with 12px gaps** and 16px/12px setup
+  gaps; density stays full at board fit (floor 0.75). Wire annotations and
+  setup “connects to” lines are removed (wires only). Verified no
+  overflow/console errors at every width.
 - [x] **D2. A11y + contrast evidence.** 2026-11-16 real-browser pass:
   - **axe-core 4.10** (WCAG 2.0/2.1 A+AA): **0 violations** at 1440 (canvas,
     chips) and 375 (filters collapsed, then drawer + Add-prospect panel open);
