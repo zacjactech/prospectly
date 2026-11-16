@@ -194,7 +194,7 @@
   </ul>
   {% else %}
   <p class="muted">No opportunities yet. Run research — the rule engine proposes evidence-backed outreach reasons.</p>
-  <a class="btn small" href="#detail-research">Run research</a>
+  <a class="btn small" href="#detail-research">Go to research</a>
   {% endif %}
 </section>
 
@@ -289,7 +289,7 @@
       <input id="reply-received-at" class="datetime-input" type="datetime-local" name="received_at">
     </div>
     <div class="action-group">
-      <button class="btn" type="submit">Record reply</button>
+      <button class="btn" type="submit">Save reply</button>
     </div>
   </form>
 </section>
@@ -356,7 +356,7 @@
   <form method="post" action="/prospects/{{ prospect.id }}/notes" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/notes"{% endif %} {{ hxpost|safe }}>
     {{ csrf_field() }}
     <div class="field full">
-      <label>Add note</label>
+      <label>Note</label>
       <textarea name="body" rows="3" maxlength="2000" required placeholder="e.g. What was agreed on the call"></textarea>
     </div>
     <div class="action-group">

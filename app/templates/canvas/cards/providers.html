@@ -20,7 +20,7 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>Provider</th><th>Role</th><th>Configured</th><th>Enabled</th>
+              <th>Provider</th><th>Configured</th><th>Enabled</th>
               <th>Calls today</th><th>Cap</th><th>Last failure</th>
             </tr>
           </thead>
@@ -33,7 +33,6 @@
                 {% if not row.implemented %}<span class="badge stage-muted">not wired</span>{% endif %}
                 {% if row.note %}<div class="muted small">{{ row.note }}</div>{% endif %}
               </td>
-              <td><span class="badge muted">{{ role_labels.get(row.role, row.role|replace('_',' ')) }}</span></td>
               <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ '—' if not row.implemented else ('yes' if row.configured else 'no') }}</span></td>
               <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ '—' if not row.implemented else ('yes' if row.enabled else 'no') }}</span></td>
               <td>{{ row.calls_today }}</td>
@@ -80,7 +79,7 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>Provider</th><th>Role</th><th>Configured</th><th>Enabled</th>
+              <th>Provider</th><th>Configured</th><th>Enabled</th>
               <th>Calls today</th><th>Cap</th><th>Last failure</th>
             </tr>
           </thead>
@@ -93,7 +92,6 @@
                 {% if not row.implemented %}<span class="badge stage-muted">not wired</span>{% endif %}
                 {% if row.note %}<div class="muted small">{{ row.note }}</div>{% endif %}
               </td>
-              <td><span class="badge muted">{{ role_labels.get(row.role, row.role|replace('_',' ')) }}</span></td>
               <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ '—' if not row.implemented else ('yes' if row.configured else 'no') }}</span></td>
               <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ '—' if not row.implemented else ('yes' if row.enabled else 'no') }}</span></td>
               <td>{{ row.calls_today }}</td>

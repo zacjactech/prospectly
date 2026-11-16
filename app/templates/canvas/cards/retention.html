@@ -9,14 +9,12 @@
 {% endif %}
 
 <section class="card">
-  <h3>Retention sweep</h3>
   <p class="muted small">Prospects inactive for more than the threshold will be tagged <code>retention-review</code>.</p>
   <form method="post" action="/settings/retention/sweep">
     {{ csrf_field() }}
     <div class="field">
       <label for="retention-months">Inactive threshold (months)</label>
       <input id="retention-months" type="number" name="months" value="12" min="1" max="60">
-      <span class="muted small">Prospects with no activity for more than this many months will be flagged.</span>
     </div>
     <div class="action-group">
       <button class="btn primary" type="submit">Run sweep</button>
@@ -27,7 +25,7 @@
 <section class="card">
   <h3>Flagged for retention review{% if flagged %} ({{ flagged|length }}){% endif %}</h3>
   {% if flagged %}
-  <p class="muted small">These prospects have been inactive for over 12 months. Review and clear the flag or archive them.</p>
+  <p class="muted small">These prospects have been inactive for longer than the current threshold. Review and clear the flag or archive them.</p>
   <table class="data-table">
     <thead>
       <tr>

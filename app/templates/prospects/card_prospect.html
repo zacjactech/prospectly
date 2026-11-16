@@ -1,8 +1,9 @@
 {# Prospect board card (Pipeline Canvas spec §3.1) — rendered inside zone
-   stacks on the canvas. 64px: name + status dot / mono meta / badge + quick
-   action row (the spec's "row 4" rides right on the foot row so CARD_H stays
-   uniform). Nothing here can draft, approve or send: the only outreach
-   control is the existing approved-state Open-WhatsApp button (P1). #}
+   stacks on the canvas. Name + stage tag (top-right) / mono meta / status
+   dot, badges and quick action (the spec's "row 4" rides right on the foot
+   row so CARD_H stays uniform). Nothing here can draft, approve or send: the
+   only outreach control is the existing approved-state Open-WhatsApp button
+   (P1). #}
 {% import "partials/stage_transitions.html" as st %}
 {% set msg = active_messages.get(p.id) %}
 {% set fu_due = p.id in fu_due_ids %}
@@ -13,7 +14,8 @@
          tabindex="0">
   <h3 class="pc-name-row">
     <span class="pc-name" title="{{ p.business_name }}">{{ p.business_name }}</span>
-    <span class="pc-dot"{% if dot %} data-hot="{{ dot }}" title="{{ dot_title }}"{% endif %} aria-hidden="true"></span>
+    {% if dot %}<span class="pc-dot pc-dot-compact" data-hot="{{ dot }}" title="{{ dot_title }}" aria-hidden="true"></span>{% endif %}
+    <span class="badge pc-stage-tag stage-{{ p.stage|replace('_','-') }}" data-stage-badge title="{{ p.stage|replace('_',' ') }}">{{ p.stage|replace('_',' ') }}</span>
   </h3>
   <div class="pc-meta">
     <span{% if not p.category %} class="subtle"{% endif %}>{{ p.category or "none" }}</span>
@@ -21,7 +23,7 @@
   </div>
   <div class="pc-foot">
     <span class="pc-badges">
-      <span class="badge stage-{{ p.stage|replace('_','-') }}" data-stage-badge>{{ p.stage|replace('_',' ') }}</span>
+      {% if dot %}<span class="pc-dot" data-hot="{{ dot }}" title="{{ dot_title }}" aria-hidden="true"></span>{% endif %}
       {% if p.website_status == 'no_website_found' %}
       {# P6: no website found is info — never red, always a word (not color alone). #}
       <span class="badge stage-no-website-found">no website found</span>

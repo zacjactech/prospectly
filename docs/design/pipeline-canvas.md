@@ -10,7 +10,7 @@
 | Design research | See `docs/design/references-canvas.md` (2–3 live references, URLs + retrieval dates, take/not-take, avoid-list) |
 | UX architecture | Covered herein: journeys/interaction model §6.2, IA + navigation §1/§5, screen-state inventory §2.4/§3.1/§4 |
 | Visual direction + design system | `charcoal + signal orange` tokens (app.css :root, unchanged); direction + avoid-list in `docs/UI_UX_SPECIFICATION.md` opening/§10 |
-| Implementation | A1–A4 + B1–B4 built (2026-11-12→16): canvas shell/engine/board, nine setup cards, outreach region, panels, 360px Filters panel, saved-view toolbar, removable filter chips and single-zone stage lens. Responsive: stacked flow <1024 (amendment), 49px toolbar at 1280/1440. Outreach chain pass fixed pan-captured link clicks, panel `hx-post` targets (405s), stale region refresh and invisible redirect flashes. Version **0.2.0**. Test gate **374 passed / 0 failed**; lint/format/types clean. Tracker: `docs/design/canvas-implementation-tasks.md` |
+| Implementation | A1–A4 + B1–B4 built (2026-11-12→16): canvas shell/engine/board, nine setup cards, outreach region, panels, 360px Filters panel, saved-view toolbar, removable filter chips and single-zone stage lens. Responsive: stacked flow <1024 (amendment), 52px toolbar at 1280/1440. Outreach chain pass fixed pan-captured link clicks, panel `hx-post` targets (405s), stale region refresh and invisible redirect flashes. Version **0.2.0**. Test gate **374 passed / 0 failed**; lint/format/types clean. Tracker: `docs/design/canvas-implementation-tasks.md` |
 | Browser validation | **Done** — 375/430/768/1280/1440 screenshots (`.ui-qa/phase-b/`, gitignored); axe-core 0 violations (1440/375, filters + panels), Lighthouse a11y 1.0, contrast pairs ≥ AA, focus trap/Escape/backdrop/dirty confirm/keyboard map/reduced motion verified (§V2.8) |
 | Independent visual review | **PASS — 91/100** (2026-11-16, independent reviewer, no blockers). Residual non-blocking notes: default desktop fit 54–62%, mobile setup list could compress further |
 | Refinement / approval | Gate passed; residual polish tracked in the task tracker |
@@ -54,7 +54,7 @@ A freeform pan/zoom canvas (Canva metaphor) on which the stage board is drawn as
 | Panels vs forms/tables | Only review/detail surfaces become panels. Settings×7, merge, import, usage, login, and create/edit forms = conventional pages/panels per §5. |
 
 ## 1. App shell
-Persistent 56px icon rail (≥768px) + full-bleed canvas viewport + 44px per-screen toolbar inside the viewport. No global top bar ≥768px.
+Persistent 56px icon rail (≥768px) + full-bleed canvas viewport + 52px per-screen toolbar row inside the viewport (53px with the bottom hairline; the rail head matches so both borders meet). No global top bar ≥768px.
 
 ### 1.1 Rail (replaces labeled .sidenav)
 - 56px fixed left, full height, bg --color-bg, right hairline --color-border.
@@ -65,12 +65,13 @@ Persistent 56px icon rail (≥768px) + full-bleed canvas viewport + 44px per-scr
 - Active-state exact-path conditions from current base.html preserved verbatim. title attr + CSS tooltip [data-tip] on --color-surface-raised --fs-xs 120ms delay (opacity only, no JS).
 - Focus: 2px --color-accent outline offset 2px (global rule).
 
-### 1.2 Canvas toolbar (per canvas screen, 44px, --color-surface, bottom hairline)
-1. h1 page title: mono uppercase --fs-xs --tracking-label --color-text-muted (PIPELINE — PROSPECTS / OUTREACH QUEUE) — the accessible page heading.
-2. Filter summary chips when filters active (--fs-xs, accent-light bg, accent-border, accent text, each with ×; "Show all zones" chip clears stage lens). Nothing when unfiltered.
-3. Filters button (opens filter panel) with --color-warn 6px dot when filters active.
-4. Saved views native <select> (existing apply endpoint, redirects with query params; "Manage…" → /settings/saved-views).
-5. Spacer. 6. Add prospect .btn.primary.
+### 1.2 Canvas toolbar (per canvas screen, 52px row + 1px hairline, --color-surface)
+Ownership: title group (h1 22px semibold + Filters) left; view/action group (Saved view micro-label + select, Manage, Add prospect) right, 16px between controls and 24px before the primary action.
+1. h1 page title (Prospect pipeline / Message pipeline) — the accessible page heading.
+2. Filters button (opens the 360px panel) with a neutral count badge when filters are active.
+3. Saved views native <select> behind an uppercase "SAVED VIEW" micro-label (existing apply endpoint; "Manage" → /settings/saved-views). Hidden <1280px, where the Filters panel owns saved views.
+4. Add prospect .btn.primary.
+5. Active filters render as a full-width band under the row: --color-bg, 1px top hairline, 12px vertical padding, uppercase ACTIVE label, 32px removable chips with 13px text and 8px gaps, then a hairline-separated Clear all / Show all zones text action. Nothing when unfiltered. Below 1024px the band's separators drop when the clears wrap.
 
 ### 1.3 Mobile shell (<768px)
 Unchanged: 52px header + hamburger off-canvas drawer (existing app.js logic); drawer keeps text labels.
@@ -79,7 +80,7 @@ Unchanged: 52px header + hamburger off-canvas drawer (existing app.js logic); dr
 New: app/static/js/canvas.js, app/static/css/canvas.css (tokens only; constants ZONE_W=264, ZONE_GAP=48, ZONE_HEAD=36, CARD_H=72, CARD_GAP=12, ZONE_PAD=8, GRID=8 mirrored in CSS).
 
 ### 2.1 Layers
-- Viewport height calc(100vh - 44px) ≥1024px.
+- Viewport fills the remaining height under the content-driven toolbar (no fixed calc; the active-filter band adds height only when filters exist).
 - World layer .canvas-world: transform translate(panX,panY) scale(zoom); transform-origin 0 0; NEVER transitioned.
 - Paint order: <svg class="canvas-wires" aria-hidden="true"> (stroke --color-border 1.5px, <marker> arrowheads) → zone frames (<section> absolute) → cards (normal flow in zone body; absolute only mid-drag).
 - DOM order = canonical stage order regardless of visual arrangement (a11y contract: tab/SR order follows pipeline).

@@ -2,7 +2,6 @@
    Creating a view captures the current board filters in the Filters panel —
    no raw JSON textarea. Filters are shown as chips per row. #}
 <h2 class="panel-heading" data-panel-title>Saved Views</h2>
-<p class="muted small">Save and reload filtered views of your prospects board.</p>
 
 {% if error %}
 <div class="flash error">{{ error }}</div>
@@ -10,7 +9,7 @@
 
 <section class="card">
   <h3>Save current filters as view</h3>
-  <p class="muted small">Filters live on the board. Open Filters, apply them, then use “Save this view” there.</p>
+  <p class="muted small">“Save this view” lives in the Filters panel.</p>
   <a href="/prospects/filters" class="btn" data-panel-href="/prospects/filters" data-panel-width="360">Open Filters</a>
 </section>
 

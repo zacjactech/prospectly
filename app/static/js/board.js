@@ -193,7 +193,8 @@
     var badge = card.querySelector("[data-stage-badge]");
     if (badge) {
       badge.textContent = humanize(stage);
-      badge.className = "badge stage-" + stage.replace(/_/g, "-");
+      badge.className = "badge pc-stage-tag stage-" + stage.replace(/_/g, "-");
+      badge.title = humanize(stage);
     }
   }
 
@@ -203,6 +204,7 @@
       stage: card.getAttribute("data-stage"),
       text: badge ? badge.textContent : null,
       cls: badge ? badge.className : null,
+      title: badge ? badge.title : null,
     };
   }
 
@@ -212,6 +214,7 @@
     if (badge && snap.text !== null) {
       badge.textContent = snap.text;
       badge.className = snap.cls;
+      badge.title = snap.title || snap.text;
     }
   }
 

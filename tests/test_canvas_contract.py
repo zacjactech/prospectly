@@ -125,6 +125,33 @@ def test_prospects_hx_returns_board_fragment_only(db_client) -> None:
     assert 'data-zone="new"' in full.text
 
 
+def test_prospect_card_keeps_stage_tag_in_the_name_row(db_client) -> None:
+    """Stage is a top-right tag, not a footer pill (card layout contract).
+
+    Keeps the corner tag on every board card and leaves the footer for the
+    status dot, website badges and the card menu.
+    """
+    db, client = db_client
+    prospect = Prospect(business_name="Corner Tag Hotel", stage="replied")
+    db.add(prospect)
+    db.commit()
+
+    html = client.get("/prospects", headers={"HX-Request": "true"}).text
+    card = re.search(r'<article class="prospect-card".*?</article>', html, re.S)
+    assert card, "board fragment has no prospect card"
+    card_html = card.group(0)
+
+    name_row = re.search(r'<h3 class="pc-name-row">(.*?)</h3>', card_html, re.S)
+    assert name_row, "card has no name row"
+    assert "pc-stage-tag" in name_row.group(1)
+    assert "data-stage-badge" in name_row.group(1)
+    assert "replied" in name_row.group(1)
+
+    foot = re.search(r'<div class="pc-foot">(.*?)</div>', card_html, re.S)
+    assert foot, "card has no footer"
+    assert "data-stage-badge" not in foot.group(1)
+
+
 def test_outreach_route_frames_the_outreach_region(db_client) -> None:
     _, client = db_client
     r = client.get("/outreach")

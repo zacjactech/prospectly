@@ -648,3 +648,31 @@ and label-centre/stranded-action on setup cards.
   scroll-only header shadow and dynamic scroll-padding; danger zone has a
   red inset card and aligned 36px controls.
 - Browser-verified at 1280, 1440, 1920 and drawer widths 768/390.
+
+## Card stage tag + header/copy cleanup — 2026-11-16
+
+- Prospect cards: the stage tag moved from the footer pill row to the card's
+  top-right corner as a compact outlined uppercase label in the stage hue
+  (10px, 20px tall, 48% max width, ellipsis + title tooltip). The status dot
+  moved into the footer badge row, vertically centered; compact density keeps
+  a name-row dot copy so the hot signal survives when the footer is hidden.
+  Wrapped pill rows still bottom-align the today/menu group. Card heights
+  stay uniform (103px at 100%).
+- Canvas toolbar: 52px row + hairline (rail head matched), 16px control gaps,
+  title group left and saved-view/primary group right with a 24px gap before
+  Add prospect. Saved view uses an uppercase micro-label; Filters count badge
+  is 20px. Active filters get a full-width darker band with a top hairline,
+  12px vertical padding, 13px/32px chips, and hairline-separated Clear all.
+  Verified at 1470, 1280, 1024, 768 and 390; no horizontal overflow.
+- Region labels are chip + count only ("PIPE · N on the board",
+  "MSG · N in flight") because the toolbar h1 already names the surface.
+- Copy audit removed self-referential panel subtitles (General, Status,
+  Saved views), shortened Import/Usage/Profile/Filters intros, dropped the
+  duplicate Retention section heading and threshold helper, removed the
+  repeated Role column from the Discovery/Search provider tables, renamed
+  the note field to "Note", the reply submit to "Save reply", the research
+  jump link to "Go to research", the finding submit to "Save finding", and
+  dropped the message-history "Status:" prefix (status stays in the sticky
+  header). Retention's flagged-copy now says "longer than the current
+  threshold" instead of the stale 12 months.
+- Gate: 375 tests, ruff, format and mypy clean.

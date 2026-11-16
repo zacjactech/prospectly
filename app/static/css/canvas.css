@@ -57,34 +57,41 @@
    view · Manage · Add prospect. It wraps below 1024px (stacked flow). */
 .canvas-toolbar {
   flex: none;
-  min-height: calc(var(--control-h-md) + var(--space-3));
+  min-height: calc(var(--control-h-md) + var(--space-4));
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-1) var(--space-4);
+  column-gap: var(--space-4);
+  row-gap: 0;
+  padding: var(--space-2) var(--space-4);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   flex-wrap: wrap;
 }
 
+/* Saved-view group: micro-label + native select + Manage, kept together as
+   one control cluster with 12px internal rhythm. */
 .canvas-toolbar .views-picker {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   flex: 0 0 auto;
+  margin-left: var(--space-2);
 }
 
 .canvas-toolbar .views-picker > span {
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-weight: var(--fw-medium);
-  color: var(--color-text-muted);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
   white-space: nowrap;
 }
 
 .canvas-toolbar .views-picker select {
   height: var(--control-h-md);
-  padding: 0 28px 0 10px;
-  max-width: 190px;
+  padding: 0 32px 0 var(--space-3);
+  max-width: 200px;
   font-size: var(--fs-sm);
   color: var(--color-text);
   background: var(--color-surface-hover);
@@ -103,11 +110,17 @@
 
 .canvas-toolbar .views-manage {
   height: var(--control-h-md);
+  padding: 0 var(--space-3);
   color: var(--color-text-muted);
 }
 
 .canvas-toolbar .views-manage:hover {
   color: var(--color-text);
+}
+
+/* The primary action is a separate group from the view controls. */
+.canvas-toolbar > .btn.primary {
+  margin-left: var(--space-2);
 }
 
 /* Stage lens (?stage=): keep every lane visible so the pipeline structure
@@ -122,9 +135,9 @@
 }
 
 /* ===== Active-filter summary (base spec §1.2) =====
-   Removable URL-state chips on their own toolbar row. They are links, so
-   the hit area is at least 26px tall and focus uses the shared accent ring.
-   Long values ellipsize instead of forcing the toolbar wider. */
+   Removable URL-state chips get their own full-width band under the toolbar
+   row: darker surface, hairline separator and 12px vertical padding so they
+   read as a distinct group instead of crowding the header controls. */
 .canvas-toolbar .filter-summary {
   flex: 1 1 100%;
   order: 10;
@@ -133,10 +146,14 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  padding-top: var(--space-1);
+  margin: 0 calc(var(--space-4) * -1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
 }
 
 .filter-summary-label {
+  margin-right: var(--space-1);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-weight: var(--fw-medium);
@@ -150,19 +167,21 @@
   align-items: center;
   gap: var(--space-2);
   max-width: 100%;
-  min-height: 32px;
-  padding: var(--space-1) var(--space-2);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-3);
   background: var(--color-surface-hover);
   border: 1px solid var(--color-border-strong);
   border-radius: 999px;
-  color: var(--color-text-muted);
-  font-size: var(--fs-xs);
+  color: var(--color-text);
+  font-size: var(--fs-sm);
   text-decoration: none;
   white-space: nowrap;
-  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease,
+    background-color var(--dur-fast) ease;
 }
 
 .filter-pill:hover {
+  background: var(--color-surface-raised);
   border-color: var(--color-text-subtle);
   color: var(--color-text);
 }
@@ -191,26 +210,39 @@
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
-  padding: var(--space-1) var(--space-2);
-  color: var(--color-text-muted);
-  font-size: var(--fs-xs);
-  text-decoration: underline;
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-subtle);
+  font-size: var(--fs-sm);
+  text-decoration: none;
   white-space: nowrap;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 
 .filter-pill-clear:hover {
+  background: var(--color-surface-hover);
   color: var(--color-text);
+}
+
+/* Clear actions sit apart from the removable chips. */
+.filter-pill + .filter-pill-clear {
+  margin-left: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--color-border);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 /* The h1 IS the page heading (spec §1.2): mono uppercase micro-label —
    a deliberate departure from the display-size h1 elsewhere. */
 .canvas-toolbar h1 {
-  margin: 0;
+  margin: 0 var(--space-1) 0 0;
   font-family: var(--font-sans);
   font-size: 1.375rem;
   font-weight: var(--fw-semibold);
+  line-height: 1.25;
   color: var(--color-text);
+  white-space: nowrap;
 }
 
 .canvas-toolbar .toolbar-spacer {
@@ -223,6 +255,7 @@
   align-items: center;
   gap: var(--space-2);
   height: var(--control-h-md);
+  padding: 0 var(--space-3);
   flex: 0 0 auto;
 }
 
@@ -234,13 +267,13 @@
 .filter-count {
   display: inline-grid;
   place-items: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--space-1);
   border-radius: 999px;
-  background: var(--color-surface-hover);
+  background: var(--color-surface-raised);
   border: 1px solid var(--color-border-strong);
-  color: var(--color-text-muted);
+  color: var(--color-text);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
@@ -521,11 +554,11 @@
 }
 
 /* ===== Prospect card (spec §3.1) =====
-   Fixed 64px: name row (13px semibold + status dot), mono meta row
-   (category · city), foot row (status badges + last-contact / follow-up /
-   Open-WhatsApp quick action). The spec's "row 4" rides on the foot row —
-   CARD_H=64 and the 4 × (CARD_H+CARD_GAP) scroll math force uniform height
-   (decision recorded in the Phase A report). */
+   Uniform height: name row (13px semibold + top-right stage tag), mono meta
+   row (category · city), foot row (status dot + status badges + last-contact
+   / follow-up / Open-WhatsApp quick action). The spec's "row 4" rides on the
+   foot row — CARD_H and the 4 × (CARD_H+CARD_GAP) scroll math force uniform
+   height (decision recorded in the Phase A report). */
 .prospect-card {
   position: relative;
   display: flex;
@@ -575,6 +608,7 @@
 }
 
 .pc-name {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   padding-bottom: 2px;
@@ -584,13 +618,19 @@
 }
 
 /* 6px status dot: warn = follow-up due/overdue, accent = requires review.
-   Carries a title so color is never the sole carrier (spec §3.1). */
+   Carries a title so color is never the sole carrier (spec §3.1). The footer
+   copy is canonical; the name-row copy appears only in compact density, where
+   the footer is hidden (spec §2.5 keeps "name + dot"). */
 .pc-dot {
   flex: none;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: transparent;
+}
+
+.pc-dot-compact {
+  display: none;
 }
 
 .pc-dot[data-hot="warn"] {
@@ -634,6 +674,7 @@
   gap: var(--space-2);
   row-gap: var(--space-1);
   min-width: 0;
+  min-height: 28px;
 }
 
 .pc-badges .badge {
@@ -732,7 +773,9 @@
 }
 
 /* ===== Density (spec §2.5) =====
-   ≥0.8 = full 64px cards; <0.8 = 40px name + dot only (meta/foot hidden). */
+   ≥0.75 = full cards; <0.75 = 40px name + stage tag + dot (meta/foot
+   hidden). The name-row dot is the compact copy so the hot signal survives
+   when the footer is hidden. */
 .canvas-screen.density-compact .prospect-card {
   min-height: 40px;
   padding: var(--space-3);
@@ -741,6 +784,10 @@
 .canvas-screen.density-compact .pc-meta,
 .canvas-screen.density-compact .pc-foot {
   display: none;
+}
+
+.canvas-screen.density-compact .pc-dot-compact {
+  display: block;
 }
 
 /* ===== Zoom control cluster (spec §2.2) ===== */
@@ -1213,12 +1260,6 @@
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-2);
-}
-
-.region-name {
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--color-text);
 }
 
 .region-hint {
@@ -1737,7 +1778,7 @@
 @media (max-width: 1023px) {
   .canvas-toolbar {
     align-items: stretch;
-    gap: var(--space-2);
+    gap: var(--space-3);
     padding: var(--space-2) var(--space-3);
   }
 
@@ -1761,8 +1802,8 @@
   /* Chips wrap instead of scrolling — every active filter stays visible. */
   .canvas-toolbar .filter-summary {
     flex: 1 1 100%;
-    padding-top: 0;
-    padding-bottom: 2px;
+    margin: 0 calc(var(--space-3) * -1);
+    padding: var(--space-3);
   }
 
   .filter-pill {
@@ -1771,6 +1812,14 @@
 
   .filter-pill-text {
     max-width: 62vw;
+  }
+
+  /* Clear actions may wrap onto their own line; drop the divider there so it
+     never hangs at the start of a row. */
+  .filter-pill + .filter-pill-clear {
+    margin-left: 0;
+    padding-left: var(--space-2);
+    border-left: 0;
   }
 
   /* Filters + Add share the action row; chips follow. */
@@ -2125,7 +2174,8 @@ input[type="file"]::file-selector-button {
 
 @media (min-width: 768px) {
   .sidenav-head {
-    height: calc(var(--control-h-md) + var(--space-3));
+    /* 52px row + the toolbar's 1px bottom border: the two border lines meet. */
+    height: calc(var(--control-h-md) + var(--space-4) + 1px);
     padding: 0 var(--space-3);
   }
 }
@@ -2136,4 +2186,24 @@ input[type="file"]::file-selector-button {
 .panel.panel-scrolled .message-head,
 .panel.panel-scrolled .panel-body > .panel-heading {
   box-shadow: var(--shadow-1);
+}
+
+
+/* Stage tag lives in the card's top-right corner: a compact outlined label,
+   not a second filled pill. */
+.pc-name-row .badge.pc-stage-tag {
+  flex: 0 0 auto;
+  max-width: 48%;
+  height: 20px;
+  padding: 2px 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: transparent;
+  border-color: currentColor;
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-transform: uppercase;
 }
