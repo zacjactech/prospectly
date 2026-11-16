@@ -147,7 +147,7 @@ def test_rail_has_no_settings_tree(db_client) -> None:
     aside = html.split('<aside class="sidenav"', 1)[1].split("</aside>", 1)[0]
     assert "/settings/" not in aside
     assert "/merge/" not in aside
-    for label in ("Home", "Board", "Outreach", "Status", "Shortcuts", "Sign out"):
+    for label in ("Home", "Board", "Messages", "Status", "Shortcuts", "Sign out"):
         assert label in aside
 
 
@@ -271,8 +271,10 @@ def test_filters_panel_and_stage_lens(db_client) -> None:
     assert page.status_code == 200
     assert 'data-panel-href="/prospects/filters?stage=researched&amp;q=berlin"' in page.text
     assert 'data-zone="researched"' in page.text
-    # Lens: only the matching zone renders, with the named clear chip.
-    assert 'data-zone="new"' not in page.text
+    # Phase 1.3: the full lane structure stays visible; the lens dims the rest.
+    assert 'data-zone="new"' in page.text
+    assert "board-lens" in page.text
+    assert "lens-match" in page.text
     assert "Show all zones" in page.text
 
     fragment = client.get(

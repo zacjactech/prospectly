@@ -11,7 +11,8 @@
 
 {% for zone in band.zones %}
 {% set zcards = zone_cards.get(zone.key, []) %}
-<section class="canvas-zone" data-zone="{{ zone.key }}"
+{% set is_lens = lens_stage and lens_stage in zone.stages %}
+<section class="canvas-zone{% if is_lens %} lens-match{% endif %}" data-zone="{{ zone.key }}"
          data-stages="{{ zone.stages|join(' ') }}"
          data-band="{{ band.key }}"
          data-drop-stage="{{ zone.stages[0] }}"

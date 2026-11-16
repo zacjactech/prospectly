@@ -214,17 +214,11 @@ def _follow_up_rel(due: datetime | date | None, today: date) -> tuple[str, bool]
 def _board_context(db: Session, rows: list[Prospect], *, stage: str | None = None) -> dict:
     """Board-only template context: zones, cards, quick-action metadata.
 
-    ``stage`` is the URL stage lens (spec §V2.2): only the matching band/zone
-    is rendered, so a shared `?stage=` URL opens the single-zone view. The
-    "Show all zones" chip clears the lens.
+    ``stage`` is the URL stage lens (spec §V2.2): the full lane structure is
+    always rendered; ``lens_stage`` lets the template highlight the matching
+    zone and dim the others (Phase 1.3 — keep the lanes visible).
     """
     bands = BOARD_BANDS
-    if stage:
-        bands = [
-            {**band, "zones": [z for z in band["zones"] if stage in z["stages"]]}
-            for band in BOARD_BANDS
-            if any(stage in z["stages"] for z in band["zones"])
-        ]
     zone_cards: dict[str, list[Prospect]] = {k: [] for k in BOARD_ZONE_KEYS}
     for r in rows:
         key = "terminal" if r.stage in TERMINAL_STAGES else r.stage
@@ -283,6 +277,7 @@ def _board_context(db: Session, rows: list[Prospect], *, stage: str | None = Non
 
     return {
         "bands": bands,
+        "lens_stage": stage,
         "zone_cards": zone_cards,
         "zone_hot": zone_hot,
         "zone_sub_counts": zone_sub_counts,

@@ -9,13 +9,13 @@
   <meta name="csrf-token" content="{{ csrf_token(request) }}">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/static/css/app.css?v=25">
-  <link rel="stylesheet" href="/static/css/canvas.css?v=25">
+  <link rel="stylesheet" href="/static/css/app.css?v=26">
+  <link rel="stylesheet" href="/static/css/canvas.css?v=26">
   <script src="/static/js/htmx.min.js" defer></script>
-  <script src="/static/js/app.js?v=25" defer></script>
-  <script src="/static/js/panel.js?v=25" defer></script>
-  <script src="/static/js/canvas.js?v=25" defer></script>
-  <script src="/static/js/board.js?v=25" defer></script>
+  <script src="/static/js/app.js?v=26" defer></script>
+  <script src="/static/js/panel.js?v=26" defer></script>
+  <script src="/static/js/canvas.js?v=26" defer></script>
+  <script src="/static/js/board.js?v=26" defer></script>
 </head>
 {# Slim mobile header title, derived from the path so no content template
    needs a new block (spec §1 amendment 2026-11-11). #}
@@ -23,7 +23,7 @@
   {%- set p = request.url.path -%}
   {%- if p == '/' -%}Status
   {%- elif p == '/status' -%}Status
-  {%- elif p == '/outreach' -%}Outreach
+  {%- elif p == '/outreach' -%}Messages
   {%- elif p.startswith('/prospects') -%}Pipeline
   {%- elif p == '/merge/duplicates' -%}Merge
   {%- elif p.startswith('/settings/profile') -%}Profile
@@ -86,9 +86,9 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path><path d="M15 3v18"></path></svg>
             <span class="nav-text">Board</span>
           </button>
-          <button type="button" class="nav-link" data-canvas-view="outreach" title="Outreach region" aria-label="Fit the outreach region" data-tip="Outreach">
+          <button type="button" class="nav-link" data-canvas-view="outreach" title="Messages region" aria-label="Fit the messages region" data-tip="Messages">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>
-            <span class="nav-text">Outreach</span>
+            <span class="nav-text">Messages</span>
           </button>
           <a href="/status" class="nav-link{% if request.url.path == '/status' %} active{% endif %}" data-panel-href="/status" data-panel-width="560" title="Status" aria-label="Open the status card" data-tip="Status">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
@@ -136,10 +136,10 @@
               <tr><td><kbd>Enter</kbd></td><td>Open the highlighted board card</td></tr>
               <tr><td><kbd>m</kbd></td><td>Move-to stage menu for the highlighted card</td></tr>
               <tr><td><kbd>+</kbd> / <kbd>−</kbd></td><td>Zoom the canvas in / out</td></tr>
-              <tr><td><kbd>0</kbd> / <kbd>f</kbd></td><td>Reset zoom to 100% · fit the whole canvas</td></tr>
+              <tr><td><kbd>0</kbd> / <kbd>f</kbd></td><td>Reset zoom to 100% · fit the board to view</td></tr>
               <tr><td><kbd>g</kbd> then <kbd>h</kbd></td><td>Home — fit the whole canvas</td></tr>
               <tr><td><kbd>g</kbd> then <kbd>p</kbd></td><td>Fit the prospect board</td></tr>
-              <tr><td><kbd>g</kbd> then <kbd>o</kbd></td><td>Fit the outreach region</td></tr>
+              <tr><td><kbd>g</kbd> then <kbd>o</kbd></td><td>Fit the messages region</td></tr>
               <tr><td><kbd>g</kbd> then <kbd>s</kbd></td><td>Open the Status card</td></tr>
               <tr><td><kbd>Escape</kbd></td><td>Close panel, move menu, help or nav menu</td></tr>
             </tbody>

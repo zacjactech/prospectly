@@ -549,7 +549,7 @@ screenshots in gitignored `.ui-qa/phase-b/`):
 | 375 / 430 | Stacked flow; **119px toolbar**; setup cluster **2-column** (398px; board starts 657px); **68px cards with 12px gaps**, 12px setup gap; full card meta/status rows (mobile is never density-compact); no overflow/console errors |
 | 768 | Stacked flow; **111px toolbar**; setup 348px (board at 547px); 12px card/setup gaps; no overflow |
 | 1280 | One **49px** toolbar row (saved view hidden below 1280, available in Filters); board fit at 93% |
-| 1440 | One **49px** toolbar row; board fit at **100%**; Home fits the whole world at 60% with no wire text (wires only); `?stage=` hides setup/outreach/wires and focuses the single zone at 160% |
+| 1440 | One **49px** toolbar row; board fit at **100%**; Home fits the whole world at 60% with no wire text; `?stage=` keeps all 10 lanes and dims the non-matching ones (no >125% auto-zoom) |
 
 **Raw screenshots (gitignored):** `.ui-qa/phase-b/1440-filtered.png`,
 `1440-overview.png`, `1440-filters-panel.png`, `1440-lens.png`,
@@ -561,10 +561,11 @@ screenshots in gitignored `.ui-qa/phase-b/`):
 widths the setup cluster is a 2-column grid with **no wire notes**, saved
 views live only in the Filters panel, cards keep full meta/status (never
 density-compact), and the toolbar is 119px; first load fits the **board**
-(Home fits the whole world). **Wire annotations are removed entirely**
-(wires only); card/setup/outreach gaps are 12/16/12px to prevent crowded or
-overlapping cards. The stage lens hides setup/outreach/wires and fits the
-single zone at 160%.
+(Home fits the whole world). **Wire annotations and setup→pipeline connectors
+are removed**; only orthogonal stage-flow connectors remain. Card/setup/
+outreach gaps are 12/16/12px to prevent crowded or overlapping cards. The
+stage lens keeps every lane visible and dims the non-matching ones (no auto-
+zoom above 125%).
 
 **Accessibility evidence — 2026-11-16** (Playwright + axe-core 4.10 + Lighthouse):
 

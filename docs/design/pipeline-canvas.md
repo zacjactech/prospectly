@@ -21,12 +21,13 @@
 > views live in the contracted **360px Filters panel**; the toolbar is one
 > compact row (heading · Filters · chips · saved view · Add prospect). Card
 > height is 68px with 12px gaps; density stays full at board fit (floor 0.75).
-> Wire annotations are removed (wires only) and setup cards show title + state
-> only; card/setup/outreach gaps are 12/16/12px. `?stage=` renders a
-> single-zone lens with **Show all zones** (setup/outreach/wires hidden while
-> the lens is active, zone fitted at 160%). First load fits the **board**
-> (Home fits the whole world); phones use a 2-column setup grid and keep
-> saved views in the panel.
+> Wire annotations and setup→pipeline connectors are removed (only
+> orthogonal stage-flow connectors remain); setup cards show title + state
+> only. `?stage=` keeps every lane visible and dims the non-matching ones
+> (no auto-zoom above 125%). First load fits the **board width** with a
+> minimum 0.93 scale (pan instead of shrinking); selecting a card pans it
+> beside the drawer at 100–125% zoom. Phones use a 2-column setup grid and
+> keep saved views in the panel.
 > **Owner request 2026-11-16:** plain wheel zooms at the pointer and
 > Ctrl/Cmd+wheel pans (§2.2).
 
@@ -150,7 +151,7 @@ New app/static/js/panel.js; <div id="panel-root"> in base.html. Panels = modal d
 |---|---|
 | / dashboard | conventional page (kept; phase cards link into board) |
 | /prospects | CANVAS stage board (replaces table) |
-| /prospects?filters… | canvas filtered; stage= = lens (single zone + "Show all zones" chip); saved views unchanged |
+| /prospects?filters… | canvas filtered; stage= = lens (matching lane highlighted, other lanes dimmed + "Show all zones" chip); saved views unchanged |
 | /prospects/{id} direct GET | conventional page fallback (restructured detail kept) |
 | /prospects/{id} card click | panel 480 |
 | /prospects/new, /{id}/edit | panel 420 |

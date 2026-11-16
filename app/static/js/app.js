@@ -286,7 +286,7 @@
         if (window.PlCanvas) window.PlCanvas.fit();
       } else if (target === "p") {
         e.preventDefault();
-        if (window.PlCanvas) window.PlCanvas.fitBoard();
+        if (window.PlCanvas) window.PlCanvas.fitBoardReadable();
       } else if (target === "o") {
         e.preventDefault();
         if (window.PlCanvas) window.PlCanvas.fitOutreach();

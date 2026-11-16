@@ -4,13 +4,13 @@
    sends; the user confirms). #}
 <div class="region-label" data-region-label="outreach">
   <span class="region-chip" aria-hidden="true">MSG</span>
-  <span class="region-name">Outreach</span>
+  <span class="region-name">Messages</span>
   <span class="region-hint">{{ outreach_total }} in flight</span>
 </div>
 
 <div class="canvas-region outreach-region" data-region="outreach" id="outreach-root"
      data-wire-source="board" data-wire-label="messages in flight"
-     aria-label="Outreach region">
+     aria-label="Messages region">
   {% for status, label, hint in outreach_zones %}
   <section class="msg-zone" data-msg-zone="{{ status }}">
     <header class="msg-zone-head">

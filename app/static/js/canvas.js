@@ -15,6 +15,12 @@
   var MIN_ZOOM = 0.5;
   var MAX_ZOOM = 2;
   var ZOOM_STEP = 1.25;
+  /* Phase 1.1/1.2: never shrink below the readable floor (card name 13px →
+     ≥12px); pan instead of shrinking. Card focus keeps the zoom, clamped to
+     100–125% so the card is never re-framed unpredictably. */
+  var MIN_READABLE = 0.93;
+  var MIN_FOCUS_ZOOM = 1;
+  var MAX_FOCUS_ZOOM = 1.25;
   var DENSITY_FLOOR = 0.75; // spec §2.5, amended 2026-11-16: board fit at small laptops lands here
   var STORE_KEY = "pl.canvas.v1";
   var STORE_VERSION = 1;
@@ -32,7 +38,6 @@
   var panY = 0;
   var wirePending = false;
   var saveTimer = null;
-  var setupOrigin = { x: 0, y: 0 }; // world origin of .setup-cluster
 
   /* ----- storage (spec §2.6) ----- */
 
@@ -213,11 +218,11 @@
     zoomCenter(1 / zoom); // anchor at viewport center → exactly 100%
   }
 
-  /* Fit just the stage board (rail "Board") — the board's wrapper has no
-     layout box of its own because zones are absolutely positioned. */
-  function fitBoard(maxZoom) {
+  /* Bounds of the stage board (zones + band labels): the board's wrapper has
+     no layout box of its own because zones are absolutely positioned. */
+  function boardBounds() {
     var parts = zones.concat(labels);
-    if (!parts.length) return;
+    if (!parts.length) return null;
     var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     parts.forEach(function (el) {
       minX = Math.min(minX, el.offsetLeft);
@@ -225,11 +230,58 @@
       maxX = Math.max(maxX, el.offsetLeft + el.offsetWidth);
       maxY = Math.max(maxY, el.offsetTop + el.offsetHeight);
     });
-    fitElement(
-      { offsetLeft: minX, offsetTop: minY, offsetWidth: maxX - minX, offsetHeight: maxY - minY },
-      56,
-      maxZoom
+    return {
+      offsetLeft: minX,
+      offsetTop: minY,
+      offsetWidth: maxX - minX,
+      offsetHeight: maxY - minY,
+    };
+  }
+
+  /* Fit just the stage board (rail "Board" / g p). */
+  function fitBoard(maxZoom) {
+    var b = boardBounds();
+    if (b) fitElement(b, 56, maxZoom);
+  }
+
+  /* Phase 1.1 — fit-to-view: fill the viewport width from the top-left, but
+     never shrink below the readable floor. If the board is taller/wider than
+     the viewport at that scale, it stays at the floor and the user pans. */
+  function fitBoardReadable() {
+    var b = boardBounds();
+    if (!b || !vp) return;
+    var rect = vp.getBoundingClientRect();
+    if (rect.width < 10 || rect.height < 10) return;
+    var z = Math.min(
+      MAX_ZOOM,
+      Math.max((rect.width - FIT_PAD * 2) / b.offsetWidth, MIN_READABLE)
     );
+    z = clampZoom(z);
+    /* Width-first: the board uses the full viewport width; if it is taller
+       than the viewport at that scale the user pans vertically. */
+    setView(z, FIT_PAD - b.offsetLeft * z, FIT_PAD - b.offsetTop * z);
+  }
+
+  /* Phase 1.2 — selecting a card pans (never zooms) so the card is centered
+     in the visible area beside the open drawer. Zoom is kept and only clamped
+     to 100–125%. */
+  function focusCard(card) {
+    if (!vp || !card) return;
+    var rect = vp.getBoundingClientRect();
+    if (rect.width < 10 || rect.height < 10) return;
+    var r = card.getBoundingClientRect();
+    var wx = (r.left + r.width / 2 - rect.left - panX) / zoom;
+    var wy = (r.top + r.height / 2 - rect.top - panY) / zoom;
+    var z = Math.min(MAX_FOCUS_ZOOM, Math.max(MIN_FOCUS_ZOOM, zoom));
+    var drawerW = 480;
+    var panels = document.querySelectorAll(".panel");
+    var panel = panels.length ? panels[panels.length - 1] : null;
+    if (panel) {
+      var pw = panel.getBoundingClientRect().width;
+      if (pw > 0) drawerW = pw;
+    }
+    var avail = Math.max(280, rect.width - drawerW);
+    setView(z, rect.left + avail / 2 - wx * z, rect.top + rect.height / 2 - wy * z);
   }
 
   function fitOutreach() {
@@ -341,7 +393,6 @@
     requestAnimationFrame(function () {
       wirePending = false;
       drawWires();
-      drawSystemWires();
     });
   }
 
@@ -371,226 +422,40 @@
     return d + " L" + last.x + " " + last.y;
   }
 
-  function wire(g, pts) {
-    var path = document.createElementNS(SVG_NS, "path");
-    path.setAttribute("d", busPath(pts, 10));
-    path.setAttribute("class", "system-wire");
-    path.setAttribute("marker-end", "url(#pl-wire-arrow)");
-    g.appendChild(path);
-  }
-
-  function midY(card) {
-    /* Cards live inside .setup-cluster (their offsetParent), so world
-       coordinates need the cluster's origin added back. */
-    var y = setupOrigin.y + card.offsetTop;
-    return y + Math.min(card.offsetHeight / 2, 36);
-  }
-
-  function cardBox(card) {
-    return {
-      x: setupOrigin.x + card.offsetLeft,
-      y: setupOrigin.y + card.offsetTop,
-      w: card.offsetWidth,
-      h: card.offsetHeight,
-    };
-  }
-
-  function drawSystemWires() {
-    var g = world ? world.querySelector("[data-system-wires]") : null;
-    if (!g) return;
-    while (g.firstChild) g.removeChild(g.firstChild);
-
-    var setup = world.querySelector('[data-region="setup"]');
-    var boardLabel = world.querySelector('[data-region-label="board"]');
-    if (!setup || !boardLabel || !zones.length) return;
-    setupOrigin = { x: setup.offsetLeft, y: setup.offsetTop };
-    var clusterBottom = setupOrigin.y + setup.offsetHeight;
-
-    /* First zone row's top edge — the drops land there, past the region and
-       band label rows (both sit left of every drop x, see dropX below). */
-    var zoneTop = zones.reduce(function (m, z) {
-      return Math.min(m, z.offsetTop);
-    }, Infinity);
-    var busY = boardLabel.offsetTop - 6; // trunk, just above the board label
-    var boardRight = zones.reduce(function (m, z) {
-      return Math.max(m, z.offsetLeft + z.offsetWidth);
-    }, 0);
-
-    var toBoard = Array.prototype.filter.call(
-      world.querySelectorAll(".setup-card[data-wire-target]"),
-      function (c) {
-        return c.getAttribute("data-wire-target") === "board";
-      }
-    );
-
-    /* One bus per grid column: every card of a column leaves through the same
-       20px gap (or open space right of the last column), so six wires become
-       three verticals instead of six near-parallel lines. */
-    var cols = [];
-    toBoard.forEach(function (card) {
-      var col = null;
-      for (var i = 0; i < cols.length; i++) {
-        if (cols[i].left === card.offsetLeft) col = cols[i];
-      }
-      if (!col) {
-        col = { left: card.offsetLeft, cards: [] };
-        cols.push(col);
-      }
-      col.cards.push(card);
-    });
-
-    /* Per-column trunk (spec §V2.1). Column pitch is 244px (232 card + 12
-       gap) and every bus sits 6px right of its column, so:
-       - the drop stops 40px short of the *next* bus — otherwise its trunk
-         would run through the next column's corner and the two would merge;
-       - the label centres in the free window between this bus and the next,
-         which is also the only place a label can sit without a bus vertical
-         crossing its text (buses run all the way down to the trunk);
-       - drops stay inside a zone of the first row (zone geometry is fixed in
-         CSS: 264px wide, 48px gap), clear of the region label at x < 246.
-       The last column has no neighbour, so it gets the full 246px run. */
-    var RUN = 246;
-    var LAST_RUN = 246;
-    var minDrop = Math.max(300, boardLabel.offsetWidth + 24);
-
-    var buses = cols.map(function (col) {
-      var box = cardBox(col.cards[0]);
-      return box.x + box.w + 6;
-    });
-
-    var routes = cols.map(function (col, i) {
-      var busX = buses[i];
-      var dropX = i + 1 < buses.length ? Math.min(busX + RUN, buses[i + 1] - 40) : busX + LAST_RUN;
-      if (dropX < minDrop) dropX = minDrop;
-      if (dropX > boardRight - 40) dropX = boardRight - 40;
-      var labelX = (busX + (i + 1 < buses.length ? buses[i + 1] : busX + 256)) / 2;
-      return { col: col, busX: busX, dropX: dropX, labelX: labelX };
-    });
-
-    routes.forEach(function (r) {
-      r.col.cards.forEach(function (card, k) {
-        var box = cardBox(card);
-        var sy = midY(card);
-        /* Two label rows stacked above the trunk: 0.5-zoom glyphs are ~20px
-           tall in world units, so 35px of baseline separation keeps them
-           clear of each other, of the card→card labels above and of the
-           trunk below. */
-        var labelY = k === 0 ? busY - 26 : busY - 61;
-        wire(
-          g,
-          [
-            { x: box.x + box.w, y: sy },
-            { x: r.busX, y: sy },
-            { x: r.busX, y: busY },
-            { x: r.dropX, y: busY },
-            { x: r.dropX, y: zoneTop },
-          ],
-          card.getAttribute("data-wire-label"),
-          { x: r.labelX, y: labelY }
-        );
-      });
-    });
-
-    /* Card → card (spec §V2.3: Usage → Providers, General → Profile). Both
-       must reach a card in a *different* column, and both column gaps are
-       already occupied by board buses, so both wires leave through the
-       corridor under the cluster and climb outside its right edge — the only
-       vertical space no card occupies. The outer wire takes the upper lane,
-       so the two lanes never intersect; descents land on the target's top
-       edge. Labels ride the exit segment in the corridor, where no bus
-       vertical reaches. */
-    var laneNear = setupOrigin.y - 6;
-    var laneFar = setupOrigin.y - 20;
-    var clusterRight = setupOrigin.x + setup.offsetWidth;
-    Array.prototype.forEach.call(
-      world.querySelectorAll(".setup-card[data-wire-target^='card:']"),
-      function (card, idx) {
-        var target = world.querySelector(
-          '[data-setup-card="' + card.getAttribute("data-wire-target").slice(5) + '"]'
-        );
-        if (!target) return;
-        var box = cardBox(card);
-        var tgt = cardBox(target);
-        var lane = idx === 0 ? laneNear : laneFar;
-        var vx = clusterRight + 40 + idx * 24;
-        var exitY = clusterBottom + 20 + idx * 48;
-        var sx = box.x + box.w / 2;
-        var tx = tgt.x + tgt.w / 2;
-        wire(
-          g,
-          [
-            { x: sx, y: box.y + box.h },
-            { x: sx, y: exitY },
-            { x: vx, y: exitY },
-            { x: vx, y: lane },
-            { x: tx, y: lane },
-            { x: tx, y: tgt.y },
-          ],
-          card.getAttribute("data-wire-label"),
-          { x: sx + 60, y: exitY + 29 }
-        );
-      }
-    );
-
-    /* Board (02 OUTREACH band) → outreach region: out of the band's right
-       edge, through the empty gutter right of the board, into the region. */
-    var outreach = world.querySelector('[data-region="outreach"]');
-    if (outreach) {
-      var bandZones = zones.filter(function (z) {
-        return z.getAttribute("data-band") === "02";
-      });
-      var src = (bandZones.length ? bandZones : zones).reduce(function (m, z) {
-        return z.offsetLeft + z.offsetWidth > m.offsetLeft + m.offsetWidth ? z : m;
-      });
-      var sx = src.offsetLeft + src.offsetWidth;
-      var sy = src.offsetTop + Math.min(src.offsetHeight / 2, 40);
-      var ox = outreach.offsetLeft;
-      var oy = outreach.offsetTop + 60;
-      var gutter = ox > boardRight ? boardRight + (ox - boardRight) / 2 : ox - 40;
-      wire(
-        g,
-        [
-          { x: sx, y: sy },
-          { x: gutter, y: sy },
-          { x: gutter, y: oy },
-          { x: ox, y: oy },
-        ],
-        outreach.getAttribute("data-wire-label") || "messages in flight",
-        { x: (sx + gutter) / 2, y: sy - 8 }
-      );
-    }
-  }
-
+  /* Stage flow connectors (Phase 1.4): orthogonal only. Within a lane the
+     wire leaves the right edge and enters the next left edge at mid-height;
+     between lanes it leaves the bottom edge, travels through the empty gap,
+     and enters the next top edge. It never crosses a node. */
   function drawWires() {
     if (!wireGroup) return;
     while (wireGroup.firstChild) wireGroup.removeChild(wireGroup.firstChild);
     for (var i = 0; i < zones.length - 1; i++) {
       var a = zones[i];
       var b = zones[i + 1];
-      var line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      var x1, y1, x2, y2;
+      var pts;
       if (a.getAttribute("data-band") === b.getAttribute("data-band")) {
-        /* Same band row: straight right-mid → left-mid (spec §2.3). */
-        x1 = a.offsetLeft + a.offsetWidth;
-        y1 = a.offsetTop + a.offsetHeight / 2;
-        x2 = b.offsetLeft;
-        y2 = b.offsetTop + b.offsetHeight / 2;
+        pts = [
+          { x: a.offsetLeft + a.offsetWidth, y: a.offsetTop + a.offsetHeight / 2 },
+          { x: b.offsetLeft, y: b.offsetTop + b.offsetHeight / 2 },
+        ];
       } else {
-        /* Band transition: bottom-mid → top-mid through the empty gap
-           between rows. The literal right→left reading is geometrically
-           unavoidable clipping under stacked rows; order/arrow semantics
-           are identical (decision recorded in the Phase A report). */
-        x1 = a.offsetLeft + a.offsetWidth / 2;
-        y1 = a.offsetTop + a.offsetHeight;
-        x2 = b.offsetLeft + b.offsetWidth / 2;
-        y2 = b.offsetTop;
+        var ax = a.offsetLeft + a.offsetWidth / 2;
+        var bx = b.offsetLeft + b.offsetWidth / 2;
+        var aBottom = a.offsetTop + a.offsetHeight;
+        var bTop = b.offsetTop;
+        var midY = aBottom + (bTop - aBottom) / 2;
+        pts = [
+          { x: ax, y: aBottom },
+          { x: ax, y: midY },
+          { x: bx, y: midY },
+          { x: bx, y: bTop },
+        ];
       }
-      line.setAttribute("x1", x1);
-      line.setAttribute("y1", y1);
-      line.setAttribute("x2", x2);
-      line.setAttribute("y2", y2);
-      line.setAttribute("marker-end", "url(#pl-wire-arrow)");
-      wireGroup.appendChild(line);
+      var path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("d", busPath(pts, 10));
+      path.setAttribute("class", "flow-wire");
+      path.setAttribute("marker-end", "url(#pl-wire-arrow)");
+      wireGroup.appendChild(path);
     }
     var b2 = contentBounds();
     if (b2 && vp) {
@@ -817,7 +682,7 @@
       resetZoom();
     } else if (k === "f") {
       e.preventDefault();
-      fit();
+      fitBoardReadable();
     }
   });
 
@@ -841,9 +706,9 @@
     var b = boardState();
     var lensStage = new URLSearchParams(window.location.search).get("stage");
     if (lensStage) {
-      /* A lens is the whole surface: allow up to 1.6× so one zone does not
-         float in a mostly empty viewport (normal board fit caps at 1.0). */
-      fitBoard(1.6);
+      /* Filters leave one/few cards: keep the lane structure (dimmed
+         elsewhere) and never auto-zoom past 125% (Phase 1.3). */
+      fitBoard(1.25);
     } else if (
       typeof b.zoom === "number" &&
       typeof b.panX === "number" &&
@@ -856,12 +721,10 @@
       updateZoomReadout();
       updateDensity();
     } else {
-      /* Opening view = the full stage board (§6.1: "full board … fit on
-         load"). Fitting the whole world lands at 54–62% on laptops, which
-         shrinks card copy into microtext; Home (rail / g h) still fits the
-         entire world for orientation. /outreach opens on its own region. */
+      /* Phase 1.1 — readable fit-to-view (min 0.92, pan instead of shrink).
+         /outreach opens on its own message region. */
       if (window.location.pathname === "/outreach") fitOutreach();
-      else fitBoard();
+      else fitBoardReadable();
     }
 
     vp.addEventListener("pointerdown", onPointerDown);
@@ -876,7 +739,7 @@
     if (viewBtn && vp) {
       var what = viewBtn.getAttribute("data-canvas-view");
       if (what === "world") fit();
-      else if (what === "board") fitBoard();
+      else if (what === "board") fitBoardReadable();
       else if (what === "outreach") fitOutreach();
       return;
     }
@@ -886,7 +749,7 @@
     if (action === "in") zoomCenter(ZOOM_STEP);
     else if (action === "out") zoomCenter(1 / ZOOM_STEP);
     else if (action === "reset") resetZoom();
-    else if (action === "fit") fit();
+    else if (action === "fit") fitBoardReadable();
   });
 
   /* Board swaps in place (HTMX): re-init against the fresh DOM. */
@@ -901,7 +764,9 @@
     patchBoard: patchBoard,
     fit: fit,
     fitBoard: fitBoard,
+    fitBoardReadable: fitBoardReadable,
     fitOutreach: fitOutreach,
+    focusCard: focusCard,
     zoom: function () {
       return zoom;
     },

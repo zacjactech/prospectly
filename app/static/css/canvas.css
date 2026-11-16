@@ -87,15 +87,15 @@
   max-width: 180px;
 }
 
-/* Stage lens (?stage=): focus the one zone; setup/outreach/wires would be
-   cropped context at this zoom, so they leave the surface entirely until
-   "Show all zones" clears the lens. */
-.board-lens .setup-cluster,
-.board-lens [data-region-label="setup"],
-.board-lens #outreach-root,
-.board-lens [data-region-label="outreach"],
-.board-lens .canvas-wires {
-  display: none;
+/* Stage lens (?stage=): keep every lane visible so the pipeline structure
+   survives a narrow filter; dim the lanes outside the lens instead of
+   hiding them (Phase 1.3). */
+.board-lens .canvas-zone:not(.lens-match) {
+  opacity: 0.32;
+}
+
+.board-lens .canvas-zone:not(.lens-match):hover {
+  opacity: 0.7;
 }
 
 /* ===== Active-filter summary (base spec §1.2) =====
@@ -252,7 +252,8 @@
   pointer-events: none;
 }
 
-.canvas-wires line {
+.canvas-wires .flow-wire {
+  fill: none;
   stroke: var(--color-border);
   stroke-width: 1.5px;
 }
@@ -690,8 +691,9 @@
   right: var(--sp-3);
   bottom: var(--sp-3);
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
   padding: 4px;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
@@ -703,8 +705,8 @@
 .canvas-controls button {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   background: transparent;
   border: 1px solid transparent;
@@ -715,6 +717,12 @@
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.canvas-controls button[data-canvas-zoom] {
+  width: auto;
+  min-width: 48px;
+  padding: 0 6px;
 }
 
 .canvas-controls button:hover {
@@ -1215,15 +1223,6 @@
 .msg-card-actions .btn {
   min-height: 28px;
   padding: 0 10px;
-}
-
-/* --- System wires (fixed, read-only) --- */
-.system-wire {
-  fill: none;
-  stroke: var(--color-border-strong);
-  stroke-width: 1.2;
-  stroke-dasharray: 4 3;
-  opacity: 0.55;
 }
 
 /* ===== Setup-card panel: mini-pipeline (spec §V2.3) =====

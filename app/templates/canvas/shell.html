@@ -11,7 +11,7 @@
 <div class="canvas-screen density-full{% if current_stage %} board-lens{% endif %}" id="canvas-screen">
   <div class="canvas-toolbar">
     {# Accessible page heading (spec §1.2): the canvas has no other h1. #}
-    <h1>{% if request.url.path == '/outreach' %}Outreach{% else %}Pipeline{% endif %}</h1>
+    <h1>{% if request.url.path == '/outreach' %}Messages{% else %}Pipeline{% endif %}</h1>
     <a class="btn filter-open" href="{{ filters_href }}" data-panel-href="{{ filters_href }}" data-panel-width="360" aria-label="Open filters{% if active_filters %} ({{ active_filters|length }} active){% endif %}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z"></path></svg>
       <span>Filters</span>
@@ -91,7 +91,7 @@
       <button type="button" data-canvas="out" aria-label="Zoom out">−</button>
       <button type="button" data-canvas="reset" aria-label="Reset zoom to 100 percent (currently 100%)" data-canvas-zoom>100%</button>
       <button type="button" data-canvas="in" aria-label="Zoom in">+</button>
-      <button type="button" data-canvas="fit" aria-label="Fit the whole canvas to the viewport">
+      <button type="button" data-canvas="fit" aria-label="Fit the board to view">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path></svg>
       </button>
     </div>

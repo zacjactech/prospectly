@@ -508,6 +508,13 @@
       width: 480,
       invoker: card,
     });
+    /* Phase 1.2 — pan (never zoom) so the selected card stays fully visible
+       beside the drawer. */
+    if (window.PlCanvas && window.PlCanvas.focusCard) {
+      requestAnimationFrame(function () {
+        window.PlCanvas.focusCard(card);
+      });
+    }
   });
 
   document.addEventListener("pl:panel-closed", function () {
