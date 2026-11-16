@@ -32,12 +32,21 @@
 > Ctrl/Cmd+wheel pans (§2.2).
 >
 > **Phase 5–6 UX (2026-11-16):** detail/settings/message drawers share 560px
-> with a sticky header; only Import keeps numbered steps; tables scroll
-> horizontally; comma-separated fields get chip previews; usage caps are
-> progress bars; the duplicates feature is named **Duplicates** everywhere.
-> Links are blue (`#7aa2ff`), filter/phase/region chips are neutral, and
-> destructive buttons are outlined by default — orange is reserved for the
-> primary CTA and selected states. Body/micro text floor is 12/11px.
+> with a sticky header; only Import keeps numbered steps; comma-separated
+> fields get chip previews; usage caps are progress bars; the duplicates
+> feature is named **Duplicates** everywhere. Links are blue (`#7aa2ff`),
+> filter/phase/region chips are neutral, and destructive buttons are outlined
+> by default — orange is reserved for the primary CTA and selected states.
+> Body/micro text floor is 12/11px.
+>
+> **Settings-panel content grammar (2026-11-16):** setup drawers use one
+> pattern — inset 12px-radius cards, a small section head, and
+> hairline-separated rows. Wide status data leaves the table: Providers is a
+> grouped row list (role heading, provider, configured/enabled flags, one
+> used-today ratio, error only when present); Saved Views is a row list
+> (name/date, filter chips, Load/delete) with a compact create callout; Profile
+> is two cards (fields form, Discovery) with the prerequisite stated once.
+> Tables remain only where they fit (General daily caps, Retention).
 
 Status: implementation-ready · saved from ui-design session ses_e33218438ffeMMCNavEpP5XSif
 Orchestrator adjustments applied: (1) rail group dividers = plain hairlines with title tooltips (no clipped text); (2) `g s` → /settings/profile (no /settings index exists); (3) engineer must verify CSRF header acceptance before relying on X-CSRF-Token.

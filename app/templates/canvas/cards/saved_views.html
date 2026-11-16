@@ -1,63 +1,56 @@
 {# Saved views card panel body (spec §V2.3): apply/review saved filters.
    Creating a view captures the current board filters in the Filters panel —
-   no raw JSON textarea. Filters are shown as chips per row. #}
+   no raw JSON textarea. Views render as rows (name, date, filter chips,
+   actions) because a 4-column table cannot breathe inside the 560px drawer. #}
 <h2 class="panel-heading" data-panel-title>Saved Views</h2>
 
 {% if error %}
 <div class="flash error">{{ error }}</div>
 {% endif %}
 
-<section class="card">
-  <h3>Save current filters as view</h3>
-  <p class="muted small">“Save this view” lives in the Filters panel.</p>
+<section class="card panel-callout">
+  <div class="panel-callout-text">
+    <h3>Create a view</h3>
+    <p class="muted small">Save the current board filters from the Filters panel.</p>
+  </div>
   <a href="/prospects/filters" class="btn" data-panel-href="/prospects/filters" data-panel-width="360">Open Filters</a>
 </section>
 
 <section class="card">
-  <h3>Named views{% if views %} ({{ views|length }}){% endif %}</h3>
   {% if views %}
-  <p class="muted small">Load a view to apply its filters on the prospects board.</p>
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Filters</th>
-        <th>Created</th>
-        <th class="text-right">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for view in views %}
-      <tr>
-        <td><strong>{{ view.name }}</strong></td>
-        <td class="saved-view-filters">
+  <ul class="view-list">
+    {% for view in views %}
+    <li class="view-row">
+      <div class="view-main">
+        <div class="view-title">
+          <strong>{{ view.name }}</strong>
+          <span class="muted small nowrap">{{ view.created_at.strftime('%d %b %Y, %H:%M') }}</span>
+        </div>
+        <div class="view-filters">
           {% if view.filters %}
           {% for key, value in view.filters.items() %}
-          {% if value %}
-          <span class="badge muted">{{ key|replace('_',' ') }}: {{ value }}</span>
-          {% endif %}
+          {% if value %}<span class="badge muted">{{ key|replace('_',' ') }}: {{ value }}</span>{% endif %}
           {% endfor %}
           {% else %}
           <span class="empty-value">-</span>
           {% endif %}
-        </td>
-        <td class="muted small nowrap">{{ view.created_at.strftime('%d %b %Y, %H:%M') }}</td>
-        <td class="text-right small nowrap">
-          {% if view.filters %}
-          <a class="btn primary small" href="/prospects/views/{{ view.id }}/apply">Load</a>
-          {% endif %}
-          <form method="post" action="/settings/saved-views/{{ view.id }}/delete" class="form-inline">
-            {{ csrf_field() }}
-            <button class="icon-btn danger" type="submit" data-confirm="Delete this saved view?"
-                    title="Delete {{ view.name }}" aria-label="Delete saved view {{ view.name }}">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6M14 11v6"></path></svg>
-            </button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+        </div>
+      </div>
+      <div class="view-actions">
+        {% if view.filters %}
+        <a class="btn small" href="/prospects/views/{{ view.id }}/apply">Load</a>
+        {% endif %}
+        <form method="post" action="/settings/saved-views/{{ view.id }}/delete" class="form-inline">
+          {{ csrf_field() }}
+          <button class="icon-btn danger" type="submit" data-confirm="Delete this saved view?"
+                  title="Delete {{ view.name }}" aria-label="Delete saved view {{ view.name }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6M14 11v6"></path></svg>
+          </button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
   {% else %}
   <p class="muted small">No saved views yet.</p>
   {% endif %}

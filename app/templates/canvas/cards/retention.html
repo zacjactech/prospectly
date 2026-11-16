@@ -2,13 +2,13 @@
    list. The form stays whole because the threshold and Run sweep are one POST;
    per-row Clear flag actions live in the table. #}
 <h2 class="panel-heading" data-panel-title>Retention Sweep</h2>
-<p class="muted small">Flag prospects inactive for more than N months for review.</p>
 
 {% if error %}
 <div class="flash error">{{ error }}</div>
 {% endif %}
 
 <section class="card">
+  <h3>Sweep threshold</h3>
   <p class="muted small">Prospects inactive for more than the threshold will be tagged <code>retention-review</code>.</p>
   <form method="post" action="/settings/retention/sweep">
     {{ csrf_field() }}

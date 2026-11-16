@@ -676,3 +676,24 @@ and label-centre/stranded-action on setup cards.
   header). Retention's flagged-copy now says "longer than the current
   threshold" instead of the stale 12 months.
 - Gate: 375 tests, ruff, format and mypy clean.
+
+## Setup-panel layout + copy pass — 2026-11-16
+
+- Providers: replaced the four stacked 6/7-column tables with one grouped row
+  list (Discovery / Search / Website fetch / AI drafts). Each row is provider
+  name + configured/enabled flags + one `used today / cap` ratio; last failure
+  only renders when present. Keys/caps note and Advanced moved to a card
+  footer that applies to every group. No horizontal scrolling at 560/390.
+- Saved Views: compact create callout plus a row list (name + created date,
+  filter chips, Load/delete). Removed the "Named views" heading and "Load a
+  view…" helper; per-row Load is a secondary button.
+- Profile: one fields card + one Discovery card; removed the duplicate
+  "Finish your profile" banner and panel subtitle. The prerequisite is stated
+  once beside the disabled Run discovery action. Discovery jobs render as
+  compact run rows instead of a 5-column table.
+- General: Follow-ups + Vocabulary merged into one Defaults card with Save/
+  Cancel inside it; daily caps table drops the duplicated cap column and shows
+  `used / cap` once; Brave reads "unmetered" instead of "key set".
+- Retention: removed the duplicate panel subtitle and added a Sweep threshold
+  heading; flagged table unchanged.
+- Browser-verified at 1440 and 390; 375 tests, ruff, format and mypy clean.
