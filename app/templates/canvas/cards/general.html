@@ -1,119 +1,88 @@
-{# General card panel body (spec §V2.3): vocabulary → defaults → daily caps
-   → backup. The vocabulary + defaults fields are one POST — the form stays
-   whole inside step 01 (a <form> cannot be split across sections). #}
+{# General settings panel: follow-ups + vocabulary in one POST, then daily
+   caps, then backup. No step numbering — these are parallel sections. #}
 <h2 class="panel-heading" data-panel-title>General settings</h2>
-<p class="muted small">Defaults, vocabulary, daily caps, and backup.</p>
+<p class="muted small">Follow-ups, vocabulary, daily caps, and backup.</p>
 
 {% if error %}
 <div class="flash error">{{ error }}</div>
 {% endif %}
 
-<div class="mini-pipeline">
-  <section class="flow-step">
-    <header class="flow-step-head">
-      <span class="flow-step-num" aria-hidden="true">01</span>
-      <h3>Vocabulary</h3>
-    </header>
-    <div class="flow-step-body">
-      <section class="card">
-        <h3>Defaults</h3>
-        <form method="post" action="/settings/general">
-          {{ csrf_field() }}
-          <div class="form-section">
-            <div class="field">
-              <label>Default follow-up days</label>
-              <input
-                type="number"
-                name="default_follow_up_days"
-                value="{{ settings.default_follow_up_days }}"
-                min="1"
-                placeholder="3"
-              >
-              <span class="muted small">Days after a sent message before a follow-up is suggested.</span>
-            </div>
-          </div>
-          <div class="form-section">
-            <div class="field">
-              <label>Category vocabulary</label>
-              <input
-                type="text"
-                name="category_vocabulary"
-                value="{{ settings.category_vocabulary | join(', ') if settings.category_vocabulary else '' }}"
-                placeholder="hotel, event planner, restaurant"
-              >
-              <span class="muted small">Comma-separated list used to categorize discovered prospects.</span>
-            </div>
-          </div>
-          <div class="action-group">
-            <button class="btn primary" type="submit">Save defaults</button>
-            <a href="/settings/general" class="btn ghost">Cancel</a>
-          </div>
-        </form>
-      </section>
+<form method="post" action="/settings/general">
+  {{ csrf_field() }}
+  <section class="card">
+    <h3>Follow-ups</h3>
+    <div class="field">
+      <label for="default-follow-up-days">Default follow-up days</label>
+      <input id="default-follow-up-days" type="number" name="default_follow_up_days" value="{{ settings.default_follow_up_days }}" min="1" placeholder="3">
+      <span class="muted small">Days after a sent message before a follow-up is suggested.</span>
     </div>
   </section>
 
-  <section class="flow-step">
-    <header class="flow-step-head">
-      <span class="flow-step-num" aria-hidden="true">02</span>
-      <h3>Daily caps</h3>
-    </header>
-    <div class="flow-step-body">
-      <section class="card">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Provider</th><th>Daily cap</th><th>Used today</th><th>Configured</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for key, label, configured in [
-              ('tavily', 'Tavily', settings.tavily_api_key),
-              ('serper', 'Serper', settings.serper_api_key),
-              ('ai', 'AI (' ~ settings.ai_provider ~ ')', settings.ai_provider != 'template'),
-            ] %}
-            {% set u = usage[key] %}
-            <tr>
-              <td>{{ label }}</td>
-              <td>{{ u.cap }}</td>
-              <td>
-                <span class="badge {% if u.reached %}stage-failed{% elif u.used %}stage-succeeded{% else %}muted{% endif %}">{{ u.used }} / {{ u.cap }}</span>
-                {% if u.reached %}<span class="badge stage-failed">cap reached — calls blocked</span>{% endif %}
-              </td>
-              <td><span class="badge {% if configured %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if configured else 'no' }}</span></td>
-            </tr>
-            {% endfor %}
-            <tr>
-              <td>Brave</td>
-              <td><span class="muted">—</span></td>
-              <td><span class="badge muted">not wired</span></td>
-              <td><span class="badge muted">{{ 'yes' if settings.brave_api_key else 'no' }}</span></td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="muted small">Caps are enforced: at the cap the call is skipped and counted as rate-limited
-          (a skipped search is never treated as "no results"). Unmetered sources (DDGS fallback,
-          OSM/BizData, website fetches) have no cap. Edit .env to change a cap, then restart.</p>
-      </section>
+  <section class="card">
+    <h3>Vocabulary</h3>
+    <div class="field">
+      <label for="category-vocabulary">Category vocabulary</label>
+      <input id="category-vocabulary" type="text" name="category_vocabulary" data-chip-input value="{{ settings.category_vocabulary | join(', ') if settings.category_vocabulary else '' }}" placeholder="hotel, event planner, restaurant">
+      <span class="muted small">Comma-separated list used to categorize discovered prospects.</span>
     </div>
   </section>
 
-  <section class="flow-step">
-    <header class="flow-step-head">
-      <span class="flow-step-num" aria-hidden="true">03</span>
-      <h3>Backup</h3>
-    </header>
-    <div class="flow-step-body">
-      <section class="card">
-        <p class="muted small">Snapshots the SQLite database to <code>backups/</code> via VACUUM INTO.</p>
-        <div class="action-group">
-          <form method="post" action="/settings/general" data-confirm="Run a database backup now?">
-            {{ csrf_field() }}
-            <input type="hidden" name="backup" value="1">
-            <button class="btn" type="submit">Create backup</button>
-          </form>
-        </div>
-      </section>
-    </div>
-  </section>
-</div>
+  <div class="action-group">
+    <button class="btn primary" type="submit">Save settings</button>
+    <button class="btn ghost" type="button" data-panel-close>Cancel</button>
+  </div>
+</form>
+
+<section class="card">
+  <h3>Daily caps</h3>
+  <table class="data-table">
+    <thead>
+      <tr><th>Provider</th><th>Daily cap</th><th>Used today</th><th>Configured</th></tr>
+    </thead>
+    <tbody>
+      {% for key, label, configured in [
+        ('tavily', 'Tavily', settings.tavily_api_key),
+        ('serper', 'Serper', settings.serper_api_key),
+        ('ai', 'AI (' ~ settings.ai_provider ~ ')', settings.ai_provider != 'template'),
+      ] %}
+      {% set u = usage[key] %}
+      <tr>
+        <td>{{ label }}</td>
+        <td>{{ u.cap }}</td>
+        <td>
+          <span class="badge {% if u.reached %}stage-failed{% elif u.used %}stage-succeeded{% else %}muted{% endif %}">{{ u.used }} / {{ u.cap }}</span>
+          {% if u.reached %}<span class="badge stage-failed">cap reached — calls blocked</span>{% endif %}
+        </td>
+        <td><span class="badge {% if configured %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if configured else 'no' }}</span></td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <td>Brave</td>
+        <td><span class="muted">—</span></td>
+        <td><span class="badge muted">{{ 'key set' if settings.brave_api_key else 'not configured' }}</span></td>
+        <td><span class="badge {% if settings.brave_api_key %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if settings.brave_api_key else 'no' }}</span></td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="muted small">At the cap a call is skipped and counted as rate-limited — never as “no results”.</p>
+  <details class="advanced">
+    <summary>Advanced</summary>
+    <p class="muted small">Daily caps are set through environment variables and require a server restart. Unmetered sources have no cap.</p>
+  </details>
+</section>
+
+<section class="card">
+  <h3>Backup</h3>
+  <p class="muted small">Creates a dated snapshot of the local database in <code>backups/</code>.</p>
+  <div class="action-group">
+    <form method="post" action="/settings/general" data-confirm="Run a database backup now?">
+      {{ csrf_field() }}
+      <input type="hidden" name="backup" value="1">
+      <button class="btn" type="submit">Create backup</button>
+    </form>
+  </div>
+  <details class="advanced">
+    <summary>Advanced</summary>
+    <p class="muted small">Backups use SQLite’s VACUUM INTO and keep the existing <code>backups/</code> retention policy.</p>
+  </details>
+</section>

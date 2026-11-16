@@ -8,6 +8,13 @@
 <div class="flash error">{{ error }}</div>
 {% endif %}
 
+{% if not (profile.offer and profile.target_industries) %}
+<section class="card">
+  <h3>Finish your profile to start discovery</h3>
+  <p class="muted small">Add what you offer and at least one target industry. Discovery stays disabled until both are set.</p>
+</section>
+{% endif %}
+
 <div class="mini-pipeline">
   <section class="flow-step">
     <header class="flow-step-head">
@@ -27,24 +34,24 @@
           <div class="form-section">
             <div class="field">
               <label>Target industries</label>
-              <input type="text" name="target_industries" value="{{ (profile.target_industries or [] )|join(', ') }}" placeholder="hotel, event planner, restaurant">
+              <input type="text" name="target_industries" data-chip-input value="{{ (profile.target_industries or [] )|join(', ') }}" placeholder="hotel, event planner, restaurant">
             </div>
             <div class="field">
               <label>Target locations</label>
-              <input type="text" name="target_locations" value="{{ (profile.target_locations or [] )|join(', ') }}" placeholder="city, area, region">
+              <input type="text" name="target_locations" data-chip-input value="{{ (profile.target_locations or [] )|join(', ') }}" placeholder="city, area, region">
             </div>
           </div>
           <div class="form-section full-width">
             <div class="field full">
               <label>Ideal-client signals</label>
-              <input type="text" name="ideal_signals" value="{{ (profile.ideal_signals or [] )|join(', ') }}" placeholder="no website, outdated site, no contact form">
+              <input type="text" name="ideal_signals" data-chip-input value="{{ (profile.ideal_signals or [] )|join(', ') }}" placeholder="no website, outdated site, no contact form">
             </div>
           </div>
         </div>
 
         <div class="action-group">
           <button class="btn primary" type="submit">Save profile</button>
-          <a href="/" class="btn ghost">Cancel</a>
+          <button class="btn ghost" type="button" data-panel-close>Cancel</button>
         </div>
       </form>
     </div>
@@ -59,18 +66,21 @@
       <section class="card">
         <p class="muted small">
           Searches for businesses matching your target industries and locations and
-          adds candidates to the pipeline as <code>new</code>. Queued runs
-          are processed by the worker: <code>python -m app.cli worker</code>.
+          adds prospects to the pipeline as <code>new</code>. Runs are queued and
+          processed in the background.
         </p>
         <form method="post" action="/settings/profile/discovery/run" class="action-group">
           {{ csrf_field() }}
-          <button class="btn" type="submit">Run discovery</button>
+          <button class="btn" type="submit"{% if not (profile.offer and profile.target_industries) %} disabled title="Add your offer and at least one industry first" aria-label="Run discovery (add your offer and at least one industry first)"{% endif %}>Run discovery</button>
         </form>
+        {% if not (profile.offer and profile.target_industries) %}
+        <p class="muted small">Run discovery is disabled until the profile has an offer and at least one target industry.</p>
+        {% endif %}
 
         {% if discovery_jobs %}
         <table class="data-table">
           <thead>
-            <tr><th>Started</th><th>Status</th><th>Candidates</th><th>Created</th><th>Error</th></tr>
+            <tr><th>Started</th><th>Status</th><th>Found</th><th>Prospects created</th><th>Error</th></tr>
           </thead>
           <tbody>
             {% for job in discovery_jobs %}

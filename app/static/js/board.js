@@ -505,7 +505,7 @@
     selectedCard = card;
     card.classList.add("selected");
     window.PlPanel.open("/prospects/" + encodeURIComponent(card.getAttribute("data-id")), {
-      width: 480,
+      width: 560,
       invoker: card,
     });
     /* Phase 1.2 — pan (never zoom) so the selected card stays fully visible

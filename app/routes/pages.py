@@ -355,7 +355,7 @@ def _setup_cluster_context(db: Session) -> dict:
     profile = profile_service.get_or_create_profile(db)
     needs = dashboard_service.needs_attention(db)
     provider_rows = providers_service.provider_status(db)
-    configured = sum(1 for r in provider_rows if r.get("configured"))
+    configured = sum(1 for r in provider_rows if r.get("configured") and r.get("implemented"))
     usage = usage_summary(db)
     calls = sum(int(v.get("used") or 0) for k, v in usage.items() if k != "ai")
     views = saved_views_service.list_saved_views(db)
@@ -397,7 +397,7 @@ def _setup_cluster_context(db: Session) -> dict:
             "warn": False,
         },
         "retention": {"meta": f"{len(flagged)} flagged", "warn": bool(flagged)},
-        "merge": {"meta": "review candidates", "warn": False},
+        "merge": {"meta": "review duplicates", "warn": False},
     }
     return {"card_states": card_states, "saved_views": views}
 

@@ -2,7 +2,8 @@
    grouped into the four pipeline steps by row role — discovery, search,
    fetch, ai+floor (Template floor drafts count as AI drafts). #}
 <h2 class="panel-heading" data-panel-title>Providers</h2>
-<p class="muted small">Configured, enabled, usage, caps, and last failure — read-only status.</p>
+<p class="muted small">Configured = key present. Enabled = actually used in the current pipeline. Read-only status.</p>
+{% set role_labels = {'discovery': 'Discovery', 'search': 'Search', 'fetch': 'Website fetch', 'ai': 'AI drafting', 'floor': 'Template drafting'} %}
 
 {% if error %}
 <div class="flash error">{{ error }}</div>
@@ -32,9 +33,9 @@
                 {% if not row.implemented %}<span class="badge stage-muted">not wired</span>{% endif %}
                 {% if row.note %}<div class="muted small">{{ row.note }}</div>{% endif %}
               </td>
-              <td><span class="badge muted">{{ row.role }}</span></td>
-              <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.configured else 'no' }}</span></td>
-              <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.enabled else 'no' }}</span></td>
+              <td><span class="badge muted">{{ role_labels.get(row.role, row.role|replace('_',' ')) }}</span></td>
+              <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ '—' if not row.implemented else ('yes' if row.configured else 'no') }}</span></td>
+              <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ '—' if not row.implemented else ('yes' if row.enabled else 'no') }}</span></td>
               <td>{{ row.calls_today }}</td>
               <td>
                 {% if row.cap is none %}
@@ -57,11 +58,14 @@
           </tbody>
         </table>
         <p class="muted small">
-          Keys are never displayed or logged — only whether a key is present. This page is
-          read-only: enable/disable is controlled in <code>.env</code>, and the daily caps on
-          <a href="/settings/general">General</a> are enforced before every call.
-          Per-day counters are on <a href="/settings/usage">Usage</a>.
+          Keys are never displayed or logged — only whether a key is present. Daily caps on
+          <a href="/settings/general">General</a> are enforced before every call; per-day counters are on
+          <a href="/settings/usage">Usage</a>.
         </p>
+        <details class="advanced">
+          <summary>Advanced</summary>
+          <p class="muted small">Providers are enabled through environment variables; changing them requires a restart.</p>
+        </details>
       </section>
     </div>
   </section>
@@ -89,9 +93,9 @@
                 {% if not row.implemented %}<span class="badge stage-muted">not wired</span>{% endif %}
                 {% if row.note %}<div class="muted small">{{ row.note }}</div>{% endif %}
               </td>
-              <td><span class="badge muted">{{ row.role }}</span></td>
-              <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.configured else 'no' }}</span></td>
-              <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.enabled else 'no' }}</span></td>
+              <td><span class="badge muted">{{ role_labels.get(row.role, row.role|replace('_',' ')) }}</span></td>
+              <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ '—' if not row.implemented else ('yes' if row.configured else 'no') }}</span></td>
+              <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ '—' if not row.implemented else ('yes' if row.enabled else 'no') }}</span></td>
               <td>{{ row.calls_today }}</td>
               <td>
                 {% if row.cap is none %}
@@ -140,9 +144,9 @@
                 {% if not row.implemented %}<span class="badge stage-muted">not wired</span>{% endif %}
                 {% if row.note %}<div class="muted small">{{ row.note }}</div>{% endif %}
               </td>
-              <td><span class="badge muted">{{ row.role }}</span></td>
-              <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.configured else 'no' }}</span></td>
-              <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.enabled else 'no' }}</span></td>
+              <td><span class="badge muted">{{ role_labels.get(row.role, row.role|replace('_',' ')) }}</span></td>
+              <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ '—' if not row.implemented else ('yes' if row.configured else 'no') }}</span></td>
+              <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ '—' if not row.implemented else ('yes' if row.enabled else 'no') }}</span></td>
               <td>{{ row.calls_today }}</td>
               <td>
                 {% if row.cap is none %}
@@ -191,9 +195,9 @@
                 {% if not row.implemented %}<span class="badge stage-muted">not wired</span>{% endif %}
                 {% if row.note %}<div class="muted small">{{ row.note }}</div>{% endif %}
               </td>
-              <td><span class="badge muted">{{ row.role }}</span></td>
-              <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.configured else 'no' }}</span></td>
-              <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.enabled else 'no' }}</span></td>
+              <td><span class="badge muted">{{ role_labels.get(row.role, row.role|replace('_',' ')) }}</span></td>
+              <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ '—' if not row.implemented else ('yes' if row.configured else 'no') }}</span></td>
+              <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ '—' if not row.implemented else ('yes' if row.enabled else 'no') }}</span></td>
               <td>{{ row.calls_today }}</td>
               <td>
                 {% if row.cap is none %}

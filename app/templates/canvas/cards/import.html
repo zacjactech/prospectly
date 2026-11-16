@@ -2,13 +2,13 @@
    wizard's step state is unchanged — only the active step renders its body,
    the numbered heads stay visible so the pipeline reads as progress. #}
 <h2 class="panel-heading" data-panel-title>Import prospects from CSV</h2>
-<p class="muted small">Upload a CSV file, review the preview, then commit — one row per prospect.</p>
+<p class="muted small">One row per prospect. Upload, review the preview, then commit.</p>
 
 {% if error %}
 <div class="flash error">{{ error }}</div>
 {% endif %}
 
-<div class="mini-pipeline">
+<div class="mini-pipeline import-panel">
   <section class="flow-step">
     <header class="flow-step-head">
       <span class="flow-step-num" aria-hidden="true">01</span>
@@ -16,23 +16,19 @@
     </header>
     <div class="flow-step-body">
       {% if step == 1 %}
-      <p class="muted small">Upload a CSV file (max {{ settings.csv_max_rows }} rows, {{ settings.csv_max_bytes }} bytes). One row per prospect.</p>
+      <p class="muted small">CSV only — max {{ (settings.csv_max_bytes / 1048576)|round(0)|int }} MB, {{ settings.csv_max_rows }} rows.</p>
       <div class="card">
-        <div class="header-row">
-          <div class="grow">
-            <p class="muted small">Pick a CSV file. The first row must be a header with column names (e.g. name, city, phone, email, website).</p>
-          </div>
-        </div>
         <form method="post" action="/settings/import" enctype="multipart/form-data">
           {{ csrf_field() }}
-          <div class="field full">
-            <label>CSV file</label>
+          <label class="dropzone">
             <input type="file" name="file" accept=".csv" required>
-            <span class="muted small">Required column: business name (accepted headers: name, company, business, business_name). Phone numbers are normalized to E.164.</span>
-          </div>
+            <span class="dropzone-title">Drop a CSV here or choose a file</span>
+            <span class="muted small">Required column: business name (name, company, business or business_name). Phones are normalized to E.164.</span>
+          </label>
           <div class="action-group">
             <button class="btn primary" type="submit">Next: preview</button>
-            <a href="/settings/general" class="btn ghost">Cancel</a>
+            <a href="/static/sample-prospects.csv" class="btn ghost" download>Download sample CSV</a>
+            <button class="btn ghost" type="button" data-panel-close>Cancel</button>
           </div>
         </form>
       </div>
@@ -40,7 +36,7 @@
     </div>
   </section>
 
-  <section class="flow-step">
+  <section class="flow-step{% if step < 2 %} is-future{% endif %}">
     <header class="flow-step-head">
       <span class="flow-step-num" aria-hidden="true">02</span>
       <h3>Preview</h3>
@@ -108,16 +104,18 @@
           </table>
 
           <div class="action-group">
-            <button class="btn primary" type="submit">Commit {{ valid_count }} row(s)</button>
+            <button class="btn primary" type="submit"{% if not valid_count %} disabled title="No valid rows to import"{% endif %}>Commit {{ valid_count }} row(s)</button>
             <a href="/settings/import" class="btn ghost">Re-upload</a>
           </div>
         </form>
       </div>
+      {% elif step == 1 %}
+      <p class="muted small">Preview appears after a file is uploaded.</p>
       {% endif %}
     </div>
   </section>
 
-  <section class="flow-step">
+  <section class="flow-step{% if step < 3 %} is-future{% endif %}">
     <header class="flow-step-head">
       <span class="flow-step-num" aria-hidden="true">03</span>
       <h3>Commit</h3>
@@ -151,6 +149,8 @@
 
         <div class="muted small">All imported prospects are tagged with source <code>csv_import</code>. Fuzzy matches carry the <code>possible-duplicate</code> tag.</div>
       </div>
+      {% elif step == 2 %}
+      <p class="muted small">Commit is available after the preview is reviewed.</p>
       {% endif %}
     </div>
   </section>

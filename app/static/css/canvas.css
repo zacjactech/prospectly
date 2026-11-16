@@ -149,12 +149,12 @@
   align-items: center;
   gap: 6px;
   max-width: 100%;
-  min-height: 28px;
-  padding: 3px 9px;
-  background: var(--color-accent-light);
-  border: 1px solid var(--color-accent-border);
+  min-height: 32px;
+  padding: 3px 10px;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border-strong);
   border-radius: 999px;
-  color: var(--color-accent);
+  color: var(--color-text-muted);
   font-size: var(--fs-xs);
   text-decoration: none;
   white-space: nowrap;
@@ -162,7 +162,7 @@
 }
 
 .filter-pill:hover {
-  border-color: var(--color-accent);
+  border-color: var(--color-text-subtle);
   color: var(--color-text);
 }
 
@@ -190,8 +190,8 @@
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
-  padding: 2px 8px;
+  min-height: 32px;
+  padding: 2px 10px;
   color: var(--color-text-muted);
   font-size: var(--fs-xs);
   text-decoration: underline;
@@ -238,8 +238,9 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: var(--color-accent-light);
-  color: var(--color-accent);
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text-muted);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
@@ -310,8 +311,8 @@
   height: 24px;
   display: grid;
   place-items: center;
-  background: var(--color-accent-light);
-  color: var(--color-accent);
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
@@ -412,7 +413,7 @@
 }
 
 .zone-sub-badges .badge {
-  font-size: 9px;
+  font-size: 11px;
   padding: 0 5px;
 }
 
@@ -596,7 +597,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
@@ -624,7 +625,7 @@
 }
 
 .pc-badges .badge {
-  font-size: 9.5px;
+  font-size: 11px;
   padding: 0 5px;
   line-height: 1.45;
 }
@@ -1160,9 +1161,9 @@
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   letter-spacing: 0.08em;
-  color: var(--color-accent);
-  background: var(--color-accent-light);
-  border: 1px solid var(--color-accent-border);
+  color: var(--color-text-muted);
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   padding: 1px 5px;
 }
@@ -1369,6 +1370,76 @@
   margin: 16px 16px 4px;
 }
 
+/* Settings drawer pattern: one sticky opaque header with the close button
+   clear of the title (Phase 5.23). */
+.panel-body > .panel-heading {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 14px 52px 10px 16px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.panel-body > .panel-heading + .muted.small {
+  margin-top: 12px;
+}
+
+/* Tables stay reachable: the card scrolls horizontally, first column keeps
+   a readable minimum; actions never fall out of the drawer (Phase 5.24). */
+.panel-body .card {
+  overflow-x: auto;
+}
+
+.panel-body .data-table {
+  min-width: 520px;
+}
+
+.panel-body .data-table th:first-child,
+.panel-body .data-table td:first-child {
+  min-width: 140px;
+}
+
+/* Inputs fill their card; helper text wraps instead of clipping (5.25). */
+.panel-body .field input,
+.panel-body .field textarea,
+.panel-body .field select {
+  width: 100%;
+  max-width: 100%;
+}
+
+.panel-body .field .muted.small,
+.panel-body .field .hint {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Non-sequential settings panels: no step numbers/arrows. Import opts back
+   in with .import-panel (Phase 5.27). */
+.panel-body .flow-step-num {
+  display: none;
+}
+
+.panel-body .flow-step + .flow-step::before {
+  content: none;
+}
+
+.panel-body .import-panel .flow-step-num {
+  display: inline-flex;
+}
+
+.panel-body .import-panel .flow-step + .flow-step::before {
+  content: "→";
+}
+
+/* Empty states are quieter than the card title (Phase 5.28). */
+.panel-body .card > .muted:only-child,
+.panel-body .card .muted.small {
+  font-size: var(--fs-sm);
+}
+
 .panel-body > .muted.small {
   margin: 0 16px 12px;
 }
@@ -1464,9 +1535,9 @@
 .flow-step-num {
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  color: var(--color-accent);
-  background: var(--color-accent-light);
-  border: 1px solid var(--color-accent-border);
+  color: var(--color-text-muted);
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   padding: 1px 5px;
 }
@@ -1661,4 +1732,295 @@
   .canvas-toolbar .filter-summary {
     order: 2;
   }
+}
+
+/* ===== Phase 5 settings widgets ===== */
+.nowrap {
+  white-space: nowrap;
+}
+
+.saved-view-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-danger);
+  cursor: pointer;
+}
+
+.icon-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.icon-btn:hover {
+  background: var(--color-danger-light);
+  border-color: var(--color-danger-border);
+}
+
+/* Duplicates slider: accent track/thumb + min/max labels. */
+.range-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--color-accent);
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-border);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  margin-top: -5px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-border);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+/* CSV drop zone. */
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 24px 16px;
+  margin-bottom: 12px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-hover);
+  text-align: center;
+  cursor: pointer;
+}
+
+.dropzone:hover,
+.dropzone:focus-within {
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-light);
+}
+
+.dropzone input[type="file"] {
+  max-width: 100%;
+}
+
+.dropzone-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--color-text);
+}
+
+/* Usage cap progress bars. */
+.cap-row {
+  margin-bottom: 14px;
+}
+
+.cap-row:last-of-type {
+  margin-bottom: 8px;
+}
+
+.cap-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: var(--fs-sm);
+}
+
+.cap-progress {
+  width: 100%;
+  height: 8px;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-surface-hover);
+}
+
+.cap-progress::-webkit-progress-bar {
+  background: var(--color-surface-hover);
+  border-radius: 999px;
+}
+
+.cap-progress::-webkit-progress-value {
+  background: var(--color-success);
+  border-radius: 999px;
+}
+
+.cap-progress.warn::-webkit-progress-value {
+  background: var(--color-warn);
+}
+
+.cap-progress.danger::-webkit-progress-value {
+  background: var(--color-danger);
+}
+
+.cap-progress::-moz-progress-bar {
+  background: var(--color-success);
+  border-radius: 999px;
+}
+
+.cap-progress.warn::-moz-progress-bar {
+  background: var(--color-warn);
+}
+
+.cap-progress.danger::-moz-progress-bar {
+  background: var(--color-danger);
+}
+
+.advanced {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.advanced summary {
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.advanced[open] summary {
+  color: var(--color-text);
+}
+
+/* Chip previews for comma-separated inputs. */
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 8px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  font-size: var(--fs-xs);
+}
+
+.chip-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.chip-remove:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* Non-import cards: no step numbers or arrows (Import keeps its 3 steps). */
+.panel-body .flow-step + .flow-step::before {
+  content: none;
+}
+
+.panel-body .import-panel .flow-step + .flow-step::before {
+  content: "→";
+}
+
+
+/* ===== Native controls: one themed treatment ===== */
+select,
+input[type="date"],
+input[type="datetime-local"],
+input[type="number"] {
+  color-scheme: dark;
+  font-family: var(--font-sans);
+}
+
+select {
+  min-height: 32px;
+  padding: 0 10px;
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+input[type="file"] {
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+}
+
+input[type="file"]::file-selector-button {
+  min-height: 32px;
+  margin-right: 10px;
+  padding: 0 12px;
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Import future steps are visibly disabled. */
+.flow-step.is-future {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Data headings use the sans face; uppercase mono is reserved for section
+   markers/chips (Phase 6.37). */
+.band-name,
+.zone-title {
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-muted);
+}
+
+.zone-title {
+  color: var(--color-text);
 }

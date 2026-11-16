@@ -118,7 +118,7 @@ def test_previously_broken_pages_render() -> None:
         for url, marker in (
             ("/settings/saved-views", "Saved Views"),
             ("/settings/retention", "Retention Sweep"),
-            ("/merge/duplicates", "Merge"),
+            ("/merge/duplicates", "Duplicates"),
         ):
             r = client.get(url)
             assert r.status_code == 200, f"{url}: {r.status_code} {r.text[:300]}"

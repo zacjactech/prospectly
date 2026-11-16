@@ -35,7 +35,7 @@
   --glow-accent: 0 0 20px rgba(255, 107, 26, 0.12); /* CTA hover + active nav */
 
   /* Links and focus rings are the same orange family (one hue lighter) */
-  --color-link: #ff8a3d;
+  --color-link: #7aa2ff;
   --focus-ring: rgba(255, 107, 26, 0.28);
 
   /* Semantic: status only, never decoration — dark tint bg + colored text +
@@ -1100,18 +1100,18 @@ p {
   color: var(--color-text);
 }
 
-/* Destructive: solid danger + dark text (6.86:1) — word/label always present */
+/* Destructive actions are outlined by default; confirmation dialogs carry the
+   filled red state. */
 .btn.danger {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
-  color: #1a0d0b;
+  background: transparent;
+  border-color: var(--color-danger-border);
+  color: var(--color-danger);
   font-weight: var(--fw-semibold);
 }
 
 .btn.danger:hover {
-  background: var(--color-danger);
+  background: var(--color-danger-light);
   border-color: var(--color-danger);
-  filter: brightness(1.08);
 }
 
 /* Destructive-adjacent but not delete-grade: outline keeps the red semantics
@@ -2198,7 +2198,7 @@ table.data-table tbody tr:last-child td {
 }
 
 .facts dt {
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-subtle);

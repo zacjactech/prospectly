@@ -134,7 +134,7 @@
     el.className = "panel";
     el.setAttribute("role", "dialog");
     el.setAttribute("aria-modal", "true");
-    el.style.width = widthExpr(opts.width || 480);
+    el.style.width = widthExpr(opts.width || 560);
 
     var body = document.createElement("div");
     body.className = "panel-body";
@@ -160,7 +160,7 @@
       backdrop: backdrop,
       closeBtn: close,
       invoker: opts.invoker || null,
-      width: opts.width || 480,
+      width: opts.width || 560,
       url: "",
       dirty: false,
       dirtyCheck: !!opts.dirtyCheck,
@@ -321,7 +321,7 @@
         return;
       }
       open(backEl.getAttribute("data-panel-back"), {
-        width: 480,
+        width: 560,
         invoker: bp.invoker,
       });
       return;
@@ -331,7 +331,7 @@
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     e.preventDefault();
     open(link.getAttribute("data-panel-href"), {
-      width: parseInt(link.getAttribute("data-panel-width") || "480", 10),
+      width: parseInt(link.getAttribute("data-panel-width") || "560", 10),
       invoker: link,
       dirtyCheck: link.getAttribute("data-panel-dirty") === "1",
     });
@@ -487,7 +487,7 @@
       backdrop: root.querySelector(".panel-backdrop"),
       closeBtn: el.querySelector(".panel-close"),
       invoker: null,
-      width: 480,
+      width: 560,
       url: window.location.pathname + window.location.search,
       dirty: false,
       dirtyCheck: !!body.querySelector("form"),

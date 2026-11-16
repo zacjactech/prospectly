@@ -297,6 +297,76 @@
       }
     }
   });
+  /* Chip previews for comma-separated list fields (profile + vocabulary).
+     The underlying input still submits the same comma-separated value, so
+     the backend contract is unchanged. */
+  function initChipInputs(root) {
+    var scope = root && root.querySelectorAll ? root : document;
+    scope.querySelectorAll("input[data-chip-input]").forEach(function (input) {
+      if (input.dataset.chipReady) return;
+      input.dataset.chipReady = "1";
+      var list = document.createElement("div");
+      list.className = "chip-list";
+      input.insertAdjacentElement("afterend", list);
+      var draw = function () {
+        list.innerHTML = "";
+        input.value
+          .split(",")
+          .map(function (s) {
+            return s.trim();
+          })
+          .filter(Boolean)
+          .forEach(function (term) {
+            var chip = document.createElement("span");
+            chip.className = "chip";
+            chip.appendChild(document.createTextNode(term));
+            var remove = document.createElement("button");
+            remove.type = "button";
+            remove.className = "chip-remove";
+            remove.setAttribute("aria-label", "Remove " + term);
+            remove.textContent = "×";
+            remove.addEventListener("click", function () {
+              var parts = input.value
+                .split(",")
+                .map(function (s) {
+                  return s.trim();
+                })
+                .filter(Boolean)
+                .filter(function (t) {
+                  return t !== term;
+                });
+              input.value = parts.join(", ");
+              draw();
+            });
+            chip.appendChild(remove);
+            list.appendChild(chip);
+          });
+      };
+      input.addEventListener("input", draw);
+      draw();
+    });
+  }
+
+  initChipInputs(document);
+  document.addEventListener("htmx:afterSwap", function (e) {
+    initChipInputs(e.detail.target);
+  });
+
+  /* Duplicates slider: reflect the score and apply after a short pause
+     instead of requiring a Refresh button. */
+  var mergeTimer = null;
+  document.addEventListener("input", function (e) {
+    var slider = e.target.closest && e.target.closest("[data-merge-score]");
+    if (!slider) return;
+    var form = slider.closest("form");
+    var readout = form && form.querySelector("[data-merge-readout]");
+    if (readout) readout.textContent = "Score: " + Number(slider.value).toFixed(2);
+    clearTimeout(mergeTimer);
+    mergeTimer = setTimeout(function () {
+      if (form) form.requestSubmit();
+    }, 450);
+  });
+
   /* Stage selector: destructive-by-default is impossible — the submit is
      disabled until the user picks a real transition. */
   document.addEventListener("change", function (e) {

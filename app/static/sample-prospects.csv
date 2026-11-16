@@ -1,0 +1,4 @@
+name,category,city,phone,email,website
+Sample Hotel,hotel,Berlin,+4930123456,hello@sample-hotel.example,https://sample-hotel.example
+Sample Cafe,cafe,Berlin,,,
+Sample Studio,studio,Hamburg,+4940987654,studio@sample.example,

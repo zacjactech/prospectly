@@ -89,12 +89,17 @@
     </header>
     <div class="flow-step-body">
       <section class="card">
-        <div class="badge-row">
-          {% for key, label in [('tavily', 'Tavily'), ('serper', 'Serper'), ('ai', 'AI')] %}
-          {% set u = usage[key] %}
-          <span class="badge {% if u.reached %}stage-failed{% else %}muted{% endif %}">{{ label }}: {{ u.used }} / {{ u.cap }}{% if u.reached %} — blocked{% endif %}</span>
-          {% endfor %}
+        {% for key, label in [('tavily', 'Tavily'), ('serper', 'Serper'), ('ai', 'AI')] %}
+        {% set u = usage[key] %}
+        {% set pct = (u.used / u.cap) if u.cap else 0 %}
+        <div class="cap-row">
+          <div class="cap-head">
+            <span>{{ label }}</span>
+            <span class="mono">{{ u.used }} / {{ u.cap }}{% if u.reached %} — blocked{% endif %}</span>
+          </div>
+          <progress class="cap-progress{% if u.reached %} danger{% elif pct >= 0.8 %} warn{% endif %}" value="{{ u.used }}" max="{{ u.cap or 1 }}">{{ u.used }} / {{ u.cap }}</progress>
         </div>
+        {% endfor %}
         <p class="muted small">A blocked call is counted in “Rate limited” and the research step is reported as skipped.</p>
       </section>
     </div>

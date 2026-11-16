@@ -30,6 +30,14 @@
 > keep saved views in the panel.
 > **Owner request 2026-11-16:** plain wheel zooms at the pointer and
 > Ctrl/Cmd+wheel pans (§2.2).
+>
+> **Phase 5–6 UX (2026-11-16):** detail/settings/message drawers share 560px
+> with a sticky header; only Import keeps numbered steps; tables scroll
+> horizontally; comma-separated fields get chip previews; usage caps are
+> progress bars; the duplicates feature is named **Duplicates** everywhere.
+> Links are blue (`#7aa2ff`), filter/phase/region chips are neutral, and
+> destructive buttons are outlined by default — orange is reserved for the
+> primary CTA and selected states. Body/micro text floor is 12/11px.
 
 Status: implementation-ready · saved from ui-design session ses_e33218438ffeMMCNavEpP5XSif
 Orchestrator adjustments applied: (1) rail group dividers = plain hairlines with title tooltips (no clipped text); (2) `g s` → /settings/profile (no /settings index exists); (3) engineer must verify CSRF header acceptance before relying on X-CSRF-Token.

@@ -596,3 +596,18 @@ line is a static advertisement. The Phase 5 budget is restored.
 **Not yet verified (open):**
 - Full manual re-walk of flows 0–11 after the canvas port (services are
   unchanged and all flow tests pass, but the UI paths moved).
+
+## UX refinement pass — 2026-11-16
+
+- **Canvas at 1280/1440/1920:** no horizontal overflow; board fills the
+  viewport width at a readable 0.97–1.5×; selecting a card keeps it fully
+  visible beside the 560px drawer; no text below 11px.
+- **390/768:** stacked canvas, full card meta, no overflow; prospect/settings
+  drawers are full-width (390) or 560px (768) with sticky headers.
+- **Guards browser-verified:** reply hidden without a sent message and for
+  terminal prospects; WhatsApp disabled without a phone; Generate draft
+  disabled without a validated opportunity; View research disabled when no
+  run; stage submit disabled until a transition is chosen.
+- **Consistency:** Flow references removed; “candidates” → “prospects”;
+  Merge node/drawer renamed Duplicates; links blue, filter/phase/region chips
+  neutral, destructive actions outlined.
