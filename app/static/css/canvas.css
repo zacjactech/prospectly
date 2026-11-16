@@ -629,6 +629,21 @@
   line-height: 1.45;
 }
 
+/* Reachable website = compact info-hue dot (distinct from the green stage
+   pill); the accessible name/tooltip carry the state. */
+.status-dot {
+  flex: none;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-reachable {
+  background: var(--color-info);
+  box-shadow: 0 0 0 1px var(--color-info-border);
+}
+
 .pc-side {
   display: flex;
   align-items: center;
@@ -930,6 +945,7 @@
   border-bottom: 1px solid var(--color-border);
   border-radius: 0;
   background: var(--color-surface);
+  box-shadow: var(--shadow-1);
 }
 
 .panel-body .detail-head .prospect-name,
@@ -962,8 +978,98 @@
 }
 
 .panel-body .card {
-  margin-bottom: var(--sp-3);
+  margin-bottom: 16px;
   padding: var(--sp-4);
+  border: 1px solid var(--color-border);
+}
+
+/* Section anchor nav inside the prospect drawer. */
+.detail-tabs {
+  display: flex;
+  gap: 16px;
+  padding: 8px 16px;
+  overflow-x: auto;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.detail-tabs a {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.detail-tabs a:hover {
+  color: var(--color-text);
+}
+
+/* Empty fact values: muted dash + inline Add. */
+.empty-value {
+  color: var(--color-text-subtle);
+}
+
+.inline-add {
+  margin-left: 6px;
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+  text-decoration: underline;
+}
+
+.inline-add:hover {
+  color: var(--color-text);
+}
+
+.fact-url {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fact-url a {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fact-url .badge {
+  flex: none;
+}
+
+.datetime-input,
+.field input[type="datetime-local"] {
+  width: 100%;
+  color-scheme: dark;
+  font-family: var(--font-sans);
+}
+
+.datetime-input::-webkit-calendar-picker-indicator {
+  opacity: 0.75;
+}
+
+/* Danger zone: one border style, separated blocks. */
+.danger-zone {
+  border-color: var(--color-danger-border);
+}
+
+.danger-block + .danger-block {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.danger-block h4 {
+  margin: 0 0 8px;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.danger-block .field {
+  margin-bottom: 10px;
 }
 
 .panel-body > .card:last-child {

@@ -297,6 +297,16 @@
       }
     }
   });
+  /* Stage selector: destructive-by-default is impossible — the submit is
+     disabled until the user picks a real transition. */
+  document.addEventListener("change", function (e) {
+    var sel = e.target.closest && e.target.closest("[data-stage-select]");
+    if (!sel) return;
+    var form = sel.closest("form");
+    var btn = form && form.querySelector("[data-stage-submit]");
+    if (btn) btn.disabled = !sel.value;
+  });
+
   /* Active section indicator: canvas views are buttons, Status is a link.
      The existing .active rail treatment (accent edge + tint) is reused. */
   (function markRailSection() {

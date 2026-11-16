@@ -25,6 +25,10 @@
       {% if p.website_status == 'no_website_found' %}
       {# P6: no website found is info — never red, always a word (not color alone). #}
       <span class="badge stage-no-website-found">no website found</span>
+      {% elif p.website_status == 'reachable' %}
+      {# Reachable is a compact status dot, not a second stage-like pill; the
+         info hue keeps it distinct from the green researched stage. #}
+      <span class="status-dot status-reachable" title="Website reachable" aria-label="Website reachable" role="img"></span>
       {% elif p.website_url %}
       <span class="badge stage-{{ p.website_status|replace('_','-') }}">{{ p.website_status|replace('_',' ') }}</span>
       {% endif %}
@@ -35,7 +39,7 @@
     <span class="pc-side">
       {% if rel_contact.get(p.id) %}<span>{{ rel_contact.get(p.id) }}</span>{% endif %}
       {% if rel_fu.get(p.id) %}<span{% if fu_due %} class="due-over"{% endif %}>{{ rel_fu.get(p.id) }}</span>{% endif %}
-      {% if msg is not none and msg.status == 'approved' %}
+      {% if msg is not none and msg.status == 'approved' and (p.phone_e164 or p.phone_raw) %}
       <form method="post" action="/messages/{{ msg.id }}/open" data-confirm="Open WhatsApp with this message prefilled? You press Send in WhatsApp — the app never sends automatically.">
         {{ csrf_field() }}
         <button class="pc-icon-btn" type="submit" title="Open in WhatsApp" aria-label="Open {{ p.business_name }} in WhatsApp">

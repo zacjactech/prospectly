@@ -21,6 +21,7 @@ from __future__ import annotations
 import os
 import tempfile
 from contextlib import suppress
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -215,6 +216,13 @@ def test_detail_page_has_reply_form_and_html_reply_works() -> None:
         db.commit()
         client = _client(db)
 
+        r = client.get(f"/prospects/{prospect.id}")
+        assert r.status_code == 200
+        # Guard: no sent/opened message yet, so the reply form is hidden.
+        assert f'action="/prospects/{prospect.id}/reply"' not in r.text
+
+        prospect.last_contacted_at = datetime.now(UTC)
+        db.commit()
         r = client.get(f"/prospects/{prospect.id}")
         assert r.status_code == 200
         assert f'action="/prospects/{prospect.id}/reply"' in r.text
