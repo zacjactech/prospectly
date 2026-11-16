@@ -1015,6 +1015,34 @@
   background: var(--color-surface);
 }
 
+.panel-body .card.message-head {
+  padding-top: var(--space-3);
+}
+
+.message-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+}
+
+.message-back svg {
+  width: 14px;
+  height: 14px;
+}
+
+.message-back:hover {
+  color: var(--color-text);
+}
+
+.message-head-title {
+  min-width: 0;
+}
+
 .panel-body .detail-head .prospect-name,
 .panel-body .message-head .prospect-name {
   font-size: var(--fs-base);
@@ -2513,4 +2541,49 @@ input[type="file"]::file-selector-button {
 
 .run-error {
   margin: 0;
+}
+
+/* Draft character count sits under its textarea, flush right. */
+.field-counter {
+  display: block;
+  margin-top: var(--space-1);
+  text-align: right;
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-subtle);
+}
+
+/* Message history: label/value rows instead of a run-on sentence. */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.history-list > div {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.history-list dt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+
+.history-list dd {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.history-note {
+  margin: var(--space-2) 0 0;
 }

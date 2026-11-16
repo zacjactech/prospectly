@@ -13,16 +13,15 @@
 {% endif %}
 
 <section class="card message-head">
-  <div class="header-row">
-    <div class="grow">
-      <div class="prospect-name" data-panel-title>{{ prospect.business_name }}</div>
-      <div class="badge-row">
-        <span class="badge stage-{{ prospect.stage|replace('_','-') }}">{{ prospect.stage|replace('_',' ') }}</span>
-        <span class="badge">{{ active_status }}</span>
-      </div>
-    </div>
-    <div class="header-actions">
-      <a href="/prospects/{{ prospect.id }}" class="btn ghost"{% if panel_mode %} data-panel-back="/prospects/{{ prospect.id }}"{% endif %}>Back to prospect</a>
+  <a href="/prospects/{{ prospect.id }}" class="message-back"{% if panel_mode %} data-panel-back="/prospects/{{ prospect.id }}"{% endif %}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    Back to prospect
+  </a>
+  <div class="message-head-title">
+    <div class="prospect-name" data-panel-title>{{ prospect.business_name }}</div>
+    <div class="badge-row">
+      <span class="badge stage-{{ prospect.stage|replace('_','-') }}">{{ prospect.stage|replace('_',' ') }}</span>
+      <span class="badge">{{ active_status }}</span>
     </div>
   </div>
 </section>
@@ -35,12 +34,12 @@
     <div class="field">
       <label class="sr-only" for="current_text-{{ message.id }}">Message text</label>
       <textarea id="current_text-{{ message.id }}" name="current_text" rows="8" placeholder="Write your message…">{{ form.current_text if form else message.current_text }}</textarea>
+      <span class="field-counter">{{ (form.current_text if form else message.current_text)|length }} characters.</span>
     </div>
     <div class="action-group">
       <button class="btn" type="submit">Save text</button>
     </div>
   </form>
-  <p class="muted small">{{ (form.current_text if form else message.current_text)|length }} characters.</p>
 </section>
 
 <section class="card">
@@ -108,8 +107,35 @@
 
 <section class="card">
   <h3>Message history</h3>
-  <p class="muted">Origin: <span class="badge stage-{{ message.origin|replace('_','-') }}">{{ message.origin }}</span>{% if message.origin == 'ai' %} <span class="muted small">AI-generated — verify every claim before sending (P5)</span>{% endif %} · Created {{ message.created_at.strftime('%b %d, %H:%M') }}</p>
-  {% if message.approved_at %}<p class="muted small">Approved {{ message.approved_at.strftime('%b %d, %H:%M') }}</p>{% endif %}
-  {% if message.opened_at %}<p class="muted small">Opened in WhatsApp {{ message.opened_at.strftime('%b %d, %H:%M') }}</p>{% endif %}
-  {% if message.sent_confirmed_at %}<p class="muted small">Send confirmed {{ message.sent_confirmed_at.strftime('%b %d, %H:%M') }}</p>{% endif %}
+  <dl class="history-list">
+    <div>
+      <dt>Origin</dt>
+      <dd><span class="badge stage-{{ message.origin|replace('_','-') }}">{{ message.origin }}</span></dd>
+    </div>
+    <div>
+      <dt>Created</dt>
+      <dd>{{ message.created_at.strftime('%b %d, %H:%M') }}</dd>
+    </div>
+    {% if message.approved_at %}
+    <div>
+      <dt>Approved</dt>
+      <dd>{{ message.approved_at.strftime('%b %d, %H:%M') }}</dd>
+    </div>
+    {% endif %}
+    {% if message.opened_at %}
+    <div>
+      <dt>Opened</dt>
+      <dd>{{ message.opened_at.strftime('%b %d, %H:%M') }}</dd>
+    </div>
+    {% endif %}
+    {% if message.sent_confirmed_at %}
+    <div>
+      <dt>Send confirmed</dt>
+      <dd>{{ message.sent_confirmed_at.strftime('%b %d, %H:%M') }}</dd>
+    </div>
+    {% endif %}
+  </dl>
+  {% if message.origin == 'ai' %}
+  <p class="history-note muted small">AI-generated — verify every claim before sending (P5)</p>
+  {% endif %}
 </section>

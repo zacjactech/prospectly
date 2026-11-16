@@ -152,6 +152,31 @@ def test_prospect_card_keeps_stage_tag_in_the_name_row(db_client) -> None:
     assert "data-stage-badge" not in foot.group(1)
 
 
+def test_message_page_does_not_render_the_message_orm_as_flash(db_client) -> None:
+    """The message panel context uses `message` for the ORM row.
+
+    The canvas shell's flash block must only render strings; a full-page
+    message deep link used to print ``<app.models.OutreachMessage ...>``
+    above the toolbar.
+    """
+    db, client = db_client
+    prospect = Prospect(business_name="Flash Guard Hotel")
+    db.add(prospect)
+    db.commit()
+    db.refresh(prospect)
+    message = OutreachMessage(
+        prospect_id=prospect.id, status="approved", active=True, current_text="Hello"
+    )
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+
+    page = client.get(f"/messages/{message.id}/edit")
+    assert page.status_code == 200
+    assert "app.models.OutreachMessage object at" not in page.text
+    assert "Back to prospect" in page.text
+
+
 def test_outreach_route_frames_the_outreach_region(db_client) -> None:
     _, client = db_client
     r = client.get("/outreach")

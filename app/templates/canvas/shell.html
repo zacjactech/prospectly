@@ -4,7 +4,7 @@
    read-only wire layer. Every retired page route renders this shell with its
    card pre-opened (§V2.2), so deep links land on the canvas. #}
 {% block content %}
-{% if message %}
+{% if message is string %}
 <div class="flash {{ message_type }}">{{ message }}</div>
 {% endif %}
 

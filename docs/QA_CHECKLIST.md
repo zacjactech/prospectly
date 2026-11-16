@@ -697,3 +697,18 @@ and label-centre/stranded-action on setup cards.
 - Retention: removed the duplicate panel subtitle and added a Sweep threshold
   heading; flagged table unchanged.
 - Browser-verified at 1440 and 390; 375 tests, ruff, format and mypy clean.
+
+## Message panel arrangement — 2026-11-16
+
+- Header: `← Back to prospect` sits above the prospect name and its
+  stage/message badges; the 40px close column stays clear. Back uses the
+  existing `data-panel-back` behavior in panel mode.
+- Draft editor: the character count moved from below the form to directly
+  under the textarea, right-aligned.
+- Message history: replaced the run-on sentence with label/value rows
+  (Origin, Created, Approved, Opened, Send confirmed); the P5 AI warning is a
+  separate note under the list.
+- Canvas shell flash now renders strings only, so the full-page message deep
+  link no longer prints the `OutreachMessage` ORM repr above the toolbar.
+  Regression test added in `tests/test_canvas_contract.py`.
+- Verified at 1440 and 390; 376 tests, ruff, format and mypy clean.
