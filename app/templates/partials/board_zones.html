@@ -1,0 +1,44 @@
+{# Board region: phase bands, stage zones and prospect cards (spec §2.3/§3).
+   Included by canvas/shell.html (canvas) and by board_refresh.html (HTMX
+   swap of #board-root). Zones are absolutely positioned by canvas.js —
+   CSP forbids inline style attributes, so no coordinates here. DOM order is
+   canonical stage order (j/k and no-JS reading order depend on it). #}
+{% for band in bands %}
+<div class="band-label" data-band="{{ band.key }}">
+  <span class="phase-chip" aria-hidden="true">{{ band.key }}</span>
+  <span class="band-name">{{ band.label }}</span>
+</div>
+
+{% for zone in band.zones %}
+{% set zcards = zone_cards.get(zone.key, []) %}
+<section class="canvas-zone" data-zone="{{ zone.key }}"
+         data-stages="{{ zone.stages|join(' ') }}"
+         data-band="{{ band.key }}"
+         data-drop-stage="{{ zone.stages[0] }}"
+         aria-labelledby="zone-title-{{ zone.key }}">
+  <header class="zone-head">
+    <h2 class="zone-title" id="zone-title-{{ zone.key }}">{{ zone.label }}
+      <span class="zone-count" data-zone-count{% if zone_hot.get(zone.key) %} data-hot="{{ zone_hot.get(zone.key) }}"{% endif %}>
+        <span data-count>{{ zcards|length }}</span><span class="sr-only"> prospects</span>
+      </span>
+    </h2>
+  </header>
+  {% if zone.sub_badges %}
+  <div class="zone-sub-badges">
+    {% for sub in zone.stages %}
+    <span class="badge stage-{{ sub|replace('_','-') }}" data-sub-stage="{{ sub }}">{{ sub|replace('_',' ') }}
+      <span class="mono" data-count>{{ zone_sub_counts.get(sub, 0) }}</span></span>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="drop-label" aria-hidden="true"></div>
+  <div class="zone-body" data-zone-body>
+    <div class="zone-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
+    {% for p in zcards %}
+    {% include "prospects/card_prospect.html" %}
+    {% endfor %}
+    {% if not zcards %}<p class="zone-empty">· none</p>{% endif %}
+  </div>
+</section>
+{% endfor %}
+{% endfor %}

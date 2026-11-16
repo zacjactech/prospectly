@@ -1,0 +1,45 @@
+{# Outreach region (spec §V2.1/§3.4): messages in flight, grouped by their
+   real state. Cards open the message panel; the only send-like control is
+   the existing confirm-sent action on opened messages (P1 — the app never
+   sends; the user confirms). #}
+<div class="region-label" data-region-label="outreach">
+  <span class="region-chip" aria-hidden="true">MSG</span>
+  <span class="region-name">Outreach</span>
+  <span class="region-hint">{{ outreach_total }} in flight</span>
+</div>
+
+<div class="canvas-region outreach-region" data-region="outreach" id="outreach-root"
+     data-wire-source="board" data-wire-label="messages in flight"
+     aria-label="Outreach region">
+  {% for status, label, hint in outreach_zones %}
+  <section class="msg-zone" data-msg-zone="{{ status }}">
+    <header class="msg-zone-head">
+      <h2 class="msg-zone-title">{{ label }}
+        <span class="zone-count">{{ outreach_groups[status]|length }}</span>
+      </h2>
+      <p class="muted small">{{ hint }}</p>
+    </header>
+    <div class="msg-zone-body">
+      {% for m in outreach_groups[status] %}
+      <article class="msg-card" data-msg-id="{{ m.id }}">
+        <a class="msg-card-main" href="/messages/{{ m.id }}/edit"
+           data-panel-href="/messages/{{ m.id }}/edit" data-panel-width="560" data-panel-dirty="1">
+          <span class="msg-card-name">{{ m.prospect.business_name }}</span>
+          <span class="msg-card-text">{{ m.current_text|truncate(72) }}</span>
+        </a>
+        {% if status == 'opened_in_whatsapp' %}
+        <div class="msg-card-actions">
+          <form method="post" action="/messages/{{ m.id }}/confirm-sent" data-confirm="Confirm this was sent?">
+            {{ csrf_field() }}
+            <button class="btn small" type="submit">Confirm sent</button>
+          </form>
+        </div>
+        {% endif %}
+      </article>
+      {% else %}
+      <p class="zone-empty">· none</p>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>

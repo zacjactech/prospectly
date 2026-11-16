@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # --- App ---
     app_name: str = "Prospectly"
-    app_version: str = "0.1.0a1"
+    app_version: str = "0.2.0"
     bind_host: str = "127.0.0.1"
     bind_port: int = 8000
     app_access_token: str | None = None

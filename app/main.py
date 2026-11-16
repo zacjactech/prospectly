@@ -96,6 +96,10 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         for header, value in _SECURITY_HEADERS.items():
             response.headers.setdefault(header, value)
+        # Local-first, no build step: assets are edited in place. Revalidate
+        # instead of letting the browser serve a stale script after an update.
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache"
         return response
 
     return app

@@ -123,12 +123,43 @@
     });
   });
 
-  /* ----- Toast notifications: dismiss + auto-dismiss ----- */
-  document.querySelectorAll("[data-dismiss]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var target = document.getElementById(btn.getAttribute("data-dismiss"));
-      if (target) target.classList.add("dismiss");
-    });
+  /* ----- Toast notifications: dismiss + auto-dismiss -----
+     Delegated + observer-armed so toasts that arrive inside HTMX panel or
+     board fragments (and JS-created error toasts) behave like page toasts. */
+  var armToast = function (toast) {
+    if (!toast || toast.dataset.toastArmed) return;
+    toast.dataset.toastArmed = "1";
+    setTimeout(function () {
+      toast.classList.add("dismiss");
+    }, 6000);
+  };
+  document.querySelectorAll(".toast").forEach(armToast);
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest && e.target.closest("[data-dismiss]");
+    if (!btn) return;
+    var id = btn.getAttribute("data-dismiss");
+    var target = (id && document.getElementById(id)) || btn.closest(".toast");
+    if (target) target.classList.add("dismiss");
+  });
+
+  if ("MutationObserver" in window) {
+    new MutationObserver(function (mutations) {
+      mutations.forEach(function (m) {
+        Array.prototype.forEach.call(m.addedNodes, function (n) {
+          if (n.nodeType !== 1) return;
+          if (n.classList && n.classList.contains("toast")) armToast(n);
+          if (n.querySelectorAll) n.querySelectorAll(".toast").forEach(armToast);
+        });
+      });
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+
+  /* Saved-view picker (canvas toolbar): native select navigates to the
+     existing apply endpoint, which 303s to /prospects with its filters. */
+  document.addEventListener("change", function (e) {
+    var sel = e.target.closest && e.target.closest("[data-saved-view]");
+    if (sel && sel.value) window.location.assign(sel.value);
   });
 
   /* ----- Instant hide: [data-hide="id"] adds .hidden to the target -----
@@ -140,25 +171,48 @@
       if (target) target.classList.add("hidden");
     });
   });
-  document.querySelectorAll(".toast").forEach(function (toast) {
-    setTimeout(function () { toast.classList.add("dismiss"); }, 6000);
+
+  /* Shortcuts entry points (rail Shortcuts button, spec §1.1): opening the
+     help over an open drawer would hide it behind the drawer's z-stack, so
+     the drawer closes first (capture phase, before the toggle handler). */
+  document.addEventListener(
+    "click",
+    function (e) {
+      var btn = e.target.closest && e.target.closest("[data-show-help]");
+      if (!btn) return;
+      if (typeof navIsOpen === "function" && navIsOpen()) closeNav(false);
+    },
+    true
+  );
+  document.querySelectorAll("[data-show-help]").forEach(function (el) {
+    el.addEventListener("click", function () {
+      showHelp();
+    });
   });
 
-  /* ----- Keyboard shortcuts (UI/UX spec §8) -----
+  /* ----- Keyboard shortcuts (UI/UX spec §8, Pipeline Canvas §6.2) -----
      Progressive enhancement; all have UI equivalents. Sequence keys use a
-     short buffer (g then d = dashboard). Ignored when typing in an input. */
+     short buffer (g then d = dashboard). Ignored when typing in an input;
+     board keys yield while a slide-over panel is open (the panel layer owns
+     the keyboard then — Escape closes it first, spec §6.2 priority). */
   var help = document.getElementById("shortcuts-help");
   var showHelp = function () {
     if (help) help.classList.toggle("hidden");
+  };
+  var panelIsOpen = function () {
+    if (window.PlPanel && window.PlPanel.isOpen) return window.PlPanel.isOpen();
+    return !!document.querySelector("#panel-root .panel");
   };
   var keyBuffer = "";
   var bufferTimer = null;
 
   document.addEventListener("keydown", function (e) {
-    // Ignore when the user is typing in a field.
-    if (e.target.matches("input, textarea, select, [contenteditable]")) return;
+    // Ignore when the user is typing in a field (guard: e.target may be a
+    // non-Element, e.g. a programmatically dispatched event).
+    if (e.target && e.target.matches && e.target.matches("input, textarea, select, [contenteditable]")) return;
 
     if (e.key === "?") {
+      if (panelIsOpen()) return;
       e.preventDefault();
       showHelp();
       return;
@@ -172,17 +226,20 @@
 
     // '/' focuses the first search input on the page.
     if (e.key === "/") {
+      if (panelIsOpen()) return;
       e.preventDefault();
       var search = document.querySelector('input[name="q"], input[type="search"]');
       if (search) search.focus();
       return;
     }
 
-    // j/k move a highlight down/up within row lists.
+    // j/k move a highlight down/up within row lists AND across the board's
+    // cards (DOM order = canonical stage order, spec §6.2).
     if (e.key === "j" || e.key === "k") {
+      if (panelIsOpen()) return;
       e.preventDefault();
-      var rows = document.querySelectorAll("tbody tr");
-      var current = document.querySelector("tbody tr.highlight");
+      var rows = document.querySelectorAll("tbody tr, .prospect-card");
+      var current = document.querySelector("tbody tr.highlight, .prospect-card.highlight");
       var idx = rows.length ? Array.prototype.indexOf.call(rows, current) : -1;
       var next = idx;
       if (e.key === "j") next = Math.min(idx + 1, rows.length - 1);
@@ -195,14 +252,49 @@
       return;
     }
 
+    // Enter opens the focused/highlighted board card (spec §3.1). Only the
+    // card itself (or the bare page with a highlight) is intercepted —
+    // buttons, links and panel controls keep their native Enter.
+    if (e.key === "Enter" && !panelIsOpen()) {
+      var active = document.activeElement;
+      if (active && active.classList && active.classList.contains("prospect-card")) {
+        e.preventDefault();
+        active.click();
+        return;
+      }
+      if (active === document.body) {
+        var highlighted = document.querySelector(".prospect-card.highlight");
+        if (highlighted) {
+          e.preventDefault();
+          highlighted.click();
+          return;
+        }
+      }
+    }
+
     // Sequence keys: buffer single-letter keys, clear after 1s.
     keyBuffer += e.key;
     clearTimeout(bufferTimer);
     bufferTimer = setTimeout(function () { keyBuffer = ""; }, 1000);
-    if (keyBuffer === "gd") {
+    if (keyBuffer.length === 2 && keyBuffer[0] === "g") {
+      var target = keyBuffer[1];
       keyBuffer = "";
       clearTimeout(bufferTimer);
-      window.location.href = "/";
+      if (panelIsOpen()) return;
+      if (target === "h") {
+        e.preventDefault();
+        if (window.PlCanvas) window.PlCanvas.fit();
+      } else if (target === "p") {
+        e.preventDefault();
+        if (window.PlCanvas) window.PlCanvas.fitBoard();
+      } else if (target === "o") {
+        e.preventDefault();
+        if (window.PlCanvas) window.PlCanvas.fitOutreach();
+      } else if (target === "s") {
+        e.preventDefault();
+        if (window.PlPanel) window.PlPanel.open("/status", { width: 560 });
+        else window.location.href = "/status";
+      }
     }
   });
 })();

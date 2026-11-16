@@ -1,4 +1,4 @@
-"""Dashboard tests: pipeline strip counts (UI/UX spec §2.1).
+"""Dashboard/Status-card tests: real pipeline counts on the canvas (§V2.3).
 
 Uses the same temp-file SQLite pattern as test_phase1.py.
 """
@@ -85,7 +85,7 @@ def test_stage_counts_zero_fills_and_excludes_archived() -> None:
         _cleanup(db, path)
 
 
-def test_dashboard_renders_pipeline_strip_without_fake_metrics() -> None:
+def test_status_card_renders_metrics_without_pipeline_strip() -> None:
     db, path = _make_db()
     try:
         client = _client_with_db(db)
@@ -93,14 +93,19 @@ def test_dashboard_renders_pipeline_strip_without_fake_metrics() -> None:
 
         r = client.get("/")
         assert r.status_code == 200
-        # Pipeline strip present, linked per stage.
-        assert 'class="pipeline-strip"' in r.text
-        assert "/prospects?stage=opportunity_identified" in r.text
-        # The stage counts are real, not hardcoded zeros.
-        assert "Acme" not in r.text  # names are not dashboard content
-        # Old fake metric cards are gone.
-        assert "Needs attention" not in r.text
-        assert "metric-card" not in r.text
+        # Deep-link contract (§V2.2): the canvas shell with Status pre-opened.
+        assert 'id="canvas-screen"' in r.text
+        assert 'data-panel-open="status"' in r.text
+        # §V2.3: the old pipeline strip is intentionally dropped — the board
+        # carries phase chips and per-stage counts instead.
+        assert 'class="pipeline-strip"' not in r.text
+        assert 'data-zone="new"' in r.text
+        # Metrics are real (the prospect appears on the board, and the
+        # prerequisites/quick-start content is present).
+        assert "Acme Hotel" in r.text
+        assert 'class="metric-groups"' in r.text
+        assert "Needs attention" in r.text
+        assert "/settings/profile" in r.text
     finally:
         _cleanup(db, path)
 

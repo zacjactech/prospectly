@@ -5,8 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from datetime import datetime
-from typing import Annotated
+from datetime import date, datetime
+from typing import Annotated, Any
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
@@ -63,6 +63,235 @@ templates = Jinja2Templates(directory=BASE_DIR / "app" / "templates")
 
 DbSession = Annotated[Session, Depends(get_db)]
 
+# ===== Pipeline Canvas board context (spec §2.3) =====
+# Terminal states render as ONE merged zone with three sub-badges; everything
+# else follows the dashboard's display phases (presentation only — the stage
+# order and state machine live in SYSTEM_ARCHITECTURE §3.2 / prospect.py).
+TERMINAL_STAGES: tuple[str, ...] = ("not_interested", "do_not_contact", "archived")
+
+
+def _zone_label(stage: str) -> str:
+    return stage.replace("_", " ").title()
+
+
+def _build_board_bands() -> list[dict]:
+    bands: list[dict] = []
+    for idx, (label, stages) in enumerate(dashboard_service.PIPELINE_PHASES, start=1):
+        bands.append(
+            {
+                "key": f"{idx:02d}",
+                "label": label,
+                "zones": [
+                    {"key": s, "label": _zone_label(s), "stages": [s], "sub_badges": False}
+                    for s in stages
+                ],
+            }
+        )
+    bands.append(
+        {
+            "key": "T",
+            "label": "Terminal",
+            "zones": [
+                {
+                    "key": "terminal",
+                    "label": "Terminal",
+                    "stages": list(TERMINAL_STAGES),
+                    "sub_badges": True,
+                }
+            ],
+        }
+    )
+    return bands
+
+
+BOARD_BANDS: list[dict] = _build_board_bands()
+BOARD_ZONE_KEYS: tuple[str, ...] = tuple(z["key"] for b in BOARD_BANDS for z in b["zones"])
+
+STAGES: tuple[str, ...] = (
+    "new",
+    "researched",
+    "opportunity_identified",
+    "outreach_ready",
+    "contacted",
+    "replied",
+    "interested",
+    "follow_up_due",
+    "converted",
+    "not_interested",
+    "do_not_contact",
+    "archived",
+)
+
+
+def _hx(request: Request) -> bool:
+    """Content-negotiation probe (spec §4): HTMX asks for the fragment.
+
+    Same route, same path, same contract — the full-page representation is
+    returned unchanged when the HX-Request header is absent (all existing
+    tests exercise that path).
+    """
+    return bool(request.headers.get("hx-request"))
+
+
+# Removable filter chips (base spec §1.2): label order matches the toolbar.
+FILTER_CHIP_LABELS: tuple[tuple[str, str], ...] = (
+    ("q", "Search"),
+    ("stage", "Stage"),
+    ("tag", "Tag"),
+    ("category", "Category"),
+    ("location", "Location"),
+    ("include_archived", "Archived included"),
+    ("do_not_contact_only", "Suppressed only"),
+)
+
+
+def _active_filters(
+    *,
+    stage: str | None,
+    tag: str | None,
+    category: str | None,
+    location: str | None,
+    q: str | None,
+    include_archived: bool,
+    do_not_contact_only: bool,
+) -> list[dict[str, str]]:
+    """Build the removable filter chips shown under the canvas toolbar.
+
+    Each chip is a plain link to ``/prospects`` with every *other* active
+    filter kept, so removal works without JavaScript and cannot drift from
+    the URL state (no hidden form state, no fetch endpoint). The URL is the
+    single source of truth (spec §V2.2).
+    """
+    values: dict[str, str | bool | None] = {
+        "q": q,
+        "stage": stage,
+        "tag": tag,
+        "category": category,
+        "location": location,
+        "include_archived": include_archived,
+        "do_not_contact_only": do_not_contact_only,
+    }
+    chips: list[dict[str, str]] = []
+    for key, label in FILTER_CHIP_LABELS:
+        value = values[key]
+        if not value:
+            continue
+        text = label if isinstance(value, bool) else f"{label}: {value.replace('_', ' ')}"
+        remaining = {k: ("true" if v is True else v) for k, v in values.items() if k != key and v}
+        url = "/prospects"
+        if remaining:
+            url += "?" + urlencode(remaining)
+        chips.append({"key": key, "label": text, "url": url})
+    return chips
+
+
+def _relative_days(dt: datetime | None) -> str | None:
+    """Human "3d"/"today" label for a past timestamp (card meta row)."""
+    if dt is None:
+        return None
+    now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
+    days = (now - dt).days
+    if days <= 0:
+        return "today"
+    if days == 1:
+        return "1d"
+    return f"{days}d"
+
+
+def _follow_up_rel(due: datetime | date | None, today: date) -> tuple[str, bool]:
+    """("overdue 2d" | "due today" | "due 3d", is_due_now) for a follow-up."""
+    dd = due.date() if isinstance(due, datetime) else due
+    if dd is None:
+        return ("", False)
+    delta = (dd - today).days
+    if delta < 0:
+        return (f"overdue {-delta}d", True)
+    if delta == 0:
+        return ("due today", True)
+    return (f"due {delta}d", False)
+
+
+def _board_context(db: Session, rows: list[Prospect], *, stage: str | None = None) -> dict:
+    """Board-only template context: zones, cards, quick-action metadata.
+
+    ``stage`` is the URL stage lens (spec §V2.2): only the matching band/zone
+    is rendered, so a shared `?stage=` URL opens the single-zone view. The
+    "Show all zones" chip clears the lens.
+    """
+    bands = BOARD_BANDS
+    if stage:
+        bands = [
+            {**band, "zones": [z for z in band["zones"] if stage in z["stages"]]}
+            for band in BOARD_BANDS
+            if any(stage in z["stages"] for z in band["zones"])
+        ]
+    zone_cards: dict[str, list[Prospect]] = {k: [] for k in BOARD_ZONE_KEYS}
+    for r in rows:
+        key = "terminal" if r.stage in TERMINAL_STAGES else r.stage
+        if key in zone_cards:
+            zone_cards[key].append(r)
+
+    ids = [r.id for r in rows]
+    active_messages: dict[int, OutreachMessage] = {}
+    rel_fu: dict[int, str] = {}
+    fu_due_ids: set[int] = set()
+    if ids:
+        for m in (
+            db.query(OutreachMessage)
+            .filter(
+                OutreachMessage.prospect_id.in_(ids),
+                OutreachMessage.active.is_(True),
+            )
+            .all()
+        ):
+            active_messages[m.prospect_id] = m
+        today = datetime.now().date()
+        open_followups = (
+            db.query(FollowUp)
+            .filter(FollowUp.prospect_id.in_(ids), FollowUp.status == "open")
+            .order_by(FollowUp.due_date.asc().nullslast())
+            .all()
+        )
+        earliest: dict[int, FollowUp] = {}
+        for f in open_followups:
+            earliest.setdefault(f.prospect_id, f)
+        for pid, f in earliest.items():
+            rel, is_due = _follow_up_rel(f.due_date, today)
+            if rel:
+                rel_fu[pid] = rel
+            if is_due:
+                fu_due_ids.add(pid)
+
+    rel_contact: dict[int, str] = {
+        r.id: label for r in rows if (label := _relative_days(r.last_contacted_at))
+    }
+
+    zone_hot: dict[str, str] = {}
+    for key, cards in zone_cards.items():
+        if any(c.id in fu_due_ids for c in cards):
+            zone_hot[key] = "warn"
+        elif any(
+            active_messages.get(c.id) is not None
+            and active_messages[c.id].status == "pending_review"
+            for c in cards
+        ):
+            zone_hot[key] = "accent"
+
+    zone_sub_counts: dict[str, int] = {
+        s: sum(1 for c in zone_cards["terminal"] if c.stage == s) for s in TERMINAL_STAGES
+    }
+
+    return {
+        "bands": bands,
+        "zone_cards": zone_cards,
+        "zone_hot": zone_hot,
+        "zone_sub_counts": zone_sub_counts,
+        "active_messages": active_messages,
+        "fu_due_ids": fu_due_ids,
+        "rel_contact": rel_contact,
+        "rel_fu": rel_fu,
+    }
+
 
 def _render_list(
     request: Request,
@@ -88,41 +317,241 @@ def _render_list(
         include_archived=include_archived,
         do_not_contact_only=do_not_contact_only,
     )
-    stages = [
-        "new",
-        "researched",
-        "opportunity_identified",
-        "outreach_ready",
-        "contacted",
-        "replied",
-        "interested",
-        "follow_up_due",
-        "converted",
-        "not_interested",
-        "do_not_contact",
-        "archived",
-    ]
-    tags = db.query(Tag).order_by(Tag.name).all()
-    categories = sorted({r.category for r in rows if r.category}, key=str.lower)
-    return templates.TemplateResponse(
-        request=request,
-        name="prospects/list.html",
-        context={
-            "app_name": settings.app_name,
-            "prospects": rows,
-            "stages": stages,
-            "tags": tags,
-            "categories": categories,
-            "current_stage": stage,
-            "current_tag": tag,
-            "current_category": category,
-            "current_location": location,
-            "current_q": q,
+    filters: dict[str, Any] = {
+        "stage": stage,
+        "tag": tag,
+        "category": category,
+        "location": location,
+        "q": q,
+        "include_archived": include_archived,
+        "do_not_contact_only": do_not_contact_only,
+    }
+    if _hx(request):
+        # HTMX board refresh (spec §4): fragment only — flashes + zones.
+        return templates.TemplateResponse(
+            request=request,
+            name="prospects/board_refresh.html",
+            context={
+                "app_name": settings.app_name,
+                **filters,
+                "message": message,
+                "message_type": message_type,
+                **_board_context(db, rows, stage=stage),
+            },
+        )
+    return _render_canvas(
+        request,
+        db,
+        rows=rows,
+        message=message,
+        message_type=message_type,
+        **filters,
+    )
+
+
+# ===== The canvas shell (spec §V2.1/§V2.2) =====
+# One screen for the whole app. Every retired page route renders this shell
+# with its setup card pre-opened, so direct URLs keep working; HTMX requests
+# on the same routes get the panel fragment only.
+
+
+def _setup_cluster_context(db: Session) -> dict:
+    """Live one-line state for each setup card (§V2.3). Read-only queries."""
+    profile = profile_service.get_or_create_profile(db)
+    needs = dashboard_service.needs_attention(db)
+    provider_rows = providers_service.provider_status(db)
+    configured = sum(1 for r in provider_rows if r.get("configured"))
+    usage = usage_summary(db)
+    calls = sum(int(v.get("used") or 0) for k, v in usage.items() if k != "ai")
+    views = saved_views_service.list_saved_views(db)
+    flagged = retention_service.list_retention_flagged(db)
+    # NOTE: do not run find_fuzzy_duplicates() here. It scans every live
+    # prospect and made the canvas render O(n) on every page load (~100ms at
+    # 5,000 prospects, breaking the Phase 5 budget). The Merge card computes
+    # its pairs when opened; the meta line only advertises the surface.
+    needs_count = sum(int(i.get("count") or 0) for i in needs)
+    industries = len(profile.target_industries or [])
+    card_states = {
+        "status": {
+            "meta": f"{needs_count} need attention" if needs_count else "all clear",
+            "warn": needs_count > 0,
+        },
+        "profile": {
+            "meta": f"{'offer set' if profile.offer else 'no offer'} · {industries} industries",
+            "warn": not profile.offer,
+        },
+        "providers": {"meta": f"{configured}/{len(provider_rows)} configured", "warn": False},
+        "usage": {"meta": f"{calls} provider calls today", "warn": False},
+        "general": {
+            "meta": f"{settings.default_follow_up_days}d follow-up · "
+            f"{len(settings.category_vocabulary or [])} categories",
+            "warn": False,
+        },
+        "import": {"meta": "CSV → candidates", "warn": False},
+        "saved_views": {
+            "meta": f"{len(views)} saved view{'s' if len(views) != 1 else ''}",
+            "warn": False,
+        },
+        "retention": {"meta": f"{len(flagged)} flagged", "warn": bool(flagged)},
+        "merge": {"meta": "review candidates", "warn": False},
+    }
+    return {"card_states": card_states, "saved_views": views}
+
+
+def _outreach_context(db: Session) -> dict:
+    """Messages in flight, grouped by state (spec §V2.1 outreach region)."""
+    messages = (
+        db.query(OutreachMessage)
+        .join(Prospect)
+        .filter(OutreachMessage.status.in_(("pending_review", "approved", "opened_in_whatsapp")))
+        .order_by(OutreachMessage.updated_at.desc())
+        .all()
+    )
+    groups = {
+        "pending_review": [m for m in messages if m.status == "pending_review"],
+        "approved": [m for m in messages if m.status == "approved"],
+        "opened_in_whatsapp": [m for m in messages if m.status == "opened_in_whatsapp"],
+    }
+    return {
+        "outreach_groups": groups,
+        "outreach_total": len(messages),
+        "outreach_zones": [
+            ("pending_review", "Pending review", "awaiting your approval"),
+            ("approved", "Approved", "ready to open in WhatsApp"),
+            ("opened_in_whatsapp", "Opened", "waiting on your confirmation"),
+        ],
+    }
+
+
+def _render_canvas(
+    request: Request,
+    db: Session,
+    *,
+    rows: list[Prospect] | None = None,
+    open_card: str | None = None,
+    panel_body_template: str | None = None,
+    panel_context: dict | None = None,
+    stage: str | None = None,
+    tag: str | None = None,
+    category: str | None = None,
+    location: str | None = None,
+    q: str | None = None,
+    include_archived: bool = False,
+    do_not_contact_only: bool = False,
+    message: str | None = None,
+    message_type: str = "info",
+    status_code: int = 200,
+) -> HTMLResponse:
+    if rows is None:
+        rows = prospect_service.list_prospects(
+            db,
+            stage=stage,
+            tag=tag,
+            category=category,
+            location=location,
+            q=q,
+            include_archived=include_archived,
+            do_not_contact_only=do_not_contact_only,
+        )
+    active_filters = _active_filters(
+        stage=stage,
+        tag=tag,
+        category=category,
+        location=location,
+        q=q,
+        include_archived=include_archived,
+        do_not_contact_only=do_not_contact_only,
+    )
+    filter_params = {
+        k: ("true" if v is True else v)
+        for k, v in {
+            "stage": stage,
+            "tag": tag,
+            "category": category,
+            "location": location,
+            "q": q,
             "include_archived": include_archived,
             "do_not_contact_only": do_not_contact_only,
-            "message": message,
-            "message_type": message_type,
-        },
+        }.items()
+        if v
+    }
+    filters_href = "/prospects/filters"
+    if filter_params:
+        filters_href += "?" + urlencode(filter_params)
+    # POST → 303 redirects put the confirmation in the query string
+    # (e.g. /prospects/6?flash=Message+sent+confirmed). The canvas routes
+    # don't take a message parameter, so surface it here; the type is
+    # whitelisted because it becomes a CSS class.
+    if message is None:
+        message = request.query_params.get("flash")
+        if message:
+            candidate = request.query_params.get("flash_type") or "info"
+            message_type = candidate if candidate in ("info", "success", "error") else "info"
+    context = {
+        "app_name": settings.app_name,
+        "canvas_mode": True,
+        "prospects": rows,
+        "stages": list(STAGES),
+        "tags": db.query(Tag).order_by(Tag.name).all(),
+        "categories": sorted({r.category for r in rows if r.category}, key=str.lower),
+        "current_stage": stage,
+        "current_tag": tag,
+        "current_category": category,
+        "current_location": location,
+        "current_q": q,
+        "include_archived": include_archived,
+        "do_not_contact_only": do_not_contact_only,
+        "active_filters": active_filters,
+        "filters_href": filters_href,
+        "stage_lens_clear_url": next(
+            (f["url"] for f in active_filters if f["key"] == "stage"), None
+        ),
+        "message": message,
+        "message_type": message_type,
+        "open_card": open_card,
+        "panel_body_template": panel_body_template,
+        **_board_context(db, rows, stage=stage),
+        **_setup_cluster_context(db),
+        **_outreach_context(db),
+    }
+    if panel_context:
+        context.update(panel_context)
+    return templates.TemplateResponse(
+        request=request,
+        name="canvas/shell.html",
+        context=context,
+        status_code=status_code,
+    )
+
+
+def _card_page(
+    request: Request,
+    db: Session,
+    *,
+    card: str,
+    body: str,
+    context: dict[str, object],
+    status_code: int = 200,
+) -> HTMLResponse:
+    """Render a card surface (setup or detail) on the canvas (§V2.2).
+
+    HX-Request → the panel body fragment (no canvas chrome).
+    Plain GET  → the canvas shell with that card's panel already open.
+    """
+    if _hx(request):
+        return templates.TemplateResponse(
+            request=request,
+            name=body,
+            context={**context, "panel_mode": True},
+            status_code=status_code,
+        )
+    return _render_canvas(
+        request,
+        db,
+        open_card=card,
+        panel_body_template=body,
+        panel_context=context,
+        status_code=status_code,
     )
 
 
@@ -132,23 +561,34 @@ def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
+def _status_context(db: Session) -> dict[str, object]:
+    """Status card content (was the dashboard page): attention queue, metrics,
+    quick start. The 01→03 pipeline strip is dropped — the board itself is on
+    screen with phase chips and counts (§V2.3)."""
+    return {
+        "app_name": settings.app_name,
+        "stage_counts": dashboard_service.stage_counts(db),
+        "pipeline_phases": dashboard_service.PIPELINE_PHASES,
+        "stage_label": dashboard_service.stage_label,
+        "total_prospects": dashboard_service.total_prospects(db),
+        "metrics": dashboard_service.dashboard_metrics(db),
+        "needs_attention": dashboard_service.needs_attention(db),
+    }
+
+
 @router.get("/", response_class=HTMLResponse)
 def index(request: Request, db: DbSession) -> HTMLResponse:
-    """Dashboard home page: pipeline strip + operational metrics + quick start."""
-    counts = dashboard_service.stage_counts(db)
-    metrics = dashboard_service.dashboard_metrics(db)
-    return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={
-            "app_name": settings.app_name,
-            "stage_counts": counts,
-            "pipeline_phases": dashboard_service.PIPELINE_PHASES,
-            "stage_label": dashboard_service.stage_label,
-            "total_prospects": dashboard_service.total_prospects(db),
-            "metrics": metrics,
-            "needs_attention": dashboard_service.needs_attention(db),
-        },
+    """The canvas, with the Status card open (§V2.2)."""
+    return _card_page(
+        request, db, card="status", body="canvas/cards/status.html", context=_status_context(db)
+    )
+
+
+@router.get("/status", response_class=HTMLResponse)
+def status_card(request: Request, db: DbSession) -> HTMLResponse:
+    """Status card as its own address (rail item + `g s`)."""
+    return _card_page(
+        request, db, card="status", body="canvas/cards/status.html", context=_status_context(db)
     )
 
 
@@ -177,11 +617,66 @@ def prospects_list(
     )
 
 
+@router.get("/prospects/filters", response_class=HTMLResponse)
+def prospects_filters(
+    request: Request,
+    db: Session = Depends(get_db),
+    stage: str | None = None,
+    tag: str | None = None,
+    category: str | None = None,
+    location: str | None = None,
+    q: str | None = None,
+    include_archived: bool = False,
+    do_not_contact_only: bool = False,
+) -> HTMLResponse:
+    """Filters panel (spec §1.2/§V2.3): a 360px surface, not inline rows.
+
+    The query string carries the current filter state so the panel always
+    opens on what the board is showing. HX-Request → panel body fragment.
+    """
+    categories = sorted(
+        (
+            row[0]
+            for row in db.query(Prospect.category)
+            .filter(Prospect.category.isnot(None))
+            .distinct()
+            .all()
+            if row[0]
+        ),
+        key=str.lower,
+    )
+    return _card_page(
+        request,
+        db,
+        card="filters",
+        body="canvas/cards/filters.html",
+        context={
+            "app_name": settings.app_name,
+            "stages": list(STAGES),
+            "tags": db.query(Tag).order_by(Tag.name).all(),
+            "categories": categories,
+            "current_stage": stage,
+            "current_tag": tag,
+            "current_category": category,
+            "current_location": location,
+            "current_q": q,
+            "include_archived": include_archived,
+            "do_not_contact_only": do_not_contact_only,
+            "has_filters": bool(
+                stage or tag or category or location or q or include_archived or do_not_contact_only
+            ),
+            "saved_views": saved_views_service.list_saved_views(db),
+        },
+    )
+
+
 @router.get("/prospects/new", response_class=HTMLResponse)
-def prospect_new_form(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(
-        request=request,
-        name="prospects/form.html",
+def prospect_new_form(request: Request, db: DbSession) -> HTMLResponse:
+    return _card_page(
+        request,
+        db,
+        card="prospect-new",
+        body="partials/panel_prospect_form.html",
         context={"app_name": settings.app_name, "prospect": None, "action": "/prospects/new"},
     )
 
@@ -218,9 +713,11 @@ def prospect_create(
             }
         )
     except ValidationError as exc:
-        return templates.TemplateResponse(
-            request=request,
-            name="prospects/form.html",
+        return _card_page(
+            request,
+            db,
+            card="prospect-new",
+            body="partials/panel_prospect_form.html",
             context={
                 "app_name": settings.app_name,
                 "prospect": None,
@@ -270,9 +767,11 @@ def prospect_create(
         website_url=data.website_url,
     )
     if error:
-        return templates.TemplateResponse(
-            request=request,
-            name="prospects/form.html",
+        return _card_page(
+            request,
+            db,
+            card="prospect-new",
+            body="partials/panel_prospect_form.html",
             context={
                 "app_name": settings.app_name,
                 "prospect": None,
@@ -351,21 +850,32 @@ def prospect_detail(
     )
     notes = db.query(Note).filter_by(prospect_id=prospect_id).order_by(Note.updated_at.desc()).all()
     opportunities = opportunity_service.list_opportunities(db, prospect_id=prospect_id)
-    return templates.TemplateResponse(
-        request=request,
-        name="prospects/detail.html",
-        context={
-            "app_name": settings.app_name,
-            "prospect": prospect,
-            "activities": activities,
-            "latest_run": latest_run,
-            "findings": findings,
-            "website_checks": website_checks,
-            "active_message": active_message,
-            "follow_ups": follow_ups,
-            "notes": notes,
-            "opportunities": opportunities,
-        },
+    context = {
+        "app_name": settings.app_name,
+        "prospect": prospect,
+        "activities": activities,
+        "latest_run": latest_run,
+        "findings": findings,
+        "website_checks": website_checks,
+        "active_message": active_message,
+        "follow_ups": follow_ups,
+        "notes": notes,
+        "opportunities": opportunities,
+    }
+    if _hx(request):
+        # Panel representation (spec §4): the same partial detail.html
+        # includes, rendered standalone for #panel-body.
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/panel_detail.html",
+            context={**context, "panel_mode": True},
+        )
+    return _render_canvas(
+        request,
+        db,
+        open_card=f"prospect-{prospect_id}",
+        panel_body_template="partials/panel_detail.html",
+        panel_context=context,
     )
 
 
@@ -378,9 +888,11 @@ def prospect_edit_form(
     prospect = db.get(Prospect, prospect_id)
     if prospect is None:
         return HTMLResponse("Prospect not found", status_code=404)
-    return templates.TemplateResponse(
-        request=request,
-        name="prospects/form.html",
+    return _card_page(
+        request,
+        db,
+        card=f"prospect-{prospect_id}-edit",
+        body="partials/panel_prospect_form.html",
         context={
             "app_name": settings.app_name,
             "prospect": prospect,
@@ -422,9 +934,11 @@ def prospect_update(
             }
         )
     except ValidationError as exc:
-        return templates.TemplateResponse(
-            request=request,
-            name="prospects/form.html",
+        return _card_page(
+            request,
+            db,
+            card=f"prospect-{prospect_id}-edit",
+            body="partials/panel_prospect_form.html",
             context={
                 "app_name": settings.app_name,
                 "prospect": db.get(Prospect, prospect_id),
@@ -466,9 +980,11 @@ def prospect_update(
     if error:
         if error == "Prospect not found":
             return HTMLResponse("Prospect not found", status_code=404)
-        return templates.TemplateResponse(
-            request=request,
-            name="prospects/form.html",
+        return _card_page(
+            request,
+            db,
+            card=f"prospect-{prospect_id}-edit",
+            body="partials/panel_prospect_form.html",
             context={
                 "app_name": settings.app_name,
                 "prospect": db.get(Prospect, prospect_id),
@@ -602,9 +1118,11 @@ def prospect_unsuppress(
 def profile_form(request: Request, db: DbSession) -> HTMLResponse:
     profile = profile_service.get_or_create_profile(db)
     discovery_jobs = db.query(DiscoveryJob).order_by(DiscoveryJob.created_at.desc()).limit(5).all()
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/profile.html",
+    return _card_page(
+        request,
+        db,
+        card="profile",
+        body="canvas/cards/profile.html",
         context={
             "app_name": settings.app_name,
             "profile": profile,
@@ -682,11 +1200,13 @@ def profile_discovery_run(
 
 @router.get("/settings/usage", response_class=HTMLResponse)
 def usage_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    """Settings → Usage: provider + AI call accounting per day (§2.7)."""
+    """Usage card: provider + AI call accounting per day (§2.7)."""
     stats = dashboard_service.usage_stats(db)
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/usage.html",
+    return _card_page(
+        request,
+        db,
+        card="usage",
+        body="canvas/cards/usage.html",
         context={
             "app_name": settings.app_name,
             "providers": stats["providers"],
@@ -698,13 +1218,15 @@ def usage_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
 
 @router.get("/settings/providers", response_class=HTMLResponse)
 def providers_settings_form(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    """Settings → Providers: configured/enabled status, usage, caps (§2.7).
+    """Providers card: configured/enabled status, usage, caps (§2.7).
 
     Read-only by design: keys are never rendered, only presence booleans.
     """
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/providers.html",
+    return _card_page(
+        request,
+        db,
+        card="providers",
+        body="canvas/cards/providers.html",
         context={
             "app_name": settings.app_name,
             "settings": settings,
@@ -715,10 +1237,12 @@ def providers_settings_form(request: Request, db: Session = Depends(get_db)) -> 
 
 @router.get("/settings/general", response_class=HTMLResponse)
 def general_settings_form(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    """Settings → General: vocabulary, defaults, caps, backup (§2.7)."""
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/general.html",
+    """General card: vocabulary, defaults, caps, backup (§2.7)."""
+    return _card_page(
+        request,
+        db,
+        card="general",
+        body="canvas/cards/general.html",
         context={
             "app_name": settings.app_name,
             "settings": settings,
@@ -739,9 +1263,11 @@ def general_settings_update(
     if backup:
         target = perform_backup()
         if target is None:
-            return templates.TemplateResponse(
-                request=request,
-                name="settings/general.html",
+            return _card_page(
+                request,
+                db,
+                card="general",
+                body="canvas/cards/general.html",
                 context={
                     "app_name": settings.app_name,
                     "settings": settings,
@@ -759,9 +1285,11 @@ def general_settings_update(
         try:
             days = int(default_follow_up_days)
         except ValueError:
-            return templates.TemplateResponse(
-                request=request,
-                name="settings/general.html",
+            return _card_page(
+                request,
+                db,
+                card="general",
+                body="canvas/cards/general.html",
                 context={
                     "app_name": settings.app_name,
                     "settings": settings,
@@ -794,11 +1322,13 @@ def general_settings_update(
 
 
 @router.get("/settings/import", response_class=HTMLResponse)
-def import_form(request: Request) -> HTMLResponse:
-    """CSV import wizard step 1: upload form."""
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/import.html",
+def import_form(request: Request, db: DbSession) -> HTMLResponse:
+    """CSV import card, step 1: upload form."""
+    return _card_page(
+        request,
+        db,
+        card="import",
+        body="canvas/cards/import.html",
         context={
             "app_name": settings.app_name,
             "settings": settings,
@@ -830,9 +1360,11 @@ def import_preview_page(
         except import_service.ImportError as exc:
             # import_service.ImportError subclasses ValueError — catching the
             # builtin here let every structurally invalid CSV escape as a 500.
-            return templates.TemplateResponse(
-                request=request,
-                name="settings/import.html",
+            return _card_page(
+                request,
+                db,
+                card="import",
+                body="canvas/cards/import.html",
                 context={
                     "app_name": settings.app_name,
                     "settings": settings,
@@ -843,9 +1375,11 @@ def import_preview_page(
             )
 
     if preview is None:
-        return templates.TemplateResponse(
-            request=request,
-            name="settings/import.html",
+        return _card_page(
+            request,
+            db,
+            card="import",
+            body="canvas/cards/import.html",
             context={
                 "app_name": settings.app_name,
                 "settings": settings,
@@ -886,9 +1420,11 @@ def import_preview_page(
             }
         )
 
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/import.html",
+    return _card_page(
+        request,
+        db,
+        card="import",
+        body="canvas/cards/import.html",
         context={
             "app_name": settings.app_name,
             "step": 2,
@@ -914,9 +1450,11 @@ def import_commit_page(
     """CSV import wizard step 3: commit selected rows and show results."""
     preview = import_service.load_import_session(import_token)
     if preview is None:
-        return templates.TemplateResponse(
-            request=request,
-            name="settings/import.html",
+        return _card_page(
+            request,
+            db,
+            card="import",
+            body="canvas/cards/import.html",
             context={
                 "app_name": settings.app_name,
                 "settings": settings,
@@ -935,9 +1473,11 @@ def import_commit_page(
 
     import_service.delete_import_session(import_token)
 
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/import.html",
+    return _card_page(
+        request,
+        db,
+        card="import",
+        body="canvas/cards/import.html",
         context={
             "app_name": settings.app_name,
             "step": 3,
@@ -957,9 +1497,11 @@ def saved_views_list(
 ) -> HTMLResponse:
     """Saved views list page."""
     views = saved_views_service.list_saved_views(db)
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/saved_views.html",
+    return _card_page(
+        request,
+        db,
+        card="saved_views",
+        body="canvas/cards/saved_views.html",
         context={
             "app_name": settings.app_name,
             "settings": settings,
@@ -1080,9 +1622,11 @@ def merge_duplicates_list(
 ) -> HTMLResponse:
     """Fuzzy duplicate review page."""
     pairs = merge_service.find_fuzzy_duplicates(db, min_score=min_score)
-    return templates.TemplateResponse(
-        request=request,
-        name="merge/duplicates.html",
+    return _card_page(
+        request,
+        db,
+        card="merge",
+        body="canvas/cards/merge.html",
         context={
             "app_name": settings.app_name,
             "settings": settings,
@@ -1121,9 +1665,11 @@ def retention_sweep_page(
 ) -> HTMLResponse:
     """Retention sweep page - flag inactive prospects for review."""
     flagged = retention_service.list_retention_flagged(db)
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/retention.html",
+    return _card_page(
+        request,
+        db,
+        card="retention",
+        body="canvas/cards/retention.html",
         context={
             "app_name": settings.app_name,
             "settings": settings,
@@ -1195,9 +1741,11 @@ def prospect_research(
         .all()
     )
 
-    return templates.TemplateResponse(
-        request=request,
-        name="prospects/research.html",
+    return _card_page(
+        request,
+        db,
+        card=f"research-{prospect_id}",
+        body="partials/panel_research.html",
         context={
             "app_name": settings.app_name,
             "prospect": prospect,
@@ -1571,16 +2119,25 @@ def message_edit_form(
     )
     grounded_ids = set(message.grounding or [])
     grounded_findings = [f for f in findings if f.id in grounded_ids]
-    return templates.TemplateResponse(
-        request=request,
-        name="messages/edit.html",
-        context={
-            "app_name": settings.app_name,
-            "prospect": prospect,
-            "message": message,
-            "findings": findings,
-            "grounded_findings": grounded_findings,
-        },
+    context = {
+        "app_name": settings.app_name,
+        "prospect": prospect,
+        "message": message,
+        "findings": findings,
+        "grounded_findings": grounded_findings,
+    }
+    if _hx(request):
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/panel_message.html",
+            context={**context, "panel_mode": True},
+        )
+    return _render_canvas(
+        request,
+        db,
+        open_card=f"message-{message_id}",
+        panel_body_template="partials/panel_message.html",
+        panel_context=context,
     )
 
 
@@ -1613,18 +2170,24 @@ def message_edit(
         )
         grounded_ids = set(message.grounding or [])
         grounded_findings = [f for f in findings if f.id in grounded_ids]
-        return templates.TemplateResponse(
-            request=request,
-            name="messages/edit.html",
-            context={
-                "app_name": settings.app_name,
-                "prospect": prospect,
-                "message": message,
-                "findings": findings,
-                "grounded_findings": grounded_findings,
-                "field_errors": exc.fields,
-                "form": {"current_text": current_text},
-            },
+        context = {
+            "app_name": settings.app_name,
+            "prospect": prospect,
+            "message": message,
+            "findings": findings,
+            "grounded_findings": grounded_findings,
+            "field_errors": exc.fields,
+            "form": {"current_text": current_text},
+        }
+        # Panel validation re-render (spec §4: "422 re-render lands in panel"):
+        # same route and 400 contract; a plain POST gets the canvas with this
+        # message's panel open, an HTMX POST gets the fragment.
+        return _card_page(
+            request,
+            db,
+            card=f"message-{message_id}",
+            body="partials/panel_message.html",
+            context=context,
             status_code=400,
         )
 
@@ -1670,18 +2233,21 @@ def message_submit(
         )
         grounded_ids = set(message.grounding or [])
         grounded_findings = [f for f in findings if f.id in grounded_ids]
-        return templates.TemplateResponse(
-            request=request,
-            name="messages/edit.html",
-            context={
-                "app_name": settings.app_name,
-                "prospect": prospect,
-                "message": message,
-                "findings": findings,
-                "grounded_findings": grounded_findings,
-                "field_errors": exc.fields,
-                "form": {"current_text": current_text},
-            },
+        context = {
+            "app_name": settings.app_name,
+            "prospect": prospect,
+            "message": message,
+            "findings": findings,
+            "grounded_findings": grounded_findings,
+            "field_errors": exc.fields,
+            "form": {"current_text": current_text},
+        }
+        return _card_page(
+            request,
+            db,
+            card=f"message-{message_id}",
+            body="partials/panel_message.html",
+            context=context,
             status_code=400,
         )
 
@@ -1750,9 +2316,12 @@ def message_open(
         return HTMLResponse(error, status_code=409)
     assert message is not None
     prospect = db.get(Prospect, message.prospect_id)
-    return templates.TemplateResponse(
-        request=request,
-        name="messages/open.html",
+    # Full-page POST (no hx-*): answer with the canvas + this panel open (§V2.2).
+    return _card_page(
+        request,
+        db,
+        card=f"message-{message_id}-open",
+        body="partials/panel_message_open.html",
         context={
             "app_name": settings.app_name,
             "prospect": prospect,
@@ -1965,21 +2534,15 @@ def outreach_queue(
     request: Request,
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
-    """Grouped list of messages needing attention: never lose an approved-but-unconfirmed message."""
-    messages = (
-        db.query(OutreachMessage)
-        .join(Prospect)
-        .filter(OutreachMessage.status.in_(("pending_review", "approved", "opened_in_whatsapp")))
-        .order_by(OutreachMessage.updated_at.desc())
-        .all()
-    )
-    groups = {
-        "pending_review": [m for m in messages if m.status == "pending_review"],
-        "approved": [m for m in messages if m.status == "approved"],
-        "opened_in_whatsapp": [m for m in messages if m.status == "opened_in_whatsapp"],
-    }
-    return templates.TemplateResponse(
-        request=request,
-        name="outreach/queue.html",
-        context={"app_name": settings.app_name, "groups": groups},
-    )
+    """The canvas, framed on the outreach region (messages in flight).
+
+    HX-Request → the outreach region fragment only, so panel actions can
+    refresh the region without a page reload (spec §V2.1/§3.4).
+    """
+    if _hx(request):
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/canvas_outreach_region.html",
+            context=_outreach_context(db),
+        )
+    return _render_canvas(request, db)

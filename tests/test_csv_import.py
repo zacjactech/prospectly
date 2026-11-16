@@ -224,7 +224,7 @@ def test_html_wizard_form_replay_end_to_end() -> None:
             files={"file": ("prospects.csv", csv_content, "text/csv")},
         )
         assert r.status_code == 200, r.text
-        assert "Step 2" in r.text
+        assert "Detected columns:" in r.text
         assert "First Visit Biz" in r.text
         # M8: E.164 '+' phone must be valid, not a formula-injection error.
         assert "invalid characters" not in r.text

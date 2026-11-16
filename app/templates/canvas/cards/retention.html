@@ -1,0 +1,96 @@
+{# Retention card panel body (spec §V2.3): threshold → sweep → flagged →
+   clear. The threshold field and the Run sweep button are one POST — the
+   form stays whole inside step 01; the per-row Clear flag actions live in
+   the Flagged table (splitting them out would break the rows). #}
+<h2 class="panel-heading" data-panel-title>Retention Sweep</h2>
+<p class="muted small">Flag prospects inactive for more than N months for review.</p>
+
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<div class="mini-pipeline">
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">01</span>
+      <h3>Threshold</h3>
+    </header>
+    <div class="flow-step-body">
+      <section class="card">
+        <div class="header-row">
+          <div class="grow">
+            <h3>Run Retention Sweep</h3>
+            <p class="muted small">Prospects inactive for more than the threshold will be tagged <code>retention-review</code>.</p>
+          </div>
+        </div>
+
+        <form method="post" action="/settings/retention/sweep">
+          {{ csrf_field() }}
+          <div class="field">
+            <label>Inactive threshold (months)</label>
+            <input type="number" name="months" value="12" min="1" max="60">
+            <span class="muted small">Prospects with no activity for more than this many months will be flagged.</span>
+          </div>
+          <div class="action-group">
+            <button class="btn primary" type="submit">Run sweep</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </section>
+
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">02</span>
+      <h3>Flagged</h3>
+    </header>
+    <div class="flow-step-body">
+      {% if flagged %}
+      <section class="card">
+        <div class="header-row">
+          <div class="grow">
+            <h3>Flagged for retention review ({{ flagged|length }})</h3>
+            <p class="muted small">These prospects have been inactive for over 12 months. Review and clear the flag or archive them.</p>
+          </div>
+        </div>
+
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Prospect</th>
+              <th>Stage</th>
+              <th>Last activity</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in flagged %}
+            <tr>
+              <td><strong>{{ p.business_name }}</strong></td>
+              <td><span class="badge stage-{{ p.stage }}">{{ p.stage }}</span></td>
+              <td class="muted small">{{ p.updated_at }}</td>
+              <td class="text-right small">
+                <form method="post" action="/retention/{{ p.id }}/clear" class="form-inline">
+                  {{ csrf_field() }}
+                  <button class="btn ghost small" type="submit">Clear flag</button>
+                </form>
+                <a href="/prospects/{{ p.id }}" class="btn ghost small">View</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% else %}
+      <section class="card">
+        <div class="header-row">
+          <div class="grow">
+            <h3>No flagged prospects</h3>
+            <p class="muted small">No prospects are currently flagged for retention review.</p>
+          </div>
+        </div>
+      </section>
+      {% endif %}
+    </div>
+  </section>
+</div>

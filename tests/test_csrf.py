@@ -134,7 +134,7 @@ def test_multipart_form_token_accepted() -> None:
         )
         assert r.status_code != 403, f"multipart rejected by CSRF: {r.text}"
         assert r.status_code == 200, r.text
-        assert "Step 2" in r.text
+        assert "Detected columns:" in r.text
     finally:
         _cleanup(db, path)
 

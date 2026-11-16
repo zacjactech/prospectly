@@ -1,15 +1,23 @@
-{% extends "base.html" %}
-{% block content %}
+{# Prospect detail content — the SINGLE source rendered as the canvas card
+   panel (canvas/shell.html pre-renders it for a deep link) and as the
+   slide-over fragment (content negotiation on GET /prospects/{id}).
+   panel_mode only adds HTMX attributes: form posts stay in the panel and
+   land on negotiated redirect GETs; without it, markup and behavior are the
+   plain full-page forms exactly as before (Pipeline Canvas spec §4/§V2.2). #}
+{% import "partials/stage_transitions.html" as st %}
+{% set transitions = st.transitions %}
+{% set hxpost = 'hx-target="closest .panel-body"' if panel_mode else '' %}
+{% set hxpost_refresh = 'hx-target="closest .panel-body" data-refresh-board' if panel_mode else '' %}
 {% if prospect.do_not_contact %}
 <div class="banner danger">
   Suppressed: {{ prospect.do_not_contact_reason or "do not contact" }}. This prospect cannot receive drafts or outreach actions.
 </div>
 {% endif %}
 
-<section class="card">
+<section class="card detail-head">
   <div class="header-row">
     <div class="grow">
-      <div class="prospect-name">{{ prospect.business_name }}</div>
+      <div class="prospect-name" data-panel-title>{{ prospect.business_name }}</div>
       <div class="badge-row">
         <span class="badge stage-{{ prospect.stage|replace('_','-') }}">{{ prospect.stage|replace('_',' ') }}</span>
         {% if prospect.archived_at %}<span class="badge muted">Archived</span>{% endif %}
@@ -56,21 +64,7 @@
 
   <div class="card">
     <h3>Stage</h3>
-    {% set transitions = {
-      'new': ['researched', 'not_interested', 'archived'],
-      'researched': ['opportunity_identified', 'not_interested', 'archived'],
-      'opportunity_identified': ['outreach_ready', 'not_interested', 'archived'],
-      'outreach_ready': ['contacted', 'not_interested', 'archived'],
-      'contacted': ['replied', 'follow_up_due', 'not_interested', 'archived'],
-      'replied': ['interested', 'follow_up_due', 'not_interested', 'archived'],
-      'interested': ['converted', 'follow_up_due', 'not_interested', 'archived'],
-      'follow_up_due': ['replied', 'not_interested', 'archived'],
-      'converted': ['archived'],
-      'not_interested': ['archived'],
-      'do_not_contact': ['archived'],
-      'archived': [],
-    } %}
-    <form method="post" action="/prospects/{{ prospect.id }}/stage" class="stage-form">
+    <form method="post" action="/prospects/{{ prospect.id }}/stage" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/stage"{% endif %} class="stage-form" {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       <label>Change stage to</label>
       <select name="stage" aria-label="Next stage">
@@ -95,7 +89,7 @@
     Suppressed{% if prospect.do_not_contact_reason %}: {{ prospect.do_not_contact_reason }}{% endif %}.
     Drafts, approvals and WhatsApp actions are blocked.
   </p>
-  <form method="post" action="/prospects/{{ prospect.id }}/do-not-contact/clear" class="action-group">
+  <form method="post" action="/prospects/{{ prospect.id }}/do-not-contact/clear" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/do-not-contact/clear"{% endif %} class="action-group" {{ hxpost_refresh|safe }}>
     {{ csrf_field() }}
     <label class="grow">Reason to clear (required, audit-logged)
       <input type="text" name="reason" maxlength="500" required>
@@ -103,7 +97,7 @@
     <button class="btn" type="submit" data-confirm="Clear suppression and return this prospect to the pipeline?">Clear suppression</button>
   </form>
   {% else %}
-  <form method="post" action="/prospects/{{ prospect.id }}/do-not-contact" class="action-group">
+  <form method="post" action="/prospects/{{ prospect.id }}/do-not-contact" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/do-not-contact"{% endif %} class="action-group" {{ hxpost_refresh|safe }}>
     {{ csrf_field() }}
     <label class="grow">Reason (optional)
       <input type="text" name="reason" maxlength="500" placeholder="e.g. opt-out received on WhatsApp">
@@ -169,7 +163,7 @@
   <p class="muted">Suppressed — no outreach actions available.</p>
   {% elif opportunities %}
   <div class="action-group">
-    <form method="post" action="/prospects/{{ prospect.id }}/opportunities">
+    <form method="post" action="/prospects/{{ prospect.id }}/opportunities" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/opportunities"{% endif %} {{ hxpost|safe }}>
       {{ csrf_field() }}
       <input type="text" name="type" placeholder="Opportunity type (e.g. no_standalone_website)" required>
       <input type="text" name="summary" placeholder="One-line summary" required>
@@ -185,11 +179,11 @@
       {% if o.rationale %}<span class="muted small">{{ o.rationale }}</span>{% endif %}
       <div class="row-actions">
         {% if o.status == "proposed" %}
-        <form method="post" action="/opportunities/{{ o.id }}/validate" data-confirm="Validate this opportunity? It advances the stage to Opportunity identified.">
+        <form method="post" action="/opportunities/{{ o.id }}/validate" {% if panel_mode %}hx-post="/opportunities/{{ o.id }}/validate"{% endif %} data-confirm="Validate this opportunity? It advances the stage to Opportunity identified." {{ hxpost_refresh|safe }}>
           {{ csrf_field() }}
           <button class="btn small" type="submit">Validate</button>
         </form>
-        <form method="post" action="/opportunities/{{ o.id }}/dismiss" data-confirm="Dismiss this opportunity?">
+        <form method="post" action="/opportunities/{{ o.id }}/dismiss" {% if panel_mode %}hx-post="/opportunities/{{ o.id }}/dismiss"{% endif %} data-confirm="Dismiss this opportunity?" {{ hxpost|safe }}>
           {{ csrf_field() }}
           <button class="btn ghost small" type="submit">Dismiss</button>
         </form>
@@ -229,13 +223,13 @@
   {% endif %}
   <div class="action-group">
     {% if active_message.status == "draft" %}
-    <form method="post" action="/messages/{{ active_message.id }}/submit" data-confirm="Submit this draft for review?">
+    <form method="post" action="/messages/{{ active_message.id }}/submit" {% if panel_mode %}hx-post="/messages/{{ active_message.id }}/submit"{% endif %} data-confirm="Submit this draft for review?" {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       <input type="hidden" name="current_text" value="{{ active_message.current_text }}">
       <button class="btn primary" type="submit">Submit for review</button>
     </form>
     {% elif active_message.status == "pending_review" %}
-    <form method="post" action="/messages/{{ active_message.id }}/approve" data-confirm="Approve this message for sending?">
+    <form method="post" action="/messages/{{ active_message.id }}/approve" {% if panel_mode %}hx-post="/messages/{{ active_message.id }}/approve"{% endif %} data-confirm="Approve this message for sending?" {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       <label class="checkbox-line">
         <input type="checkbox" name="ungrounded_acknowledgement" value="1">
@@ -244,30 +238,31 @@
       <button class="btn primary" type="submit">Approve</button>
     </form>
     {% elif active_message.status == "approved" %}
+    {# P1: unchanged full-page flow — the wa.me handoff stays a real page. #}
     <form method="post" action="/messages/{{ active_message.id }}/open" data-confirm="Open WhatsApp with this message prefilled? You press Send in WhatsApp — the app never sends automatically.">
       {{ csrf_field() }}
       <button class="btn primary" type="submit">Open in WhatsApp</button>
     </form>
     {% elif active_message.status == "opened_in_whatsapp" %}
-    <form method="post" action="/messages/{{ active_message.id }}/confirm-sent" data-confirm="Did you send this message? Yes confirms it was sent.">
+    <form method="post" action="/messages/{{ active_message.id }}/confirm-sent" {% if panel_mode %}hx-post="/messages/{{ active_message.id }}/confirm-sent"{% endif %} data-confirm="Did you send this message? Yes confirms it was sent." {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       <button class="btn primary" type="submit">I have sent this message</button>
     </form>
-    <form method="post" action="/messages/{{ active_message.id }}/not-sent" data-confirm="Return this message to approved (ready to re-open)?">
+    <form method="post" action="/messages/{{ active_message.id }}/not-sent" {% if panel_mode %}hx-post="/messages/{{ active_message.id }}/not-sent"{% endif %} data-confirm="Return this message to approved (ready to re-open)?" {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       <button class="btn ghost small" type="submit">Not sent</button>
     </form>
     {% elif active_message.status == "sent_confirmed" %}
-    <form method="post" action="/prospects/{{ prospect.id }}/start-new-outreach" data-confirm="Start a new outreach draft for this prospect?">
+    <form method="post" action="/prospects/{{ prospect.id }}/start-new-outreach" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/start-new-outreach"{% endif %} data-confirm="Start a new outreach draft for this prospect?" {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       <button class="btn primary" type="submit">Start new outreach</button>
     </form>
     {% endif %}
-    <a href="/messages/{{ active_message.id }}/edit" class="btn">Edit text</a>
+    <a href="/messages/{{ active_message.id }}/edit" class="btn"{% if panel_mode %} data-panel-href="/messages/{{ active_message.id }}/edit" data-panel-width="560" data-panel-dirty="1"{% endif %}>Edit text</a>
   </div>
   {% else %}
   <div class="action-group">
-    <form method="post" action="/prospects/{{ prospect.id }}/draft/generate">
+    <form method="post" action="/prospects/{{ prospect.id }}/draft/generate" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/draft/generate"{% endif %} {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       <button class="btn {% if outreach_primary %}primary{% endif %}" type="submit">Generate draft</button>
     </form>
@@ -286,7 +281,7 @@
     and moves the stage to <strong>replied</strong> unless the prospect is
     already later in the pipeline or in a terminal stage.
   </p>
-  <form method="post" action="/prospects/{{ prospect.id }}/reply">
+  <form method="post" action="/prospects/{{ prospect.id }}/reply" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/reply"{% endif %} {{ hxpost_refresh|safe }}>
     {{ csrf_field() }}
     <div class="field full">
       <label>Reply text</label>
@@ -313,11 +308,11 @@
       {% if fu.due_date %}<span class="muted small">{{ fu.due_date.strftime('%b %d, %Y') }}</span>{% endif %}
       <span>{{ fu.note or "no note" }}</span>
       <div class="row-actions">
-        <form method="post" action="/follow-ups/{{ fu.id }}/complete" data-confirm="Mark this follow-up complete?">
+        <form method="post" action="/follow-ups/{{ fu.id }}/complete" {% if panel_mode %}hx-post="/follow-ups/{{ fu.id }}/complete"{% endif %} data-confirm="Mark this follow-up complete?" {{ hxpost_refresh|safe }}>
           {{ csrf_field() }}
           <button class="btn small" type="submit">Complete</button>
         </form>
-        <form method="post" action="/follow-ups/{{ fu.id }}/cancel" data-confirm="Cancel this follow-up?">
+        <form method="post" action="/follow-ups/{{ fu.id }}/cancel" {% if panel_mode %}hx-post="/follow-ups/{{ fu.id }}/cancel"{% endif %} data-confirm="Cancel this follow-up?" {{ hxpost_refresh|safe }}>
           {{ csrf_field() }}
           <button class="btn ghost small" type="submit">Cancel</button>
         </form>
@@ -325,7 +320,7 @@
     </li>
     {% endfor %}
   </ul>
-  <form method="post" action="/prospects/{{ prospect.id }}/follow-ups" class="action-group">
+  <form method="post" action="/prospects/{{ prospect.id }}/follow-ups" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/follow-ups"{% endif %} class="action-group" {{ hxpost_refresh|safe }}>
     {{ csrf_field() }}
     <input type="date" name="due_date">
     <input type="text" name="note" placeholder="Note">
@@ -345,7 +340,7 @@
       <div class="row-actions">
         <details>
           <summary class="btn small">Edit</summary>
-          <form method="post" action="/notes/{{ n.id }}/edit">
+          <form method="post" action="/notes/{{ n.id }}/edit" {% if panel_mode %}hx-post="/notes/{{ n.id }}/edit"{% endif %} {{ hxpost|safe }}>
             {{ csrf_field() }}
             <div class="field full">
               <label>Note</label>
@@ -361,7 +356,7 @@
   {% else %}
   <p class="muted">No notes yet.</p>
   {% endif %}
-  <form method="post" action="/prospects/{{ prospect.id }}/notes">
+  <form method="post" action="/prospects/{{ prospect.id }}/notes" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/notes"{% endif %} {{ hxpost|safe }}>
     {{ csrf_field() }}
     <div class="field full">
       <label>Add note</label>
@@ -389,4 +384,3 @@
   <p class="muted">No activity yet.</p>
   {% endif %}
 </section>
-{% endblock %}

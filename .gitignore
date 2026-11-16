@@ -28,3 +28,6 @@ build/
 # Browser tool artifacts (Playwright MCP / playwright-cli page snapshots)
 .playwright-mcp/
 .playwright-cli/
+
+# Visual QA evidence (screenshots, axe reports)
+.ui-qa/

@@ -19,7 +19,8 @@
     <div class="flash error">Research failed: {{ latest_run.error }}</div>
     {% endif %}
     {# Run actions live INSIDE the polled region so they can never go stale
-       (a page-bar button would keep saying "running" after the poll ends). #}
+       (a button outside the polled region would keep saying "running" after
+       the poll ends). #}
     {% if latest_run.status != 'running' %}
     <div class="action-group">
       <form method="post" action="/prospects/{{ prospect.id }}/research/start" data-confirm="Run research again? This refreshes all findings.">

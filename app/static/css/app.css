@@ -220,6 +220,19 @@ textarea:focus-visible {
   font-family: var(--font-mono);
 }
 
+/* Visually hidden but still announced (zone counts, board status). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .small {
   font-size: var(--fs-xs);
 }
@@ -257,11 +270,14 @@ textarea:focus-visible {
   gap: var(--sp-2);
 }
 
-/* ===== Layout Shell (sidebar + main) =====
-   Mobile-first: <768px the sidebar is an off-canvas drawer behind a slim
-   header (hamburger + page title); 768–1199px it becomes a fixed 56px icon
-   rail; >=1200px it shows labels at --nav-w (spec §7 + §1 amendment
-   2026-11-11). One <aside class="sidenav"> before <main>. */
+/* ===== Layout Shell (icon rail + main) =====
+   Mobile-first: <768px navigation is an off-canvas drawer behind a slim
+   header (hamburger + page title) with text labels; >=768px it becomes a
+   persistent 56px icon rail — icons + title/[data-tip] tooltips only, group
+   hairlines instead of group words, Shortcuts + Sign out pinned at the
+   bottom (Pipeline Canvas spec §1.1; replaces the old labeled sidebar
+   including its >=1200 label variant). One <aside class="sidenav"> before
+   <main>. */
 .skip-link {
   position: absolute;
   left: -9999px;
@@ -413,7 +429,8 @@ body.nav-open .sidenav {
   border-top: 1px solid var(--color-border);
 }
 
-/* Uppercase mono group label (evo-team MENU/OTHER pattern) */
+/* Uppercase mono group label (evo-team MENU/OTHER pattern) — drawer only;
+   the >=768 rail swaps it for a plain hairline (.rail-divider). */
 .nav-group-label {
   display: block;
   padding: var(--sp-2) 10px var(--sp-1);
@@ -423,6 +440,82 @@ body.nav-open .sidenav {
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   color: var(--color-text-muted);
+}
+
+/* Rail group divider: a plain 1px hairline carrying the group name as a
+   title tooltip — no text in the rail itself (spec §1.1). Hidden in the
+   drawer, which shows .nav-group-label words instead. */
+.rail-divider {
+  display: none;
+  height: 1px;
+  margin: var(--sp-3) var(--sp-2);
+  background: var(--color-border);
+}
+
+/* Pinned rail foot (Shortcuts, Sign out) — auto-margins to the bottom of
+   the flex column in both drawer and rail. */
+.rail-foot {
+  margin-top: auto;
+  padding-top: var(--sp-2);
+}
+
+@media (min-width: 768px) {
+  .rail-foot {
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+.rail-form {
+  display: block;
+  margin: 0;
+}
+
+/* <button> nav items (Shortcuts, Sign out) behave exactly like links. */
+button.nav-link {
+  width: 100%;
+  background: none;
+  border: none;
+  border-left: 2px solid transparent; /* match the link's active-indicator slot */
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  text-align: left;
+}
+
+/* Styled tooltip for keyboard focus on rail items (spec §1.1 [data-tip]:
+   surface-raised, --fs-xs, opacity only, 120ms delay). Mouse hover uses the
+   element's native title tooltip instead — the two conditions never overlap,
+   so labels never double-render. */
+[data-tip] {
+  position: relative;
+}
+
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 3px 8px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: var(--shadow-1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) ease 120ms;
+  z-index: 130;
+}
+
+[data-tip]:focus-visible::after {
+  opacity: 1;
 }
 
 .nav-link {
@@ -486,8 +579,9 @@ body.nav-open .sidenav {
   margin: 0 auto;
 }
 
-/* Icon rail: labels and group headers collapse, icons center, tooltips
-   come from the title attribute (aria-label kept in the markup). */
+/* Icon rail: labels and group words collapse, icons center, tooltips come
+   from the title attribute (keyboard focus gets the styled [data-tip] hint —
+   the two never render together). */
 @media (min-width: 768px) {
   .app-header {
     display: none;
@@ -508,6 +602,19 @@ body.nav-open .sidenav {
     transform: none;
     visibility: visible;
     transition: none;
+    /* The rail must paint the focus [data-tip] tooltip outside its 56px box
+       (Chromium ignores overflow-clip-margin while another axis scrolls —
+       browser-verified), so it does not scroll at comfortable heights. */
+    overflow: visible;
+  }
+
+  /* Short viewports: the rail needs its own scrollbar; the styled focus tip
+     gets clipped here — the native title tooltip still works on hover. */
+  @media (max-height: 700px) {
+    .sidenav {
+      overflow-y: auto;
+      overflow-x: clip;
+    }
   }
 
   .sidenav-head {
@@ -521,54 +628,43 @@ body.nav-open .sidenav {
     display: none;
   }
 
+  .brand-dot {
+    width: 12px; /* rail brand dot per spec §1.1 (8px in the mobile header) */
+    height: 12px;
+  }
+
   .nav-close {
     display: none;
   }
 
-  .nav-group + .nav-group {
-    margin-top: var(--sp-1);
-    padding-top: var(--sp-1);
-  }
-
-  .nav-link {
-    justify-content: center;
-    padding: 0;
-    height: 40px;
-  }
-}
-
-/* Full sidebar with labels */
-@media (min-width: 1200px) {
-  .app-shell {
-    grid-template-columns: var(--nav-w) minmax(0, 1fr);
-  }
-
-  .sidenav-head {
-    justify-content: flex-start;
-    padding: var(--sp-3);
-  }
-
-  .sidenav .brand-text,
-  .nav-group-label,
-  .nav-link .nav-text {
-    display: inline;
-  }
-
-  .nav-group-label {
+  .rail-divider {
     display: block;
   }
 
   .nav-group + .nav-group {
-    margin-top: var(--sp-2);
-    padding-top: var(--sp-2);
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
   }
 
-  .nav-link {
-    justify-content: flex-start;
-    padding: 0 10px;
-    height: 32px;
+  .nav-link,
+  button.nav-link {
+    justify-content: center;
+    padding: 0;
+    height: 40px;
+    border: 1px solid transparent; /* layout-neutral base for the active ring */
+    text-align: center;
+  }
+
+  /* Active rail item: accent tint + 1px accent border + accent icon +
+     glow (spec §1.1 item anatomy). */
+  .nav-link.active {
+    border-color: var(--color-accent-border);
   }
 }
+
+/* Spec §1.1: no labeled sidebar variant above 1200 — the 56px icon rail IS
+   the shell at every width >=768; names live in title tooltips + ? help. */
 
 /* ===== Typography ===== */
 h1, h2, h3 {

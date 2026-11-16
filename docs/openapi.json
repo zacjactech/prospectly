@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Prospectly",
-    "version": "0.1.0a1"
+    "version": "0.2.0"
   },
   "paths": {
     "/healthz": {

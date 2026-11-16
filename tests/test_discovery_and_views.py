@@ -203,7 +203,8 @@ def test_list_page_offers_save_view_when_filters_active(db: Session) -> None:
         plain = client.get("/prospects")
         assert "Save this view" not in plain.text
 
-        filtered = client.get("/prospects", params={"stage": "new", "q": "acme"})
+        # Filters + saved views live in the 360px Filters panel (§V2.3).
+        filtered = client.get("/prospects/filters", params={"stage": "new", "q": "acme"})
         assert filtered.status_code == 200
         assert 'action="/settings/saved-views"' in filtered.text
         assert "Save this view" in filtered.text

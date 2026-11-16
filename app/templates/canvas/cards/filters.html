@@ -1,0 +1,93 @@
+{# Filters panel body (spec §1.2/§V2.3): the contracted 360px surface for
+   URL-state filters and saved views. The form is a plain GET to /prospects,
+   so applying filters is shareable/back-button safe and works without JS;
+   "Save this view" posts the same structured fields the toolbar used to. #}
+<h2 class="panel-heading" data-panel-title>Filters</h2>
+<p class="muted small">Filter the stage board. The URL keeps the state — share it or use back/forward.</p>
+
+<form method="get" action="/prospects" class="filter-panel-form">
+  <div class="field">
+    <label for="fp-q">Search</label>
+    <input id="fp-q" type="text" name="q" value="{{ current_q or '' }}" placeholder="name, category, city">
+  </div>
+  <div class="field">
+    <label for="fp-stage">Stage</label>
+    <select id="fp-stage" name="stage">
+      <option value="">Any stage</option>
+      {% for s in stages %}
+      <option value="{{ s }}" {% if current_stage == s %}selected{% endif %}>{{ s|replace('_',' ') }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="fp-tag">Tag</label>
+    <select id="fp-tag" name="tag">
+      <option value="">Any tag</option>
+      {% for t in tags %}
+      <option value="{{ t.name }}" {% if current_tag == t.name %}selected{% endif %}>{{ t.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="fp-category">Category</label>
+    <select id="fp-category" name="category">
+      <option value="">Any category</option>
+      {% for c in categories %}
+      <option value="{{ c }}" {% if current_category == c %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="fp-location">Location</label>
+    <input id="fp-location" type="text" name="location" value="{{ current_location or '' }}" placeholder="city, area, region">
+  </div>
+
+  <div class="filter-toggles">
+    <label class="toggle-chip{% if include_archived %} active{% endif %}">
+      <input type="checkbox" name="include_archived" value="1"{% if include_archived %} checked{% endif %}>
+      <span>Archived</span>
+    </label>
+    <label class="toggle-chip{% if do_not_contact_only %} active{% endif %}">
+      <input type="checkbox" name="do_not_contact_only" value="1"{% if do_not_contact_only %} checked{% endif %}>
+      <span>Suppressed</span>
+    </label>
+  </div>
+
+  <div class="filter-actions">
+    <button class="btn primary" type="submit">Apply filters</button>
+    {% if has_filters %}<a class="btn ghost" href="/prospects">Clear all</a>{% endif %}
+  </div>
+</form>
+
+{% if saved_views %}
+<section class="panel-section">
+  <h3>Saved views</h3>
+  <ul class="saved-view-list">
+    {% for view in saved_views %}
+    <li><a href="/prospects/views/{{ view.id }}/apply">{{ view.name }}</a></li>
+    {% endfor %}
+  </ul>
+  <a href="/settings/saved-views" class="btn ghost small" data-panel-href="/settings/saved-views" data-panel-width="560">Manage saved views</a>
+</section>
+{% endif %}
+
+{% if has_filters %}
+<section class="panel-section">
+  <h3>Save this view</h3>
+  <form method="post" action="/settings/saved-views" class="save-view-panel-form">
+    {{ csrf_field() }}
+    <input type="hidden" name="stage" value="{{ current_stage or '' }}">
+    <input type="hidden" name="tag" value="{{ current_tag or '' }}">
+    <input type="hidden" name="category" value="{{ current_category or '' }}">
+    <input type="hidden" name="location" value="{{ current_location or '' }}">
+    <input type="hidden" name="q" value="{{ current_q or '' }}">
+    {% if include_archived %}<input type="hidden" name="include_archived" value="true">{% endif %}
+    {% if do_not_contact_only %}<input type="hidden" name="do_not_contact_only" value="true">{% endif %}
+    <div class="field">
+      <label for="fp-view-name">View name</label>
+      <input id="fp-view-name" type="text" name="name" required placeholder="e.g. Berlin hotels">
+    </div>
+    <button class="btn" type="submit">Save view</button>
+  </form>
+</section>
+{% endif %}

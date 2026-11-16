@@ -1,0 +1,1656 @@
+/* Prospectly Pipeline Canvas — canvas engine, board, cards, slide-over
+   panels, move menu (docs/design/pipeline-canvas.md).
+   Tokens only: every color/border/shadow/radius/duration comes from
+   app.css :root — no hex values live here (spec §2). Geometry constants
+   mirror canvas.js/board.js (ZONE_W/ZONE_GAP/ZONE_HEAD/CARD_H/CARD_GAP/
+   ZONE_PAD/GRID — spec §2): change them in both places. */
+
+/* ===== Canvas constants (mirrored in canvas.js) ===== */
+.canvas-screen {
+  --zone-w: 264px;
+  --zone-gap: 48px;
+  --zone-head-h: 36px;
+  --card-h: 64px;
+  --card-gap: 8px;
+  --zone-pad: 8px;
+  --band-label-h: 36px;
+}
+
+/* ===== Full-bleed shell for canvas screens =====
+   base.html adds .main--canvas/.page--canvas when the path is a canvas
+   screen (only /prospects in Phase A): no page max-width, no main padding,
+   the screen owns the viewport (spec §1). */
+.main--canvas {
+  padding: 0;
+}
+
+.page--canvas {
+  max-width: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* The board wrapper is a plain world node now (zones are absolutely
+   positioned); the viewport owns the remaining height. */
+
+@media (max-width: 767px) {
+  /* Mobile header (52px) sits above the page — keep the document at
+     exactly one screen (the <768 stacked flow itself is Phase B). */
+  .page--canvas {
+    min-height: calc(100vh - var(--topbar-h));
+  }
+}
+
+/* ===== Screen layout: compact toolbar + viewport ===== */
+.canvas-screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* The toolbar carries the URL-state filters (Phase A) and the primary
+   action. It is a single dense row that wraps on narrow screens — nested
+   card-in-toolbar styling was removed in the canvas-only pass. */
+.canvas-toolbar {
+  flex: none;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 6px var(--sp-4);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.canvas-toolbar .filter-bar {
+  flex: 1 1 720px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  gap: 10px;
+  align-items: center;
+}
+
+/* [hidden] must beat the author display rule above (same defect class as
+   .canvas-error[hidden]) — the mobile filter drawer relies on it. */
+.canvas-toolbar .filter-bar[hidden] {
+  display: none;
+}
+
+.canvas-toolbar .filter-chip {
+  flex: 0 1 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
+.canvas-toolbar .filter-chip label {
+  font-size: var(--fs-xs);
+  color: var(--color-text-subtle);
+}
+
+.canvas-toolbar .filter-chip select,
+.canvas-toolbar .filter-chip input {
+  height: 30px;
+  font-size: var(--fs-sm);
+  padding: 0 8px;
+}
+
+.canvas-toolbar .filter-chip-search {
+  flex: 1 1 180px;
+  min-width: 160px;
+}
+
+.canvas-toolbar .filter-chip-search input {
+  width: 100%;
+}
+
+.canvas-toolbar .filter-toggles {
+  display: flex;
+  gap: 6px;
+}
+
+.canvas-toolbar .toggle-chip {
+  height: 30px;
+  font-size: var(--fs-xs);
+}
+
+.canvas-toolbar .filter-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Saved-view controls (base spec §1.2): a compact picker plus the
+   "Save this view" form shown only while filters are active. Both are
+   secondary to the filter bar, so they do not grow it. */
+.canvas-toolbar .views-picker {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.canvas-toolbar .views-picker > span {
+  white-space: nowrap;
+}
+
+.canvas-toolbar .views-picker select {
+  max-width: 180px;
+}
+
+.canvas-toolbar .save-view-form {
+  flex: 0 1 auto;
+}
+
+.canvas-toolbar .save-view-form .filter-chip-search {
+  flex: 0 1 180px;
+}
+
+.canvas-toolbar .save-view-form .filter-chip label {
+  white-space: nowrap;
+}
+
+/* ===== Active-filter summary (base spec §1.2) =====
+   Removable URL-state chips on their own toolbar row. They are links, so
+   the hit area is at least 26px tall and focus uses the shared accent ring.
+   Long values ellipsize instead of forcing the toolbar wider. */
+.canvas-toolbar .filter-summary {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.filter-summary-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-text-subtle);
+}
+
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 26px;
+  padding: 2px 8px;
+  background: var(--color-accent-light);
+  border: 1px solid var(--color-accent-border);
+  border-radius: 999px;
+  color: var(--color-accent);
+  font-size: var(--fs-xs);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.filter-pill:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}
+
+/* The × is decoration: generated content keeps it out of the DOM text, so
+   axe's visible-label check sees exactly the same label as the accessible
+   name (the sr-only "Remove filter:" prefix). */
+.filter-pill::after {
+  content: "×";
+  font-size: var(--fs-base);
+  line-height: 1;
+  color: inherit;
+}
+
+.filter-pill:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.filter-pill-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.filter-pill-clear {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.filter-pill-clear:hover {
+  color: var(--color-text);
+}
+
+/* The h1 IS the page heading (spec §1.2): mono uppercase micro-label —
+   a deliberate departure from the display-size h1 elsewhere. */
+.canvas-toolbar h1 {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-text-muted);
+}
+
+.canvas-toolbar .toolbar-spacer {
+  flex: 1;
+}
+
+/* The mobile filter toggle stays out of the flow until app.js reveals it
+   below 768px; [hidden] must beat .btn's display (same class of bug as
+   .canvas-error[hidden]). */
+.canvas-toolbar .filter-toggle[hidden] {
+  display: none;
+}
+
+/* Filters open the contracted 360px panel (§1.2/§4). */
+.canvas-toolbar .filter-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.canvas-toolbar .filter-open svg {
+  width: 14px;
+  height: 14px;
+}
+
+.filter-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Legacy URL-state filter bar (Phase A) sits above the toolbar until the
+   Filters panel takes over (Phase B step 5). */
+.page--canvas > .toolbar {
+  flex: none;
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--color-bg);
+}
+
+.canvas-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 320px;
+  overflow: hidden;
+  touch-action: none; /* pointer-drag pans instead of scrolling the page */
+  cursor: grab;
+  background: var(--color-bg);
+}
+
+.canvas-viewport.panning {
+  cursor: grabbing;
+}
+
+.canvas-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  /* NEVER transitioned (spec §2.1) — pan/zoom are direct manipulation. */
+}
+
+/* ===== Wires (spec §2.1/§2.3) =====
+   Presentation-only straight connectors, right-mid → next canonical
+   left-mid. Gray (--color-border), never orange (spec §3.5 whitelist). */
+.canvas-wires {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.canvas-wires line {
+  stroke: var(--color-border);
+  stroke-width: 1.5px;
+}
+
+.canvas-wires marker path {
+  fill: var(--color-border);
+}
+
+/* ===== Phase bands (spec §2.3) =====
+   A band's label row floats at the default y=0 above its zones (zones
+   themselves are freeform and persist separately; labels are annotations
+   of the default arrangement, not dragged). */
+.band-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: var(--band-label-h);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  pointer-events: none; /* never blocks zone/card interaction */
+}
+
+/* 24px square phase chip — one of the few sanctioned orange uses (§3.5). */
+.phase-chip {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+}
+
+.band-name {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-text-muted);
+}
+
+/* ===== Stage zones (spec §2.3/§3.2) ===== */
+.canvas-zone {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--zone-w);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.zone-head {
+  flex: none;
+  min-height: var(--zone-head-h);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  padding: 0 10px;
+  border-bottom: 1px solid var(--color-border);
+  cursor: grab; /* zone frame/header is the drag handle (spec §2.3) */
+}
+
+.zone-head:active {
+  cursor: grabbing;
+}
+
+.zone-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-text-muted);
+}
+
+/* Count sits right; hot zones (due follow-ups / pending review) pair a
+   warn/accent dot with the number — never color alone (spec §3.2). */
+.zone-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+.zone-count[data-hot="warn"] {
+  color: var(--color-warn);
+}
+
+.zone-count[data-hot="accent"] {
+  color: var(--color-accent);
+}
+
+.zone-count[data-hot]::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 1px;
+}
+
+/* Terminal zone: one zone, three sub-badges (spec §2.3) — a row under the
+   head, counts stay in sync with the cards inside. */
+.zone-sub-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.zone-sub-badges .badge {
+  font-size: 9px;
+  padding: 0 5px;
+}
+
+.zone-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-gap);
+  padding: var(--zone-pad);
+  overflow-y: auto;
+  /* Body scrolls past 4 cards: 4 × (card + gap) (spec §2.3). */
+  max-height: calc(4 * (var(--card-h) + var(--card-gap)));
+}
+
+.zone-empty {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--color-text-subtle);
+}
+
+/* Loading (spec §2.4): three static skeleton cards per zone — no shimmer. */
+.zone-skeleton {
+  display: none;
+  flex-direction: column;
+  gap: var(--card-gap);
+}
+
+.zone-skeleton span {
+  display: block;
+  height: var(--card-h);
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-md);
+}
+
+.canvas-screen.is-loading .zone-skeleton {
+  display: flex;
+}
+
+.canvas-screen.is-loading .zone-body > .prospect-card,
+.canvas-screen.is-loading .zone-body > .zone-empty {
+  display: none;
+}
+
+/* Drop target mid-drag (spec §3.1): fill + dashed border + label — the
+   border alone is 2.17:1 (< 3:1), so the fill carries the affordance. */
+.canvas-zone.drop-target {
+  background: var(--color-accent-light);
+  border-style: dashed;
+  border-color: var(--color-accent-border);
+}
+
+.canvas-zone .drop-label {
+  display: none;
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 8px;
+  background: var(--color-accent-light);
+  border: 1px dashed var(--color-accent-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text); /* 13.4:1 on the accent-light fill (spec §6.3) */
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  z-index: 3;
+}
+
+.canvas-zone.drop-target .drop-label {
+  display: block;
+}
+
+/* Alignment guides while dragging zones (spec §2.3): 1px dashed hairlines,
+   drawn and discarded client-side — never persisted. */
+.alignment-guide {
+  position: absolute;
+  background: transparent;
+  border: 0 dashed var(--color-border-strong);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.alignment-guide.v {
+  top: -2000px;
+  bottom: -2000px;
+  border-left-width: 1px;
+}
+
+.alignment-guide.h {
+  left: -2000px;
+  right: -2000px;
+  border-top-width: 1px;
+}
+
+/* ===== Prospect card (spec §3.1) =====
+   Fixed 64px: name row (13px semibold + status dot), mono meta row
+   (category · city), foot row (status badges + last-contact / follow-up /
+   Open-WhatsApp quick action). The spec's "row 4" rides on the foot row —
+   CARD_H=64 and the 4 × (CARD_H+CARD_GAP) scroll math force uniform height
+   (decision recorded in the Phase A report). */
+.prospect-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: none;
+  height: var(--card-h);
+  padding: 5px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: grab;
+  overflow: hidden;
+  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+
+.prospect-card:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+}
+
+.prospect-card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  box-shadow: var(--glow-accent);
+}
+
+/* j/k keyboard highlight (distinct from .selected and :focus-visible). */
+.prospect-card.highlight {
+  border-color: var(--color-accent-border);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+/* Selected = its panel is open (spec §3.1). */
+.prospect-card.selected {
+  border-color: var(--color-accent-border);
+  box-shadow: 0 0 0 1px var(--color-accent-border), var(--glow-accent);
+}
+
+.pc-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  height: 16px;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  line-height: 1.2;
+}
+
+.pc-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text);
+}
+
+/* 6px status dot: warn = follow-up due/overdue, accent = requires review.
+   Carries a title so color is never the sole carrier (spec §3.1). */
+.pc-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.pc-dot[data-hot="warn"] {
+  background: var(--color-warn);
+}
+
+.pc-dot[data-hot="accent"] {
+  background: var(--color-accent);
+}
+
+.pc-meta {
+  margin-top: 2px;
+  height: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.pc-meta .subtle {
+  color: var(--color-text-subtle); /* "none" reads as metadata, not error */
+}
+
+.pc-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: 2px;
+  height: 20px;
+  min-width: 0;
+}
+
+.pc-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pc-badges .badge {
+  font-size: 9.5px;
+  padding: 0 5px;
+  line-height: 1.45;
+}
+
+.pc-side {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+.pc-side .due-over {
+  color: var(--color-warn);
+}
+
+/* Small icon buttons on the card (⋯ move menu, Open WhatsApp). */
+.pc-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.pc-icon-btn:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.pc-icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Dragging (spec §3.1): absolute at the pointer, slight lift, 90% opacity,
+   no transition. Coordinates are world-space (set by board.js via CSSOM). */
+.prospect-card.dragging {
+  position: absolute;
+  margin: 0;
+  z-index: 6;
+  pointer-events: none;
+  cursor: grabbing;
+  opacity: 0.9;
+  box-shadow: var(--shadow-2);
+  transform: scale(1.02);
+  transition: none;
+}
+
+/* Ghost left in the source slot while dragging (spec §3.1). */
+.pc-ghost {
+  flex: none;
+  height: var(--card-h);
+  background: transparent;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+/* Rejected (409): snap back into the slot over 120ms ease-out (spec §3.1). */
+.prospect-card.snapback {
+  transition: transform 120ms ease-out;
+}
+
+/* ===== Density (spec §2.5) =====
+   ≥0.8 = full 64px cards; <0.8 = 40px name + dot only (meta/foot hidden). */
+.canvas-screen.density-compact .prospect-card {
+  height: 40px;
+  padding: 5px 10px;
+}
+
+.canvas-screen.density-compact .pc-meta,
+.canvas-screen.density-compact .pc-foot {
+  display: none;
+}
+
+/* ===== Zoom control cluster (spec §2.2) ===== */
+.canvas-controls {
+  position: absolute;
+  right: var(--sp-3);
+  bottom: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  z-index: 10;
+}
+
+.canvas-controls button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.canvas-controls button:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.canvas-controls button svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 1023px) {
+  /* The full world cannot fit at the 0.5 zoom floor on tablet widths, so
+     the stacked flow owns <1024 (spec §V2.6 amendment 2026-11-16). */
+  .canvas-controls {
+    display: none;
+  }
+}
+
+/* ===== Board states ===== */
+/* Empty board (spec §2.4): zones not rendered, centered EmptyState. */
+.canvas-empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+}
+
+.canvas-empty .empty {
+  margin-bottom: 0;
+}
+
+/* Error while refreshing (spec §2.4): page-level banner; the last-known
+   board stays underneath. No request-id header exists in the app yet, so
+   the banner reports the HTTP status honestly (decision in Phase A report).
+   [hidden] must beat .flash's display:flex (the UA hidden rule loses to
+   author display rules — browser-verified defect, fixed here). */
+.canvas-error {
+  position: absolute;
+  top: var(--sp-3);
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  max-width: min(560px, calc(100% - 24px));
+  z-index: 12;
+}
+
+.canvas-error[hidden] {
+  display: none;
+}
+
+/* Live status for count/move announcements (spec §6.3). */
+.canvas-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ===== Move-to menu (spec §3.1) =====
+   role=menu on surface-raised/shadow-2; server-rendered items live inside
+   the card and are re-parented to <body> while open (fixed position — the
+   world's transform never scales the menu). */
+.move-menu {
+  position: fixed;
+  z-index: 95;
+  min-width: 208px;
+  max-width: 260px;
+  padding: var(--sp-1);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.move-menu[hidden] {
+  display: none;
+}
+
+.move-menu .move-menu-label {
+  padding: 4px 10px 2px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-text-subtle);
+}
+
+.move-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  min-height: 32px;
+  padding: 0 10px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.move-menu button:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.move-menu button:disabled {
+  color: var(--color-text-subtle);
+  cursor: default;
+}
+
+.move-menu button .mono {
+  font-size: var(--fs-xs);
+  color: var(--color-text-subtle);
+}
+
+/* ===== Slide-over panels (spec §4) =====
+   Modal dialogs at every breakpoint: backdrop, right slide-over, sticky
+   48px header (the section partial's head card restyled), scrolling body. */
+.panel-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.2); /* canvas stays legible behind (spec §4) */
+  z-index: 90;
+}
+
+.panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  box-shadow: var(--shadow-2);
+  z-index: 91;
+  transform: translateX(24px);
+  opacity: 0;
+  transition: transform var(--dur-base) ease, opacity var(--dur-base) ease;
+}
+
+.panel.open {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+/* Two-level stack, >=1400px only (spec §4): the lower panel shifts left by
+   the top panel's width and drops its backdrop; the top one sits above. */
+.panel.stacked .panel-backdrop {
+  display: none;
+}
+
+.panel-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* The fragment's head card doubles as the sticky 48px panel header. */
+.panel-body .detail-head,
+.panel-body .message-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 0 -1px;
+  padding: var(--sp-2) 52px var(--sp-2) var(--sp-3);
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  background: var(--color-surface);
+}
+
+.panel-body .detail-head .prospect-name,
+.panel-body .message-head .prospect-name {
+  font-size: var(--fs-base);
+}
+
+.panel-body .detail-head .header-actions,
+.panel-body .message-head .header-actions {
+  gap: var(--sp-1);
+}
+
+.panel-body .detail-head .btn,
+.panel-body .message-head .btn {
+  height: 2rem;
+  font-size: var(--fs-xs);
+}
+
+/* Suppression banner inside a panel runs edge to edge. */
+.panel-body > .banner {
+  margin: 0;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+}
+
+/* Panels are narrow: the page's 2-up grid stacks (dual-rendered markup). */
+.panel-body .grid-2 {
+  grid-template-columns: 1fr;
+}
+
+.panel-body .card {
+  margin-bottom: var(--sp-3);
+  padding: var(--sp-4);
+}
+
+.panel-body > .card:last-child {
+  margin-bottom: 0;
+}
+
+/* 44px close hit area, fixed top-right above the sticky head. */
+.panel-close {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.panel-close:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.panel-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Panel loading + load-error states (spec §4 content loading). */
+.panel-loading {
+  padding: var(--sp-5) var(--sp-4);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--color-text-subtle);
+}
+
+.panel-error {
+  padding: var(--sp-5) var(--sp-4);
+}
+
+.panel-error p {
+  margin-bottom: var(--sp-3);
+}
+
+/* Toasts must paint above open panels (they carry 409 reasons). */
+.toasts {
+  z-index: 96;
+}
+
+@media (max-width: 767px) {
+  /* <768: panels are full-screen sheets, slide-up (spec §4 mobile). */
+  .panel {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100% !important;
+    height: 92vh;
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+    transform: translateY(24px);
+  }
+
+  .panel.open {
+    transform: translateY(0);
+  }
+}
+
+/* ===== Canvas-only world: setup region, board region, outreach region =====
+   Spec §V2.1/V2.3. Coordinates come from canvas.js (absolute positioning);
+   CSS owns only size and appearance so the engine can move anything freely. */
+.region-label {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--band-label-h);
+  white-space: nowrap;
+}
+
+.region-chip {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+}
+
+.region-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.region-hint {
+  font-size: var(--fs-xs);
+  color: var(--color-text-subtle);
+}
+
+/* --- Setup cluster: nine cards, 3 × 3 --- */
+.setup-cluster {
+  position: absolute;
+  display: grid;
+  grid-template-columns: repeat(3, 232px);
+  gap: 12px;
+  width: max-content;
+}
+
+.setup-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
+}
+
+.setup-card:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+}
+
+.setup-card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.sc-icon {
+  flex: none;
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.sc-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sc-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sc-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.sc-state {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 168px;
+}
+
+.sc-wire-note {
+  font-size: var(--fs-xs);
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+.sc-warn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-warn);
+}
+
+.setup-card[data-state="warn"] {
+  border-color: var(--color-warn-border);
+}
+
+/* --- Outreach region: three message zones --- */
+.canvas-region {
+  position: absolute;
+}
+
+.outreach-region {
+  display: grid;
+  grid-template-columns: repeat(3, var(--zone-w));
+  gap: 16px;
+  align-items: start;
+}
+
+.msg-zone {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 8px;
+}
+
+.msg-zone-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 4px 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.msg-zone-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  margin: 0;
+}
+
+.msg-zone-head .muted {
+  font-size: var(--fs-xs);
+  margin: 0;
+}
+
+.msg-zone-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  min-height: 44px;
+}
+
+.msg-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-hover);
+  padding: 8px;
+}
+
+.msg-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.msg-card-main:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.msg-card-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.msg-card-text {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+}
+
+.msg-card-actions {
+  margin-top: 6px;
+}
+
+/* Confirm-sent (P1: the user confirms, the app never sends) is a small
+   button inside a dense card; keep a real 28px target with breathing room
+   (axe target-size: >=24x24 and 24px spacing). */
+.msg-card-actions .btn {
+  min-height: 28px;
+  padding: 0 10px;
+}
+
+/* --- System wires (fixed, read-only) --- */
+.system-wire {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 3;
+  opacity: 0.55;
+}
+
+.wire-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--color-text-subtle);
+  /* Never hidden: §V2.8 requires labels legible at 0.5 zoom, and the
+     density flip (§2.5) is defined as hiding card meta, not annotations.
+     canvas.js counter-scales font-size so this stays ~10px on screen. */
+}
+
+/* Below 0.75 the counter-scaled labels collide at the bus midpoints
+   (browser-measured); the connectors remain, the annotations do not. */
+.canvas-world.labels-hidden .wire-label {
+  display: none;
+}
+
+/* ===== Setup-card panel: mini-pipeline (spec §V2.3) =====
+   Vertical numbered steps: real content inside each step, an arrow between
+   steps drawn by CSS (no extra markup, no inline styles). */
+.panel--server {
+  width: min(560px, calc(100vw - 72px));
+}
+
+.panel-heading {
+  font-size: var(--fs-xl);
+  margin: 16px 16px 4px;
+}
+
+.panel-body > .muted.small {
+  margin: 0 16px 12px;
+}
+
+/* Filters panel (360px, spec §1.2/§4): one column of fields, then saved
+   views and the optional save-current-view form. */
+.filter-panel-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 16px 18px;
+}
+
+.filter-panel-form .field {
+  margin: 0;
+}
+
+.filter-panel-form select {
+  width: 100%;
+}
+
+.filter-panel-form .filter-toggles {
+  flex-wrap: wrap;
+}
+
+.filter-panel-form .filter-actions {
+  margin-top: 2px;
+}
+
+.panel-section {
+  margin: 0 16px 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.panel-section h3 {
+  margin: 0 0 8px;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.saved-view-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--fs-sm);
+}
+
+.save-view-panel-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mini-pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 16px 24px;
+}
+
+.flow-step {
+  position: relative;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  padding: 12px;
+}
+
+.flow-step + .flow-step {
+  margin-top: 28px;
+}
+
+.flow-step + .flow-step::before {
+  content: "→";
+  position: absolute;
+  top: -26px;
+  left: 16px;
+  color: var(--color-text-subtle);
+  font-size: var(--fs-sm);
+}
+
+.flow-step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.flow-step-num {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+}
+
+.flow-step-head h3 {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.flow-step-body > *:first-child {
+  margin-top: 0;
+}
+
+.flow-step-body .card {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.flow-step-body .form-section {
+  padding: 0;
+}
+
+.flow-step-body .action-group {
+  margin-top: 8px;
+}
+
+.flow-step-note {
+  font-size: var(--fs-xs);
+  color: var(--color-text-subtle);
+  margin: 6px 0 0;
+}
+
+/* Mobile: the cluster stacks, the panel is a full-width sheet (spec §V2.6). */
+@media (max-width: 767px) {
+  .panel--server {
+    width: 100vw;
+  }
+}
+
+/* ===== Mobile (<768px): the canvas becomes the stacked flow (spec §V2.6) =====
+   No transform layer, no pan/zoom: the world lays out as one vertical column
+   in canonical order — setup cards, board bands/zones, outreach zones.
+   !important is deliberate: canvas.js writes geometry as inline styles, and
+   CSS must win there (CSP forbids us from templating styles instead).
+   Amendment 2026-11-16: <1024 (not <768) — 768 cannot fit the world at the
+   0.5 zoom floor, so tablet portrait gets the readable stacked flow. */
+@media (max-width: 1023px) {
+  .page--canvas {
+    height: auto;
+    min-height: calc(100vh - var(--topbar-h));
+    overflow: visible;
+  }
+
+  .canvas-viewport {
+    overflow: visible;
+    touch-action: auto;
+    cursor: default;
+    padding: 12px;
+  }
+
+  .canvas-world {
+    position: static;
+    transform: none !important;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .canvas-wires,
+  .canvas-controls {
+    display: none;
+  }
+
+  .region-label,
+  .band-label {
+    position: static !important;
+  }
+
+  .setup-cluster {
+    position: static !important;
+    grid-template-columns: 1fr;
+    width: auto;
+  }
+
+  .sc-state {
+    max-width: none;
+    white-space: normal;
+  }
+
+  .canvas-zone {
+    position: static !important;
+    width: auto;
+  }
+
+  .zone-body {
+    max-height: none;
+  }
+
+  .outreach-region {
+    position: static !important;
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Responsive toolbar (spec §V2.6) =====
+   1024–1439px: the filter row spans the toolbar so the Apply button never
+   orphans beside the heading; saved-view controls wrap below it. */
+@media (max-width: 1439px) {
+  .canvas-toolbar #canvas-filter-form {
+    flex: 1 1 100%;
+  }
+}
+
+/* 768–1023px: saved-view and save-form controls compact onto single rows
+   (the filter form is already full width from the rule above). */
+@media (max-width: 1023px) {
+  .canvas-toolbar .views-picker {
+    flex: 0 1 auto;
+  }
+
+  .canvas-toolbar .save-view-form {
+    flex: 1 1 auto;
+  }
+
+  .canvas-toolbar .save-view-form .filter-chip-search {
+    flex: 1 1 220px;
+  }
+}
+
+/* <1024: controls stack; Filters + Add share a row, chips wrap. */
+@media (max-width: 1023px) {
+  .canvas-toolbar {
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  .canvas-toolbar h1 {
+    flex: 1 1 100%;
+  }
+
+  .canvas-toolbar .filter-bar {
+    flex: 1 1 100%;
+    gap: 8px;
+  }
+
+  .canvas-toolbar .filter-chip {
+    flex: 1 1 calc(50% - 4px);
+  }
+
+  .canvas-toolbar .filter-chip-search,
+  .canvas-toolbar .filter-toggles,
+  .canvas-toolbar .filter-actions,
+  .canvas-toolbar .save-view-form {
+    flex: 1 1 100%;
+  }
+
+  .canvas-toolbar .filter-actions {
+    justify-content: flex-end;
+  }
+
+  .canvas-toolbar .views-picker {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .canvas-toolbar .views-picker select {
+    max-width: none;
+    min-width: 0;
+  }
+
+  .canvas-toolbar .save-view-form {
+    flex: 1 1 100%;
+    gap: 6px;
+  }
+
+  .canvas-toolbar .save-view-form .filter-chip-search {
+    flex: 1 1 120px;
+    min-width: 0;
+  }
+
+  .canvas-toolbar .save-view-form .filter-chip label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .canvas-toolbar .save-view-form .filter-actions {
+    flex: 0 0 auto;
+  }
+
+  .canvas-toolbar > .btn.primary {
+    flex: 1 1 auto;
+  }
+
+  .canvas-toolbar .filter-open {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  /* Chips wrap instead of scrolling — every active filter stays visible. */
+  .canvas-toolbar .filter-summary {
+    flex: 1 1 100%;
+    padding-top: 0;
+    padding-bottom: 2px;
+  }
+
+  .filter-pill {
+    flex: 0 0 auto;
+  }
+
+  .filter-pill-text {
+    max-width: 62vw;
+  }
+}

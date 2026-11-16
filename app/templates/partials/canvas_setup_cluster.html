@@ -1,0 +1,102 @@
+{# Setup-card cluster (spec §V2.3): every setup surface is a card on the
+   canvas. Each card opens its own mini-pipeline panel (HTMX) and is wired to
+   the region it feeds (§V2.1 fixed wires — read-only system map).
+   Nothing here mutates data: cards navigate, the panel holds the real form. #}
+<div class="region-label" data-region-label="setup">
+  <span class="region-chip" aria-hidden="true">SETUP</span>
+  <span class="region-name">Setup</span>
+  <span class="region-hint">each card opens its pipeline</span>
+</div>
+
+<div class="setup-cluster" data-region="setup" aria-label="Setup cards">
+  <a class="setup-card" href="/status" data-panel-href="/status" data-panel-width="560"
+     data-setup-card="status" {% if card_states.status.warn %}data-state="warn"{% endif %}>
+    <span class="sc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg></span>
+    <span class="sc-main">
+      <span class="sc-title">Status</span>
+      <span class="sc-state mono">{{ card_states.status.meta }}</span>
+      <span class="sc-wire-note">monitors the whole board</span>
+    </span>
+    {% if card_states.status.warn %}<span class="sc-warn" title="Needs attention" aria-hidden="true"></span>{% endif %}
+  </a>
+
+  <a class="setup-card" href="/settings/profile" data-panel-href="/settings/profile" data-panel-width="560"
+     data-setup-card="profile" data-wire-target="board" data-wire-label="discovery + drafts">
+    <span class="sc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
+    <span class="sc-main">
+      <span class="sc-title">Profile</span>
+      <span class="sc-state mono">{{ card_states.profile.meta }}</span>
+      <span class="sc-wire-note">to board · discovery + drafts</span>
+    </span>
+  </a>
+
+  <a class="setup-card" href="/settings/providers" data-panel-href="/settings/providers" data-panel-width="560"
+     data-setup-card="providers" data-wire-target="board" data-wire-label="research + drafts">
+    <span class="sc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"></rect><rect width="20" height="8" x="2" y="14" rx="2"></rect><line x1="6" x2="6.01" y1="6" y2="6"></line><line x1="6" x2="6.01" y1="18" y2="18"></line></svg></span>
+    <span class="sc-main">
+      <span class="sc-title">Providers</span>
+      <span class="sc-state mono">{{ card_states.providers.meta }}</span>
+      <span class="sc-wire-note">to board · research + drafts</span>
+    </span>
+  </a>
+
+  <a class="setup-card" href="/settings/import" data-panel-href="/settings/import" data-panel-width="560"
+     data-setup-card="import" data-wire-target="board" data-wire-label="adds candidates">
+    <span class="sc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg></span>
+    <span class="sc-main">
+      <span class="sc-title">Import</span>
+      <span class="sc-state mono">{{ card_states.import.meta }}</span>
+      <span class="sc-wire-note">to board · adds candidates</span>
+    </span>
+  </a>
+
+  <a class="setup-card" href="/settings/saved-views" data-panel-href="/settings/saved-views" data-panel-width="560"
+     data-setup-card="saved_views" data-wire-target="board" data-wire-label="filters">
+    <span class="sc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg></span>
+    <span class="sc-main">
+      <span class="sc-title">Saved views</span>
+      <span class="sc-state mono">{{ card_states.saved_views.meta }}</span>
+      <span class="sc-wire-note">to board · filters</span>
+    </span>
+  </a>
+
+  <a class="setup-card" href="/settings/retention" data-panel-href="/settings/retention" data-panel-width="560"
+     data-setup-card="retention" data-wire-target="board" data-wire-label="flags inactive">
+    <span class="sc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"></rect><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"></path><path d="M10 12h4"></path></svg></span>
+    <span class="sc-main">
+      <span class="sc-title">Retention</span>
+      <span class="sc-state mono">{{ card_states.retention.meta }}</span>
+      <span class="sc-wire-note">to board · flags inactive</span>
+    </span>
+  </a>
+
+  <a class="setup-card" href="/merge/duplicates" data-panel-href="/merge/duplicates" data-panel-width="560"
+     data-setup-card="merge" data-wire-target="board" data-wire-label="dedupes">
+    <span class="sc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M6 21V9a9 9 0 0 0 9 9"></path></svg></span>
+    <span class="sc-main">
+      <span class="sc-title">Merge</span>
+      <span class="sc-state mono">{{ card_states.merge.meta }}</span>
+      <span class="sc-wire-note">to board · dedupes</span>
+    </span>
+  </a>
+
+  <a class="setup-card" href="/settings/usage" data-panel-href="/settings/usage" data-panel-width="560"
+     data-setup-card="usage" data-wire-target="card:providers" data-wire-label="monitors">
+    <span class="sc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></span>
+    <span class="sc-main">
+      <span class="sc-title">Usage</span>
+      <span class="sc-state mono">{{ card_states.usage.meta }}</span>
+      <span class="sc-wire-note">to providers · monitors</span>
+    </span>
+  </a>
+
+  <a class="setup-card" href="/settings/general" data-panel-href="/settings/general" data-panel-width="560"
+     data-setup-card="general" data-wire-target="card:profile" data-wire-label="defaults">
+    <span class="sc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4"></line><line x1="10" x2="3" y1="4" y2="4"></line><line x1="21" x2="12" y1="12" y2="12"></line><line x1="8" x2="3" y1="12" y2="12"></line><line x1="21" x2="16" y1="20" y2="20"></line><line x1="12" x2="3" y1="20" y2="20"></line><line x1="14" x2="14" y1="2" y2="6"></line><line x1="8" x2="8" y1="10" y2="14"></line><line x1="16" x2="16" y1="18" y2="22"></line></svg></span>
+    <span class="sc-main">
+      <span class="sc-title">General</span>
+      <span class="sc-state mono">{{ card_states.general.meta }}</span>
+      <span class="sc-wire-note">to profile · defaults</span>
+    </span>
+  </a>
+</div>

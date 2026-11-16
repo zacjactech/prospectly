@@ -1,0 +1,221 @@
+{# Providers card panel body (spec §V2.3): one read-only status table,
+   grouped into the four pipeline steps by row role — discovery, search,
+   fetch, ai+floor (Template floor drafts count as AI drafts). #}
+<h2 class="panel-heading" data-panel-title>Providers</h2>
+<p class="muted small">Configured, enabled, usage, caps, and last failure — read-only status.</p>
+
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<div class="mini-pipeline">
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">01</span>
+      <h3>Discovery</h3>
+    </header>
+    <div class="flow-step-body">
+      <section class="card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Provider</th><th>Role</th><th>Configured</th><th>Enabled</th>
+              <th>Calls today</th><th>Cap</th><th>Last failure</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            {% if row.role == "discovery" %}
+            <tr>
+              <td>
+                <strong>{{ row.label }}</strong>
+                {% if not row.implemented %}<span class="badge stage-muted">not wired</span>{% endif %}
+                {% if row.note %}<div class="muted small">{{ row.note }}</div>{% endif %}
+              </td>
+              <td><span class="badge muted">{{ row.role }}</span></td>
+              <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.configured else 'no' }}</span></td>
+              <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.enabled else 'no' }}</span></td>
+              <td>{{ row.calls_today }}</td>
+              <td>
+                {% if row.cap is none %}
+                  <span class="muted">—</span>
+                {% else %}
+                  <span class="badge {% if row.cap_reached %}stage-failed{% else %}muted{% endif %}">{{ row.calls_today }} / {{ row.cap }}</span>
+                  {% if row.cap_reached %}<span class="badge stage-failed">blocked</span>{% endif %}
+                {% endif %}
+              </td>
+              <td>
+                {% if row.last_error %}
+                  <span class="text-danger">{{ row.last_error }}</span>
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="muted small">
+          Keys are never displayed or logged — only whether a key is present. This page is
+          read-only: enable/disable is controlled in <code>.env</code>, and the daily caps on
+          <a href="/settings/general">General</a> are enforced before every call.
+          Per-day counters are on <a href="/settings/usage">Usage</a>.
+        </p>
+      </section>
+    </div>
+  </section>
+
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">02</span>
+      <h3>Search</h3>
+    </header>
+    <div class="flow-step-body">
+      <section class="card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Provider</th><th>Role</th><th>Configured</th><th>Enabled</th>
+              <th>Calls today</th><th>Cap</th><th>Last failure</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            {% if row.role == "search" %}
+            <tr>
+              <td>
+                <strong>{{ row.label }}</strong>
+                {% if not row.implemented %}<span class="badge stage-muted">not wired</span>{% endif %}
+                {% if row.note %}<div class="muted small">{{ row.note }}</div>{% endif %}
+              </td>
+              <td><span class="badge muted">{{ row.role }}</span></td>
+              <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.configured else 'no' }}</span></td>
+              <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.enabled else 'no' }}</span></td>
+              <td>{{ row.calls_today }}</td>
+              <td>
+                {% if row.cap is none %}
+                  <span class="muted">—</span>
+                {% else %}
+                  <span class="badge {% if row.cap_reached %}stage-failed{% else %}muted{% endif %}">{{ row.calls_today }} / {{ row.cap }}</span>
+                  {% if row.cap_reached %}<span class="badge stage-failed">blocked</span>{% endif %}
+                {% endif %}
+              </td>
+              <td>
+                {% if row.last_error %}
+                  <span class="text-danger">{{ row.last_error }}</span>
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </section>
+
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">03</span>
+      <h3>Fetch</h3>
+    </header>
+    <div class="flow-step-body">
+      <section class="card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Provider</th><th>Role</th><th>Configured</th><th>Enabled</th>
+              <th>Calls today</th><th>Cap</th><th>Last failure</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            {% if row.role == "fetch" %}
+            <tr>
+              <td>
+                <strong>{{ row.label }}</strong>
+                {% if not row.implemented %}<span class="badge stage-muted">not wired</span>{% endif %}
+                {% if row.note %}<div class="muted small">{{ row.note }}</div>{% endif %}
+              </td>
+              <td><span class="badge muted">{{ row.role }}</span></td>
+              <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.configured else 'no' }}</span></td>
+              <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.enabled else 'no' }}</span></td>
+              <td>{{ row.calls_today }}</td>
+              <td>
+                {% if row.cap is none %}
+                  <span class="muted">—</span>
+                {% else %}
+                  <span class="badge {% if row.cap_reached %}stage-failed{% else %}muted{% endif %}">{{ row.calls_today }} / {{ row.cap }}</span>
+                  {% if row.cap_reached %}<span class="badge stage-failed">blocked</span>{% endif %}
+                {% endif %}
+              </td>
+              <td>
+                {% if row.last_error %}
+                  <span class="text-danger">{{ row.last_error }}</span>
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </section>
+
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">04</span>
+      <h3>AI drafts</h3>
+    </header>
+    <div class="flow-step-body">
+      <section class="card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Provider</th><th>Role</th><th>Configured</th><th>Enabled</th>
+              <th>Calls today</th><th>Cap</th><th>Last failure</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            {% if row.role == "ai" or row.role == "floor" %}
+            <tr>
+              <td>
+                <strong>{{ row.label }}</strong>
+                {% if not row.implemented %}<span class="badge stage-muted">not wired</span>{% endif %}
+                {% if row.note %}<div class="muted small">{{ row.note }}</div>{% endif %}
+              </td>
+              <td><span class="badge muted">{{ row.role }}</span></td>
+              <td><span class="badge {% if row.configured %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.configured else 'no' }}</span></td>
+              <td><span class="badge {% if row.enabled %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if row.enabled else 'no' }}</span></td>
+              <td>{{ row.calls_today }}</td>
+              <td>
+                {% if row.cap is none %}
+                  <span class="muted">—</span>
+                {% else %}
+                  <span class="badge {% if row.cap_reached %}stage-failed{% else %}muted{% endif %}">{{ row.calls_today }} / {{ row.cap }}</span>
+                  {% if row.cap_reached %}<span class="badge stage-failed">blocked</span>{% endif %}
+                {% endif %}
+              </td>
+              <td>
+                {% if row.last_error %}
+                  <span class="text-danger">{{ row.last_error }}</span>
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </section>
+</div>
