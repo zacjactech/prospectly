@@ -630,3 +630,21 @@ visual). Open WARNs: copy length, no marketing moment, logout form status line,
 and label-centre/stranded-action on setup cards.
 
 **Lighthouse after the pass:** accessibility 1.0 · best-practices 1.0 · SEO 1.0.
+
+## Spacing / padding / alignment pass — 2026-11-16
+
+- Adds the `--space-1…7` scale (4/8/12/16/24/32/48), 6/8/12 radii, and
+  32/36px control heights; toolbar, rail, board nodes, cards, zoom controls
+  and drawers use them.
+- Prospect cards: 12px padding, 4px title→meta, 8px meta→footer, no fixed
+  text heights; meta line-height 1.4 with descender padding; 24px pills with
+  8px gaps and 4px wrap gap; 28px menus; wrapped pill rows align the
+  today/menu group to the last row.
+- Board: 24px between nodes, 48px lane rows, 12px label→row; fit-to-view
+  includes Terminal + the full Messages lane with 48px padding; inventory
+  gap is 48px; card focus is capped at 100–110%.
+- Drawers: 16px outer padding, 16px card rhythm, 12px radius, 36px inputs,
+  8px label/helper gaps, 16px field groups, 40px close column with 12px gap,
+  scroll-only header shadow and dynamic scroll-padding; danger zone has a
+  red inset card and aligned 36px controls.
+- Browser-verified at 1280, 1440, 1920 and drawer widths 768/390.

@@ -118,6 +118,15 @@
     panel.el.setAttribute("aria-labelledby", title.id);
   }
 
+  /* Keep anchored section labels clear of the sticky header and show the
+     header shadow only once the body has scrolled. */
+  function syncPanelScroll(panel) {
+    if (!panel || !panel.body) return;
+    var header = panel.body.querySelector(".detail-head, .message-head, .panel-heading");
+    if (header) panel.body.style.scrollPaddingTop = header.offsetHeight + 8 + "px";
+    panel.el.classList.toggle("panel-scrolled", panel.body.scrollTop > 0);
+  }
+
   function setInert(on) {
     var vp = canvasViewport();
     if (!vp) return;
@@ -405,7 +414,19 @@
     if (!panel) return;
     panel.body.setAttribute("aria-busy", "false");
     assignTitle(panel);
+    syncPanelScroll(panel);
   });
+
+  document.addEventListener(
+    "scroll",
+    function (e) {
+      var body = e.target;
+      if (!body || !body.classList || !body.classList.contains("panel-body")) return;
+      var panel = panelFor(body);
+      if (panel) panel.el.classList.toggle("panel-scrolled", body.scrollTop > 0);
+    },
+    true
+  );
 
   document.addEventListener("htmx:responseError", function (e) {
     var panel = panelFor(e.detail.target);
@@ -500,6 +521,7 @@
     setInert(true);
     body.setAttribute("aria-busy", "false");
     assignTitle(panel);
+    syncPanelScroll(panel);
     if (panel.closeBtn) panel.closeBtn.focus();
   })();
 })();

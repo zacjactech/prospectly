@@ -423,12 +423,12 @@
     {% if prospect.archived_at %}
     <form method="post" action="/prospects/{{ prospect.id }}/unarchive" data-confirm="Restore this prospect to your active pipeline?">
       {{ csrf_field() }}
-      <button class="btn ghost" type="submit">Restore prospect</button>
+      <button class="btn danger-outline" type="submit">Restore prospect</button>
     </form>
     {% else %}
     <form method="post" action="/prospects/{{ prospect.id }}/archive" data-confirm="Archive this prospect?">
       {{ csrf_field() }}
-      <button class="btn ghost" type="submit">Archive prospect</button>
+      <button class="btn danger-outline" type="submit">Archive prospect</button>
     </form>
     {% endif %}
   </div>
@@ -440,14 +440,16 @@
       {{ csrf_field() }}
       <div class="field full">
         <label for="stage-override">Change stage to</label>
-        <select id="stage-override" name="stage" data-stage-select required>
-          <option value="" selected disabled>Select stage...</option>
-          {% for t in next_stages %}
-          <option value="{{ t }}">{{ t|replace('_',' ') }}</option>
-          {% endfor %}
-        </select>
+        <div class="stage-override-row">
+          <select id="stage-override" name="stage" data-stage-select required>
+            <option value="" selected disabled>Select stage...</option>
+            {% for t in next_stages %}
+            <option value="{{ t }}">{{ t|replace('_',' ') }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn" type="submit" data-stage-submit disabled>Change stage</button>
+        </div>
       </div>
-      <button class="btn" type="submit" data-stage-submit disabled>Change stage</button>
     </form>
     {% else %}
     <p class="muted small">No further transitions from this stage.</p>

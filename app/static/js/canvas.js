@@ -8,8 +8,10 @@
 
   /* ----- constants (mirrored in canvas.css) ----- */
   var ZONE_W = 264;
-  var ZONE_GAP = 48;
+  var ZONE_GAP_X = 24;
+  var ZONE_GAP_Y = 48;
   var BAND_LABEL_H = 36;
+  var BAND_GAP = 12;
   var GRID = 8;
   var ALIGN_TOL = 4; // spec §2.3: guides at ±4px edge/center alignment
   var MIN_ZOOM = 0.5;
@@ -18,9 +20,8 @@
   /* Phase 1.1/1.2: never shrink below the readable floor (card name 13px →
      ≥12px); pan instead of shrinking. Card focus keeps the zoom, clamped to
      100–125% so the card is never re-framed unpredictably. */
-  var MIN_READABLE = 0.93;
   var MIN_FOCUS_ZOOM = 1;
-  var MAX_FOCUS_ZOOM = 1.25;
+  var MAX_FOCUS_ZOOM = 1.1;
   var DENSITY_FLOOR = 0.75; // spec §2.5, amended 2026-11-16: board fit at small laptops lands here
   var STORE_KEY = "pl.canvas.v1";
   var STORE_VERSION = 1;
@@ -238,7 +239,30 @@
     };
   }
 
-  /* Fit just the stage board (rail "Board" / g p). */
+  /* Pipeline + full Messages lane: every board zone/label and the message
+     region/label, so fit-to-view never clips the Messages count. */
+  function stageBounds() {
+    var b = boardBounds();
+    if (!b) return null;
+    var out = world ? world.querySelector('[data-region="outreach"]') : null;
+    var outLabel = world ? world.querySelector('[data-region-label="outreach"]') : null;
+    var parts = [];
+    if (out) parts.push(out);
+    if (outLabel) parts.push(outLabel);
+    if (!parts.length) return b;
+    var minX = b.offsetLeft, minY = b.offsetTop;
+    var maxX = b.offsetLeft + b.offsetWidth;
+    var maxY = b.offsetTop + b.offsetHeight;
+    parts.forEach(function (el) {
+      minX = Math.min(minX, el.offsetLeft);
+      minY = Math.min(minY, el.offsetTop);
+      maxX = Math.max(maxX, el.offsetLeft + el.offsetWidth);
+      maxY = Math.max(maxY, el.offsetTop + el.offsetHeight);
+    });
+    return { offsetLeft: minX, offsetTop: minY, offsetWidth: maxX - minX, offsetHeight: maxY - minY };
+  }
+
+  /* Fit just the stage board (used by the lens focus). */
   function fitBoard(maxZoom) {
     var b = boardBounds();
     if (b) fitElement(b, 56, maxZoom);
@@ -247,19 +271,26 @@
   /* Phase 1.1 — fit-to-view: fill the viewport width from the top-left, but
      never shrink below the readable floor. If the board is taller/wider than
      the viewport at that scale, it stays at the floor and the user pans. */
-  function fitBoardReadable() {
-    var b = boardBounds();
+  function fitBoardReadable(maxZoom) {
+    var b = stageBounds();
     if (!b || !vp) return;
     var rect = vp.getBoundingClientRect();
     if (rect.width < 10 || rect.height < 10) return;
-    var z = Math.min(
-      MAX_ZOOM,
-      Math.max((rect.width - FIT_PAD * 2) / b.offsetWidth, MIN_READABLE)
+    var cap = typeof maxZoom === "number" ? maxZoom : 1;
+    var pad = 48;
+    var z = clampZoom(
+      Math.min(
+        cap,
+        (rect.width - pad * 2) / b.offsetWidth,
+        (rect.height - pad * 2) / b.offsetHeight
+      )
     );
-    z = clampZoom(z);
-    /* Width-first: the board uses the full viewport width; if it is taller
-       than the viewport at that scale the user pans vertically. */
-    setView(z, FIT_PAD - b.offsetLeft * z, FIT_PAD - b.offsetTop * z);
+    /* Centre with at least 48px on every side; never clip the Messages lane. */
+    setView(
+      z,
+      (rect.width - b.offsetWidth * z) / 2 - b.offsetLeft * z,
+      (rect.height - b.offsetHeight * z) / 2 - b.offsetTop * z
+    );
   }
 
   /* Phase 1.2 — selecting a card pans (never zooms) so the card is centered
@@ -353,17 +384,17 @@
         label.style.left = "0px";
         label.style.top = y + "px";
       }
-      var rowY = y + BAND_LABEL_H;
+      var rowY = y + BAND_LABEL_H + BAND_GAP;
       var x = 0;
       var maxH = 0;
       byBand[band].forEach(function (z) {
         z.style.left = x + "px";
         z.style.top = rowY + "px";
-        x += ZONE_W + ZONE_GAP;
+        x += ZONE_W + ZONE_GAP_X;
         maxH = Math.max(maxH, z.offsetHeight);
-        maxRight = Math.max(maxRight, x - ZONE_GAP);
+        maxRight = Math.max(maxRight, x - ZONE_GAP_X);
       });
-      y = rowY + maxH + ZONE_GAP;
+      y = rowY + maxH + ZONE_GAP_Y;
     });
 
     if (boardLabel) {
@@ -374,7 +405,7 @@
       /* Board-focused fit must not leave a clipped message card peeking in
          at the right edge; 200px keeps the region fully off-canvas until
          the user fits Home/Outreach. */
-      var ox = maxRight + 200;
+      var ox = maxRight + 48;
       outreach.style.left = ox + "px";
       outreach.style.top = dy + "px";
       outreachLabel.style.left = ox + "px";
@@ -720,9 +751,9 @@
     var b = boardState();
     var lensStage = new URLSearchParams(window.location.search).get("stage");
     if (lensStage) {
-      /* Filters leave one/few cards: keep the lane structure (dimmed
-         elsewhere) and never auto-zoom past 125% (Phase 1.3). */
-      fitBoard(1.25);
+      /* Filters leave one/few cards: keep lanes + Messages in view, never
+         auto-zoom past 125%. */
+      fitBoardReadable(1.25);
     } else if (
       typeof b.zoom === "number" &&
       typeof b.panX === "number" &&

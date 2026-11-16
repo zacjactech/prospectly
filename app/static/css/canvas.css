@@ -11,7 +11,7 @@
   --zone-gap: 48px;
   --zone-head-h: 36px;
   --card-h: 72px;
-  --card-gap: 12px;
+  --card-gap: var(--space-3);
   --zone-pad: 8px;
   --band-label-h: 36px;
 }
@@ -57,11 +57,11 @@
    view · Manage · Add prospect. It wraps below 1024px (stacked flow). */
 .canvas-toolbar {
   flex: none;
-  min-height: 44px;
+  min-height: calc(var(--control-h-md) + var(--space-3));
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
-  padding: 6px var(--sp-4);
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-4);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   flex-wrap: wrap;
@@ -70,7 +70,7 @@
 .canvas-toolbar .views-picker {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   flex: 0 0 auto;
 }
 
@@ -82,7 +82,7 @@
 }
 
 .canvas-toolbar .views-picker select {
-  height: 32px;
+  height: var(--control-h-md);
   padding: 0 28px 0 10px;
   max-width: 190px;
   font-size: var(--fs-sm);
@@ -102,6 +102,7 @@
 }
 
 .canvas-toolbar .views-manage {
+  height: var(--control-h-md);
   color: var(--color-text-muted);
 }
 
@@ -130,9 +131,9 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   min-width: 0;
-  padding-top: 2px;
+  padding-top: var(--space-1);
 }
 
 .filter-summary-label {
@@ -147,10 +148,10 @@
 .filter-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   max-width: 100%;
   min-height: 32px;
-  padding: 3px 10px;
+  padding: var(--space-1) var(--space-2);
   background: var(--color-surface-hover);
   border: 1px solid var(--color-border-strong);
   border-radius: 999px;
@@ -191,7 +192,7 @@
   display: inline-flex;
   align-items: center;
   min-height: 32px;
-  padding: 2px 10px;
+  padding: var(--space-1) var(--space-2);
   color: var(--color-text-muted);
   font-size: var(--fs-xs);
   text-decoration: underline;
@@ -220,7 +221,8 @@
 .canvas-toolbar .filter-open {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
+  height: var(--control-h-md);
   flex: 0 0 auto;
 }
 
@@ -345,8 +347,8 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--sp-2);
-  padding: 0 10px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--color-border);
   cursor: grab; /* zone frame/header is the drag handle (spec §2.3) */
 }
@@ -357,6 +359,7 @@
 
 .zone-title {
   flex: 1;
+  line-height: 1.25;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -399,7 +402,7 @@
   display: inline-block;
   width: 5px;
   height: 5px;
-  margin-right: 5px;
+  margin-right: var(--space-1);
   border-radius: 50%;
   background: currentColor;
   vertical-align: 1px;
@@ -410,14 +413,19 @@
 .zone-sub-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--sp-1);
-  padding: 6px 10px;
+  gap: var(--space-2);
+  row-gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--color-border);
 }
 
 .zone-sub-badges .badge {
   font-size: 11px;
-  padding: 0 5px;
+  padding: var(--space-1) var(--space-2);
+}
+
+.zone-sub-badges .badge .mono {
+  margin-left: 6px;
 }
 
 .zone-body {
@@ -475,7 +483,7 @@
   top: -10px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 1px 8px;
+  padding: var(--space-1) var(--space-2);
   background: var(--color-accent-light);
   border: 1px dashed var(--color-accent-border);
   border-radius: var(--radius-sm);
@@ -522,15 +530,14 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   flex: none;
-  height: var(--card-h);
-  padding: 5px 12px;
+  min-height: var(--card-h);
+  padding: var(--space-3);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: grab;
-  overflow: hidden;
   transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
 }
 
@@ -560,17 +567,17 @@
 .pc-name-row {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
-  margin: 0;
-  height: 16px;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-1);
   font-size: var(--fs-sm);
   font-weight: var(--fw-semibold);
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .pc-name {
   min-width: 0;
   overflow: hidden;
+  padding-bottom: 2px;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--color-text);
@@ -595,14 +602,14 @@
 }
 
 .pc-meta {
-  margin-top: 4px;
-  height: 16px;
-  line-height: 16px;
+  margin: 0;
+  padding-bottom: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
+  line-height: 1.4;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
 }
@@ -613,25 +620,29 @@
 
 .pc-foot {
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  margin-top: 4px;
-  height: 20px;
+  align-items: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  min-height: 28px;
   min-width: 0;
 }
 
 .pc-badges {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--sp-1);
+  gap: var(--space-2);
+  row-gap: var(--space-1);
   min-width: 0;
-  overflow: hidden;
 }
 
 .pc-badges .badge {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: var(--space-1) var(--space-2);
   font-size: 11px;
-  padding: 0 5px;
-  line-height: 1.45;
+  line-height: 1;
 }
 
 /* Reachable website = compact info-hue dot (distinct from the green stage
@@ -652,7 +663,8 @@
 .pc-side {
   display: flex;
   align-items: center;
-  gap: var(--sp-1);
+  align-self: flex-end;
+  gap: var(--space-2);
   margin-left: auto;
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
@@ -669,8 +681,8 @@
 .pc-icon-btn {
   display: inline-grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   background: transparent;
   border: 1px solid transparent;
@@ -722,8 +734,8 @@
 /* ===== Density (spec §2.5) =====
    ≥0.8 = full 64px cards; <0.8 = 40px name + dot only (meta/foot hidden). */
 .canvas-screen.density-compact .prospect-card {
-  height: 40px;
-  padding: 5px 10px;
+  min-height: 40px;
+  padding: var(--space-3);
 }
 
 .canvas-screen.density-compact .pc-meta,
@@ -734,13 +746,13 @@
 /* ===== Zoom control cluster (spec §2.2) ===== */
 .canvas-controls {
   position: absolute;
-  right: var(--sp-3);
-  bottom: var(--sp-3);
+  right: var(--space-4);
+  bottom: var(--space-4);
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 4px;
-  padding: 4px;
+  gap: var(--space-2);
+  padding: var(--space-1);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -769,6 +781,8 @@
   width: auto;
   min-width: 48px;
   padding: 0 6px;
+  font-size: 12px;
+  line-height: 1;
 }
 
 .canvas-controls button:hover {
@@ -777,8 +791,8 @@
 }
 
 .canvas-controls button svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 
 @media (max-width: 1023px) {
@@ -855,7 +869,7 @@
 }
 
 .move-menu .move-menu-label {
-  padding: 4px 10px 2px;
+  padding: var(--space-1) var(--space-2) var(--space-1);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   text-transform: uppercase;
@@ -935,22 +949,23 @@
   position: relative;
   flex: 1;
   min-height: 0;
+  padding: 0 var(--space-4) var(--space-5);
   overflow-y: auto;
+  scroll-padding-top: 72px;
 }
 
 /* The fragment's head card doubles as the sticky 48px panel header. */
-.panel-body .detail-head,
-.panel-body .message-head {
+.panel-body .card.detail-head,
+.panel-body .card.message-head {
   position: sticky;
   top: 0;
   z-index: 2;
-  margin: 0 0 -1px;
-  padding: var(--sp-2) 52px var(--sp-2) var(--sp-3);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4) 52px var(--space-3) var(--space-4);
   border: none;
   border-bottom: 1px solid var(--color-border);
   border-radius: 0;
   background: var(--color-surface);
-  box-shadow: var(--shadow-1);
 }
 
 .panel-body .detail-head .prospect-name,
@@ -960,21 +975,19 @@
 
 .panel-body .detail-head .header-actions,
 .panel-body .message-head .header-actions {
-  gap: var(--sp-1);
+  gap: var(--space-3);
 }
 
 .panel-body .detail-head .btn,
 .panel-body .message-head .btn {
-  height: 2rem;
+  height: var(--control-h-md);
   font-size: var(--fs-xs);
 }
 
 /* Suppression banner inside a panel runs edge to edge. */
 .panel-body > .banner {
-  margin: 0;
-  border-radius: 0;
-  border-left: none;
-  border-right: none;
+  margin: 0 0 var(--space-4);
+  border-radius: var(--radius-md);
 }
 
 /* Panels are narrow: the page's 2-up grid stacks (dual-rendered markup). */
@@ -983,16 +996,17 @@
 }
 
 .panel-body .card {
-  margin-bottom: 16px;
-  padding: var(--sp-4);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4);
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
 }
 
 /* Section anchor nav inside the prospect drawer. */
 .detail-tabs {
   display: flex;
-  gap: 16px;
-  padding: 8px 16px;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
   overflow-x: auto;
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
@@ -1017,7 +1031,7 @@
 }
 
 .inline-add {
-  margin-left: 6px;
+  margin-left: var(--space-2);
   color: var(--color-text-muted);
   font-size: var(--fs-xs);
   text-decoration: underline;
@@ -1030,7 +1044,7 @@
 .fact-url {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -1057,24 +1071,53 @@
 }
 
 /* Danger zone: one border style, separated blocks. */
-.danger-zone {
+.panel-body .card.danger-zone {
   border-color: var(--color-danger-border);
 }
 
+.danger-zone > h3 {
+  color: var(--color-danger);
+}
+
 .danger-block + .danger-block {
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--color-border);
 }
 
 .danger-block h4 {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-2);
   font-size: var(--fs-sm);
   font-weight: var(--fw-semibold);
 }
 
 .danger-block .field {
-  margin-bottom: 10px;
+  margin-bottom: var(--space-4);
+}
+
+.danger-block form {
+  margin: 0;
+}
+
+.danger-block > .muted.small {
+  margin-top: var(--space-2);
+}
+
+.stage-override-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.stage-override-row select {
+  flex: 1;
+  max-width: 240px;
+  min-height: var(--control-h-md);
+}
+
+.stage-override-row .btn {
+  height: var(--control-h-md);
+  flex: none;
 }
 
 .panel-body > .card:last-child {
@@ -1084,13 +1127,13 @@
 /* 44px close hit area, fixed top-right above the sticky head. */
 .panel-close {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: var(--space-3);
+  right: var(--space-4);
   z-index: 3;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   background: none;
   border: none;
@@ -1156,7 +1199,7 @@
   position: absolute;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   height: var(--band-label-h);
   white-space: nowrap;
 }
@@ -1169,7 +1212,7 @@
   background: var(--color-surface-hover);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
-  padding: 1px 5px;
+  padding: var(--space-1) var(--space-2);
 }
 
 .region-name {
@@ -1188,7 +1231,7 @@
   position: absolute;
   display: grid;
   grid-template-columns: repeat(3, 232px);
-  gap: 16px;
+  gap: var(--space-4);
   width: max-content;
 }
 
@@ -1196,8 +1239,8 @@
   position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px;
+  gap: var(--space-3);
+  padding: var(--space-3);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -1237,7 +1280,7 @@
 .sc-main {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
@@ -1249,6 +1292,8 @@
 
 .sc-state {
   font-size: var(--fs-xs);
+  line-height: 1.4;
+  padding-bottom: 2px;
   color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1278,7 +1323,7 @@
 .outreach-region {
   display: grid;
   grid-template-columns: repeat(3, var(--zone-w));
-  gap: 20px;
+  gap: var(--space-5);
   align-items: start;
 }
 
@@ -1286,22 +1331,23 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 10px;
+  padding: var(--space-3);
 }
 
 .msg-zone-head {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 2px 4px 8px;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--color-border);
 }
 
 .msg-zone-title {
+  line-height: 1.25;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
   font-size: 1.0625rem;
   font-weight: 600;
   margin: 0;
@@ -1315,8 +1361,8 @@
 .msg-zone-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-top: 10px;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
   min-height: 44px;
 }
 
@@ -1324,13 +1370,13 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface-hover);
-  padding: 10px;
+  padding: var(--space-3);
 }
 
 .msg-card-main {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   color: inherit;
   text-decoration: none;
 }
@@ -1351,7 +1397,7 @@
 }
 
 .msg-card-actions {
-  margin-top: 6px;
+  margin-top: var(--space-2);
 }
 
 /* Confirm-sent (P1: the user confirms, the app never sends) is a small
@@ -1371,7 +1417,7 @@
 
 .panel-heading {
   font-size: var(--fs-xl);
-  margin: 16px 16px 4px;
+  margin: 0 0 var(--space-1);
 }
 
 /* Settings drawer pattern: one sticky opaque header with the close button
@@ -1380,14 +1426,15 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  margin: 0;
-  padding: 14px 52px 10px 16px;
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4) 52px var(--space-3) var(--space-4);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
 }
 
 .panel-body > .panel-heading + .muted.small {
-  margin-top: 12px;
+  margin-top: 0;
+  margin-bottom: var(--space-4);
   font-size: var(--fs-sm);
   text-wrap: pretty;
 }
@@ -1456,7 +1503,7 @@
 .filter-panel-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-4);
   padding: 0 16px 18px;
 }
 
@@ -1473,12 +1520,12 @@
 }
 
 .filter-panel-form .filter-actions {
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 
 .panel-section {
   margin: 0 16px 18px;
-  padding-top: 14px;
+  padding-top: var(--space-4);
   border-top: 1px solid var(--color-border);
 }
 
@@ -1494,14 +1541,14 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: var(--fs-sm);
 }
 
 .save-view-panel-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .mini-pipeline {
@@ -1516,11 +1563,11 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface-raised);
-  padding: 12px;
+  padding: var(--space-3);
 }
 
 .flow-step + .flow-step {
-  margin-top: 28px;
+  margin-top: var(--space-5);
 }
 
 .flow-step + .flow-step::before {
@@ -1535,8 +1582,8 @@
 .flow-step-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
 .flow-step-num {
@@ -1546,7 +1593,7 @@
   background: var(--color-surface-hover);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
-  padding: 1px 5px;
+  padding: var(--space-1) var(--space-2);
 }
 
 .flow-step-head h3 {
@@ -1570,13 +1617,13 @@
 }
 
 .flow-step-body .action-group {
-  margin-top: 8px;
+  margin-top: var(--space-2);
 }
 
 .flow-step-note {
   font-size: var(--fs-xs);
   color: var(--color-text-subtle);
-  margin: 6px 0 0;
+  margin: var(--space-2) 0 0;
 }
 
 /* Mobile: the cluster stacks, the panel is a full-width sheet (spec §V2.6). */
@@ -1604,7 +1651,7 @@
     overflow: visible;
     touch-action: auto;
     cursor: default;
-    padding: 12px;
+    padding: var(--space-3);
   }
 
   .canvas-world {
@@ -1612,7 +1659,7 @@
     transform: none !important;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: var(--space-5);
   }
 
   .canvas-wires,
@@ -1629,12 +1676,12 @@
     position: static !important;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     width: auto;
-    gap: 12px;
+    gap: var(--space-3);
   }
 
   .setup-card {
-    padding: 10px;
-    gap: 8px;
+    padding: var(--space-3);
+    gap: var(--space-2);
   }
 
   .sc-icon {
@@ -1656,7 +1703,7 @@
      meta + status rows even though the transform-layer zoom is clamped. */
   .canvas-screen.density-compact .prospect-card {
     height: var(--card-h);
-    padding: 5px 12px;
+    padding: var(--space-3);
   }
 
   .canvas-screen.density-compact .pc-meta {
@@ -1690,8 +1737,8 @@
 @media (max-width: 1023px) {
   .canvas-toolbar {
     align-items: stretch;
-    gap: 8px;
-    padding: 8px 12px;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
   }
 
   .canvas-toolbar h1 {
@@ -1749,7 +1796,7 @@
 .saved-view-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 180px;
 }
 
@@ -1780,8 +1827,8 @@
 .range-labels {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
-  margin-top: 4px;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
 }
 
 input[type="range"] {
@@ -1823,9 +1870,9 @@ input[type="range"]::-moz-range-thumb {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 24px 16px;
-  margin-bottom: 12px;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-4);
+  margin-bottom: var(--space-3);
   border: 1px dashed var(--color-border-strong);
   border-radius: var(--radius-lg);
   background: var(--color-surface-hover);
@@ -1851,19 +1898,19 @@ input[type="range"]::-moz-range-thumb {
 
 /* Usage cap progress bars. */
 .cap-row {
-  margin-bottom: 14px;
+  margin-bottom: var(--space-4);
 }
 
 .cap-row:last-of-type {
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 
 .cap-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
   font-size: var(--fs-sm);
 }
 
@@ -1909,8 +1956,8 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .advanced {
-  margin-top: 12px;
-  padding-top: 8px;
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
   border-top: 1px solid var(--color-border);
 }
 
@@ -1928,15 +1975,15 @@ input[type="range"]::-moz-range-thumb {
 .chip-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 6px 2px 8px;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-strong);
   border-radius: 999px;
   background: var(--color-surface-hover);
@@ -1997,7 +2044,7 @@ input[type="file"] {
 
 input[type="file"]::file-selector-button {
   min-height: 32px;
-  margin-right: 10px;
+  margin-right: var(--space-3);
   padding: 0 12px;
   color: var(--color-text);
   background: var(--color-surface-hover);
@@ -2070,7 +2117,23 @@ input[type="file"]::file-selector-button {
   flex: none;
   width: 14px;
   height: 14px;
-  margin-right: 5px;
+  margin-right: var(--space-1);
   color: var(--color-text-muted);
   vertical-align: -2px;
+}
+
+
+@media (min-width: 768px) {
+  .sidenav-head {
+    height: calc(var(--control-h-md) + var(--space-3));
+    padding: 0 var(--space-3);
+  }
+}
+
+
+/* Header shadow appears only after the drawer body scrolls. */
+.panel.panel-scrolled .detail-head,
+.panel.panel-scrolled .message-head,
+.panel.panel-scrolled .panel-body > .panel-heading {
+  box-shadow: var(--shadow-1);
 }
