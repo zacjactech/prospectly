@@ -2,19 +2,15 @@
    [{type, message}] or the legacy `error`/`message`+`message_type` vars.
    Types: error, info, success, warn.
 
-   Two de-duplication rules keep one event to one notice:
-   - On a canvas page the shell already renders `message` as the persistent
-     banner (and `?flash=` is the same string the route put in `message`), so
-     the toast list skips both instead of stacking two identical toasts over
-     the banner. Non-canvas renders (login, HTMX board fragment) have no
-     banner and keep their toast.
-   - Within the list itself, identical texts collapse to the first entry. #}
+   The toast is the notice on every surface (owner 2026-11-17: confirmations
+   are a popup, not a green banner in the layout); the canvas shell renders no
+   banner. Identical texts collapse to the first entry, so a redirect flash
+   that arrives as both `message` and `?flash=` still toasts exactly once. #}
 {% set flashes = flashes or [] %}
 {% if error %}
   {% set flashes = flashes + [{"type": "error", "message": error}] %}
 {% endif %}
-{% set banner_shows_message = canvas_mode|default(false) and message is string and message %}
-{% if message is string and message and not banner_shows_message %}
+{% if message is string and message %}
   {% set flashes = flashes + [{"type": message_type or "info", "message": message}] %}
 {% endif %}
 {# Flash carried across a redirect via URL query params (?flash=...&flash_type=...) #}

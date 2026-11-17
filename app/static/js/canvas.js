@@ -118,11 +118,22 @@
       "translate(" + panX + "px, " + panY + "px) scale(" + zoom + ")";
   }
 
+  var densityMode = null;
   function updateDensity() {
     if (!vp) return;
     var screen = vp.parentNode;
-    screen.classList.toggle("density-compact", zoom < DENSITY_FLOOR);
-    screen.classList.toggle("density-full", zoom >= DENSITY_FLOOR);
+    var compact = zoom < DENSITY_FLOOR;
+    screen.classList.toggle("density-compact", compact);
+    screen.classList.toggle("density-full", !compact);
+    var mode = compact ? "compact" : "full";
+    if (densityMode !== null && densityMode !== mode) {
+      /* Row spacing was measured with the other card height: re-measure it
+         now so expanded cards never sit on top of the next row. */
+      densityMode = mode;
+      relayout();
+      return;
+    }
+    densityMode = mode;
   }
 
   function updateZoomReadout() {
@@ -337,6 +348,18 @@
   /* Owner 2026-11-17: "a btn that properly arranges the elements when they
      are scattered" — forget every dragged zone position, re-run the default
      arrangement and frame the whole world. */
+  /* Re-run the arrangement against the live DOM without moving the camera.
+     Every region swap can replace the outreach element with server HTML that
+     carries no inline styles, and a density flip changes card heights — both
+     leave regions/rows at stale coordinates (owner: "cards overlap when they
+     expand"). */
+  function relayout() {
+    if (!world || !zones || !zones.length) return;
+    applyDefaultLayout();
+    applyStoredZones();
+    scheduleWires();
+  }
+
   function tidy() {
     if (!world) return;
     patchBoard(function (b) {
@@ -821,7 +844,9 @@
   /* Board swaps in place (HTMX): re-init against the fresh DOM. */
   document.addEventListener("htmx:afterSwap", function (e) {
     var t = e.detail.target;
-    if (t && t.id === "board-root") init();
+    if (!t) return;
+    if (t.id === "board-root") init(); // fresh zones → rebind + relayout
+    else if (t.id === "outreach-root") relayout(); // fresh region → reposition
   });
 
   document.addEventListener("focusin", function (e) {
@@ -839,6 +864,7 @@
     fitOutreach: fitOutreach,
     focusCard: focusCard,
     tidy: tidy,
+    relayout: relayout,
     zoom: function () {
       return zoom;
     },

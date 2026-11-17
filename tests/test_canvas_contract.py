@@ -301,19 +301,25 @@ def test_boolean_filter_chips_remove_cleanly(db_client) -> None:
     assert _chip_href(r.text, "Suppressed only") == "/prospects?include_archived=true"
 
 
-def test_flash_query_renders_banner(db_client) -> None:
-    """POST redirects carry ?flash=…; the canvas must show the confirmation."""
+def test_flash_query_renders_a_popup_toast(db_client) -> None:
+    """POST redirects carry ?flash=…; the canvas shows it as a popup toast.
+
+    Owner 2026-11-17: "this should be a popup or tooltips and not green blend
+    with the design" — no green banner is rendered on the canvas any more.
+    """
     _, client = db_client
     r = client.get(
         "/prospects",
         params={"flash": "Message sent confirmed", "flash_type": "success"},
     )
-    assert 'class="flash success"' in r.text
+    assert 'class="toast success"' in r.text
     assert "Message sent confirmed" in r.text
+    assert 'class="flash success"' not in r.text
 
     # Unknown types fall back to info rather than becoming an arbitrary class.
     fallback = client.get("/prospects", params={"flash": "Saved", "flash_type": "nope"})
-    assert 'class="flash info"' in fallback.text
+    assert 'class="toast info"' in fallback.text
+    assert 'class="flash info"' not in fallback.text
 
 
 def test_filters_panel_and_stage_lens(db_client) -> None:
@@ -462,8 +468,8 @@ def test_flash_query_renders_exactly_one_notice(db_client) -> None:
     r = client.get("/prospects", params={"flash": "Duplicate flash check", "flash_type": "success"})
     assert r.status_code == 200
     assert r.text.count("Duplicate flash check") == 1
-    assert 'class="flash success"' in r.text  # the canvas notice
-    assert 'class="toasts"' not in r.text  # and not a second copy
+    assert 'class="toast success"' in r.text  # the popup is the notice
+    assert 'class="flash success"' not in r.text  # no banner copy
 
 
 def test_form_values_never_render_python_none() -> None:
@@ -809,3 +815,25 @@ def test_danger_zone_copy_is_not_repetitive(db_client) -> None:
     html = client.get(f"/prospects/{prospect.id}").text
     assert "Reason (required)" in html
     assert "asked to stop" in html
+
+
+def test_region_swaps_and_density_flips_re_run_layout() -> None:
+    """Owner: "cards are overlapping with other cards when it expand".
+
+    Two coordinate invalidations must re-run the arrangement:
+    - an HTMX swap can replace `#outreach-root` with server HTML that carries
+      no inline styles, so the region falls back to 0,0 over the setup cluster;
+    - crossing the density floor changes card heights, so rows measured at the
+      old height would sit on top of each other.
+    """
+    js = (_ROOT / "app/static/js/canvas.js").read_text(encoding="utf-8")
+    handler = js.split('htmx:afterSwap"', 1)[1].split("});", 1)[0]
+    assert 't.id === "outreach-root"' in handler and "relayout()" in handler
+    assert 't.id === "board-root"' in handler and "init()" in handler
+
+    relayout = js.split("function relayout()", 1)[1].split("function tidy()", 1)[0]
+    assert "applyDefaultLayout()" in relayout and "scheduleWires()" in relayout
+    assert "setView(" not in relayout and "fit(" not in relayout  # camera untouched
+
+    density = js.split("function updateDensity()", 1)[1].split("function updateZoomReadout", 1)[0]
+    assert "densityMode !== mode" in density and "relayout();" in density

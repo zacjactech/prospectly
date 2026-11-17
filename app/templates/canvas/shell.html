@@ -4,11 +4,9 @@
    read-only wire layer. Every retired page route renders this shell with its
    card pre-opened (§V2.2), so deep links land on the canvas. #}
 {% block content %}
-{% if message is string and message %}
-{# role=status announces the redirect confirmation (the toast list skips it,
-   so this banner is the single notice for the event — see partials/flashes). #}
-<div class="flash {{ message_type }}" role="status">{{ message }}</div>
-{% endif %}
+{# Redirect confirmations arrive as a popup toast only (owner 2026-11-17:
+   "should be a popup or tooltips and not green blend with the design") —
+   partials/flashes.html renders them with aria-live; no banner here. #}
 
 <div class="canvas-screen density-full{% if current_stage %} board-lens{% endif %}" id="canvas-screen">
   <div class="canvas-toolbar">
