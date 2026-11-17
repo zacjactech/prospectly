@@ -854,6 +854,13 @@ def prospect_detail(
     )
     notes = db.query(Note).filter_by(prospect_id=prospect_id).order_by(Note.updated_at.desc()).all()
     opportunities = opportunity_service.list_opportunities(db, prospect_id=prospect_id)
+    # Which findings the active draft is grounded in: the panel needs this for
+    # the "Grounded in" row and to show the acknowledgement only for ungrounded
+    # drafts (it was never passed before, so both read as undefined here).
+    grounded_ids = set(active_message.grounding or []) if active_message else set()
+    grounded_findings = (
+        db.query(Finding).filter(Finding.id.in_(grounded_ids)).all() if grounded_ids else []
+    )
     context = {
         "app_name": settings.app_name,
         "prospect": prospect,
@@ -862,6 +869,7 @@ def prospect_detail(
         "findings": findings,
         "website_checks": website_checks,
         "active_message": active_message,
+        "grounded_findings": grounded_findings,
         "follow_ups": follow_ups,
         "notes": notes,
         "opportunities": opportunities,

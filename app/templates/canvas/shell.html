@@ -17,6 +17,18 @@
       <span>Filters</span>
       {% if active_filters %}<span class="filter-count" aria-hidden="true">{{ active_filters|length }}</span>{% endif %}
     </a>
+    {% set pending_count = outreach_groups.get('pending_review', [])|length %}
+    {% if pending_count %}
+    {# The queue sits off the default fit (P1): make it readable and reachable
+       from the toolbar instead of behind a pan. #}
+    <button type="button" class="pending-chip" data-canvas-view="outreach"
+            title="Messages awaiting approval: pans to the messages region"
+            aria-label="Pending review · {{ pending_count }}: {{ pending_count }} awaiting approval, show the messages region">
+      <span class="pending-dot" aria-hidden="true"></span>
+      <span>Pending review · {{ pending_count }}</span>
+    </button>
+    {% endif %}
+
     <span class="toolbar-spacer" aria-hidden="true"></span>
 
     {# Saved views (spec §1.2 toolbar / §V2.7 A3): native select applies an

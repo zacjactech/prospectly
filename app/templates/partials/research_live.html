@@ -46,62 +46,50 @@
 
   <section class="card">
     {% if findings %}
-    <div class="table-scroll">
-      <table class="prospects">
-        <thead>
-          <tr>
-            <th>Kind</th>
-            <th>Statement</th>
-            <th>Source</th>
-            <th>Verification</th>
-            <th>Confidence</th>
-            <th>Origin</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for f in findings %}
-          <tr>
-            <td><span class="badge tag">{{ f.kind }}</span></td>
-            <td>{{ f.statement }}</td>
-            <td>{% if f.source_url %}<a href="{{ f.source_url }}" target="_blank" rel="noopener" class="truncate">{{ f.source_url }}</a>{% else %}<span class="muted">none</span>{% endif %}</td>
-            <td><span class="badge stage-{{ f.verification_status|replace('_','-') }}">{{ f.verification_status|replace('_',' ') }}</span></td>
-            <td><span class="badge">{{ f.confidence }}</span></td>
-            <td><span class="badge {{ 'warn' if f.origin == 'ai' else '' }}">{{ f.origin }}</span></td>
-            <td>
-              <div class="row-actions">
-                {% if f.verification_status != 'verified' %}
-                <form method="post" action="/findings/{{ f.id }}/verify">
-                  {{ csrf_field() }}
-                  <button class="btn small" type="submit">Verify</button>
-                </form>
-                {% endif %}
-                <details>
-                  <summary class="btn small">Edit</summary>
-                  <form method="post" action="/findings/{{ f.id }}/edit">
-                    {{ csrf_field() }}
-                    <div class="field full">
-                      <label>Statement</label>
-                      <input type="text" name="statement" value="{{ f.statement }}" maxlength="500" required>
-                    </div>
-                    <div class="field full">
-                      <label>Detail (optional)</label>
-                      <textarea name="detail" rows="2">{{ f.detail or "" }}</textarea>
-                    </div>
-                    <button class="btn small primary" type="submit">Save</button>
-                  </form>
-                </details>
-                <form method="post" action="/findings/{{ f.id }}/delete" data-confirm="Delete this finding? This removes the evidence row.">
-                  {{ csrf_field() }}
-                  <button class="btn ghost small" type="submit">Delete</button>
-                </form>
-              </div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+    {# Restacked row (P1, owner pass 2026-11-17): the panel is 560px wide, so
+       the statement owns the full width and verification + actions sit on
+       their own line — never behind a horizontal scroll. #}
+    <ul class="finding-list">
+      {% for f in findings %}
+      <li class="finding-row">
+        <p class="finding-statement">{{ f.statement }}</p>
+        <div class="finding-meta">
+          <span class="badge tag">{{ f.kind }}</span>
+          <span class="badge stage-{{ f.verification_status|replace('_','-') }}">{{ f.verification_status|replace('_',' ') }}</span>
+          <span class="badge">{{ f.confidence }}</span>
+          <span class="badge {{ 'warn' if f.origin == 'ai' else '' }}">{{ f.origin }}</span>
+          {% if f.source_url %}<a href="{{ f.source_url }}" target="_blank" rel="noopener" class="src truncate">{{ f.source_url }}</a>{% endif %}
+          <div class="row-actions">
+            {% if f.verification_status != 'verified' %}
+            <form method="post" action="/findings/{{ f.id }}/verify">
+              {{ csrf_field() }}
+              <button class="btn small" type="submit">Verify</button>
+            </form>
+            {% endif %}
+            <details>
+              <summary class="btn small">Edit</summary>
+              <form method="post" action="/findings/{{ f.id }}/edit">
+                {{ csrf_field() }}
+                <div class="field full">
+                  <label>Statement</label>
+                  <input type="text" name="statement" value="{{ f.statement }}" maxlength="500" required>
+                </div>
+                <div class="field full">
+                  <label>Detail (optional)</label>
+                  <textarea name="detail" rows="2">{{ f.detail or "" }}</textarea>
+                </div>
+                <button class="btn small primary" type="submit">Save</button>
+              </form>
+            </details>
+            <form method="post" action="/findings/{{ f.id }}/delete" data-confirm="Delete this finding? This removes the evidence row.">
+              {{ csrf_field() }}
+              <button class="btn ghost small" type="submit">Delete</button>
+            </form>
+          </div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
     {% else %}
     {% endif %}
 

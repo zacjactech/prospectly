@@ -824,10 +824,22 @@
       if (what === "world") fit();
       else if (what === "board") fitBoardReadable();
       else if (what === "outreach") fitOutreach();
-      /* Active state follows the chosen view (owner 2026-11-17). */
+      /* "You are here" must agree with itself (critique P1): the clicked view
+         owns .active, aria-current, the h1 and the URL — screen readers and
+         the Back button both get the truth. */
       var viewLinks = document.querySelectorAll(".nav-link[data-canvas-view]");
       for (var vi = 0; vi < viewLinks.length; vi++) {
-        viewLinks[vi].classList.toggle("active", viewLinks[vi].getAttribute("data-canvas-view") === what);
+        var link = viewLinks[vi];
+        var isIt = link.getAttribute("data-canvas-view") === what;
+        link.classList.toggle("active", isIt);
+        if (isIt) link.setAttribute("aria-current", link.tagName === "A" ? "page" : "true");
+        else link.removeAttribute("aria-current");
+      }
+      var heading = document.querySelector(".canvas-toolbar h1");
+      if (heading) heading.textContent = what === "outreach" ? "Message pipeline" : "Prospect pipeline";
+      var path = what === "outreach" ? "/outreach" : (window.location.pathname === "/" && what !== "board" ? "/" : "/prospects");
+      if (window.history && window.history.replaceState && window.location.pathname !== path) {
+        window.history.replaceState(null, "", path + window.location.search);
       }
       return;
     }

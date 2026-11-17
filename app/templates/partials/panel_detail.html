@@ -36,7 +36,7 @@
 <nav class="detail-tabs" aria-label="Prospect sections">
   <a href="#detail-overview">Overview</a>
   <a href="#detail-research">Research</a>
-  <a href="#detail-outreach">Outreach</a>
+  {% if not prospect.do_not_contact %}<a href="#detail-outreach">Outreach</a>{% endif %}
   <a href="#detail-activity">Activity</a>
 </nav>
 
@@ -44,7 +44,8 @@
 {# Safety notice sits below the sticky header so the header (and the close
    button) always own the panel's top row. #}
 <div class="banner danger">
-  Suppressed: {{ prospect.do_not_contact_reason or "do not contact" }}. This prospect cannot receive drafts or outreach actions.
+  <span>Suppressed: {{ prospect.do_not_contact_reason or "do not contact" }}.</span>
+  <a class="banner-action" href="#danger-zone">Undo: Clear suppression</a>
 </div>
 {% endif %}
 
@@ -155,10 +156,9 @@
   {% endif %}
 </section>
 
+{% if not prospect.do_not_contact %}
 <section class="card">
-  {% if prospect.do_not_contact %}
-  <p class="muted">Suppressed: no outreach actions available.</p>
-  {% elif opportunities %}
+  {% if opportunities %}
   <div class="action-group">
     <form method="post" action="/prospects/{{ prospect.id }}/opportunities" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/opportunities"{% endif %} {{ hxpost|safe }}>
       {{ csrf_field() }}
@@ -196,11 +196,11 @@
   <a class="btn small" href="#detail-research">Go to research</a>
   {% endif %}
 </section>
+{% endif %}
 
+{% if not prospect.do_not_contact %}
 <section class="card" id="detail-outreach">
-  {% if prospect.do_not_contact %}
-  <p class="muted">Suppressed: no drafts, approvals or WhatsApp actions.</p>
-  {% elif is_terminal %}
+  {% if is_terminal %}
   <p class="muted">Terminal stage: outreach is closed.</p>
   {% elif active_message %}
   <div class="outreach-status">
@@ -219,12 +219,14 @@
       <button class="btn primary" type="submit">Submit for review</button>
     </form>
     {% elif active_message.status == "pending_review" %}
-    <form method="post" action="/messages/{{ active_message.id }}/approve" {% if panel_mode %}hx-post="/messages/{{ active_message.id }}/approve"{% endif %} data-confirm="Approve this message for sending?" {{ hxpost_refresh|safe }}>
+    <form method="post" action="/messages/{{ active_message.id }}/approve" {% if panel_mode %}hx-post="/messages/{{ active_message.id }}/approve"{% endif %} data-confirm="Approve this draft? Opening WhatsApp is a separate step; you press Send." {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
+      {% if not grounded_findings %}
       <label class="checkbox-line">
         <input type="checkbox" name="ungrounded_acknowledgement" value="1">
         I accept ungrounded content
       </label>
+      {% endif %}
       <button class="btn primary" type="submit">Approve</button>
     </form>
     {% elif active_message.status == "approved" %}
@@ -264,6 +266,7 @@
   {% endif %}
   {% endif %}
 </section>
+{% endif %}
 
 {% if not prospect.do_not_contact and not is_terminal and has_sent %}
 <section class="card">
@@ -366,7 +369,7 @@
 {% endif %}
 
 <section class="card danger-zone">
-  <h3>Danger zone</h3>
+  <h3 id="danger-zone">Danger zone</h3>
 
   <div class="danger-block">
     <div class="danger-block-head">

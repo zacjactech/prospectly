@@ -54,7 +54,7 @@ Single-user tool; every flow is designed for one operator moving prospects throu
 2. **[system]** `MessageGenerator` (AI or template) produces text with grounding IDs; draft opens in editor.
 3. Operator edits freely (goal: their voice, accurate specifics; edits logged).
 4. ⚠ **Submit for review** → `pending_review` (editable, returns to `draft` on edit).
-5. ⚠ **Approve** → `approved`. Blocked if: suppressed prospect, empty text, or missing grounding without the "I accept ungrounded content" acknowledgement.
+5. ⚠ **Approve** → `approved`. Confirmation (both panels, verbatim): *"Approve this draft? Opening WhatsApp is a separate step; you press Send."* Blocked if: suppressed prospect, empty text, or missing grounding without the "I accept ungrounded content" acknowledgement — which renders **only when the draft has no grounding**, so a grounded draft never asks for a blind attestation.
 6. **Open in WhatsApp** → browser opens `wa.me` with prefilled message → status `opened_in_whatsapp`. *(Status does not imply sending.)*
 7. Operator sends manually in WhatsApp.
 8. ⚠ Back in app: **I have sent this message** → `sent_confirmed` + activity + `last_contacted_at` + stage `contacted` + prompt to schedule follow-up (default: +3 days).

@@ -2741,3 +2741,51 @@ input[type="file"]::file-selector-button {
 .canvas-screen a:hover {
   text-decoration: none;
 }
+
+/* Findings restacked for the 560px panel (P1: statement owns the width;
+   verification, origin and actions live on their own line). */
+.finding-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.finding-row {
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.finding-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.finding-statement {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.finding-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.finding-meta .src {
+  max-width: 260px;
+  font-size: var(--fs-xs);
+}
+
+.finding-meta .row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.finding-meta .row-actions form {
+  margin: 0;
+}

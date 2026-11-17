@@ -8,6 +8,7 @@ fall back to the old standalone page layouts.
 
 from __future__ import annotations
 
+import datetime as dt
 import os
 import re
 import tempfile
@@ -21,7 +22,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db import Base, get_db
 from app.main import app
-from app.models import Activity, OutreachMessage, Prospect, SavedView
+from app.models import Activity, Finding, OutreachMessage, Prospect, SavedView
 
 # Retired route → the card that must be pre-opened on a plain GET.
 CARD_ROUTES = [
@@ -126,56 +127,34 @@ def test_prospects_hx_returns_board_fragment_only(db_client) -> None:
     assert 'data-zone="new"' in full.text
 
 
-def test_prospect_card_keeps_stage_tag_in_the_name_row(db_client) -> None:
-    """Stage is a top-right tag, not a footer pill (card layout contract).
+def test_stage_tab_only_where_stages_share_a_frame(db_client) -> None:
+    """Owner decision: the stage tab renders only in the Terminal frame.
 
-    Keeps the corner tag on every board card and leaves the footer for the
-    status dot, website badges and the card menu.
+    Three stages share one zone there, so only those cards need a tag. In
+    their own lane the header already names the stage, and long stage names
+    used to truncate inside a tab that repeated it.
     """
     db, client = db_client
-    prospect = Prospect(business_name="Corner Tag Hotel", stage="replied")
-    db.add(prospect)
+    db.add(Prospect(business_name="Replied Only Ltd", stage="replied"))
+    db.add(Prospect(business_name="Archived Only Ltd", stage="archived"))
     db.commit()
 
     html = client.get("/prospects", headers={"HX-Request": "true"}).text
-    card = re.search(r'<article class="prospect-card".*?</article>', html, re.S)
-    assert card, "board fragment has no prospect card"
-    card_html = card.group(0)
+    cards = re.findall(r'<article class="prospect-card".*?</article>', html, re.S)
+    assert len(cards) == 2, f"expected 2 cards, got {len(cards)}"
+    by_name = {("Archived Only Ltd" in c): c for c in cards}
+    terminal = by_name[True]
+    lane = by_name[False]
 
-    name_row = re.search(r'<h3 class="pc-name-row">(.*?)</h3>', card_html, re.S)
-    assert name_row, "card has no name row"
-    assert "pc-stage-tag" in name_row.group(1)
+    # Terminal card carries the tab (name row only, never the footer)
+    name_row = re.search(r'<h3 class="pc-name-row">(.*?)</h3>', terminal, re.S)
+    assert name_row and "pc-stage-tag" in name_row.group(1)
     assert "data-stage-badge" in name_row.group(1)
-    assert "replied" in name_row.group(1)
+    assert "archived" in name_row.group(1)
 
-    foot = re.search(r'<div class="pc-foot">(.*?)</div>', card_html, re.S)
-    assert foot, "card has no footer"
-    assert "data-stage-badge" not in foot.group(1)
-
-
-def test_message_page_does_not_render_the_message_orm_as_flash(db_client) -> None:
-    """The message panel context uses `message` for the ORM row.
-
-    The canvas shell's flash block must only render strings; a full-page
-    message deep link used to print ``<app.models.OutreachMessage ...>``
-    above the toolbar.
-    """
-    db, client = db_client
-    prospect = Prospect(business_name="Flash Guard Hotel")
-    db.add(prospect)
-    db.commit()
-    db.refresh(prospect)
-    message = OutreachMessage(
-        prospect_id=prospect.id, status="approved", active=True, current_text="Hello"
-    )
-    db.add(message)
-    db.commit()
-    db.refresh(message)
-
-    page = client.get(f"/messages/{message.id}/edit")
-    assert page.status_code == 200
-    assert "app.models.OutreachMessage object at" not in page.text
-    assert "Back to prospect" in page.text
+    # Lane card carries none: the zone header says "Replied"
+    assert "pc-stage-tag" not in lane
+    assert "data-stage-badge" not in lane
 
 
 def test_outreach_route_frames_the_outreach_region(db_client) -> None:
@@ -600,7 +579,7 @@ def test_detail_panel_drops_self_evident_section_labels(db_client) -> None:
     ):
         assert gone not in html, f"redundant label still rendered: {gone}"
     # The destructive group still names itself (it groups three control blocks).
-    assert "<h3>Danger zone</h3>" in html
+    assert '<h3 id="danger-zone">Danger zone</h3>' in html  # anchor for the undo link
 
 
 def test_panel_titles_render_as_headings(db_client) -> None:
@@ -770,10 +749,13 @@ def test_nav_marks_the_current_screen(db_client) -> None:
     """Owner: "active state is not working, only hover styling works"."""
     _, client = db_client
     board = client.get("/prospects").text
-    assert 'class="nav-link active" data-canvas-view="world"' in board
+    # exactly one current view, and it agrees with the URL (critique P1 #3)
+    assert 'class="nav-link active" aria-current="true" data-canvas-view="board"' in board
+    assert board.count('aria-current="true"') == 1
     assert '<span class="nav-group-label">Session</span>' in board
     outreach = client.get("/outreach").text
-    assert 'class="nav-link active" data-canvas-view="outreach"' in outreach
+    assert 'class="nav-link active" aria-current="true" data-canvas-view="outreach"' in outreach
+    assert outreach.count('aria-current="true"') == 1
 
 
 def test_cards_have_more_room() -> None:
@@ -808,13 +790,19 @@ def test_danger_zone_copy_is_not_repetitive(db_client) -> None:
     assert "No activity yet." not in html
     assert "One primary action at a time" not in html  # confirm dialog owns it
 
-    # suppressed: the same block carries the required-reason label
+    # suppressed: the required-reason label, the escape hatch next to the
+    # banner, and no repeated "you can't" restatements (critique P2)
     prospect.do_not_contact = True
     prospect.do_not_contact_reason = "asked to stop"
     db.commit()
     html = client.get(f"/prospects/{prospect.id}").text
     assert "Reason (required)" in html
     assert "asked to stop" in html
+    assert "Undo: Clear suppression" in html
+    assert "Suppressed: no drafts" not in html
+    assert "Suppressed: no outreach actions" not in html
+    assert 'id="detail-outreach"' not in html  # card skipped while suppressed
+    assert '<a href="#detail-outreach">Outreach</a>' not in html  # and no dangling tab
 
 
 def test_region_swaps_and_density_flips_re_run_layout() -> None:
@@ -837,3 +825,85 @@ def test_region_swaps_and_density_flips_re_run_layout() -> None:
 
     density = js.split("function updateDensity()", 1)[1].split("function updateZoomReadout", 1)[0]
     assert "densityMode !== mode" in density and "relayout();" in density
+
+
+def test_approval_gate_copy_and_ack_follow_grounding(db_client) -> None:
+    """Critique P1 #4: one approval experience, honest copy, honest attestation.
+
+    - both surfaces confirm with the two-step wording (the app never sends);
+    - the acknowledgement appears only for ungrounded drafts, so a grounded
+      draft can't train the operator to tick a risk box blindly.
+    """
+    db, client = db_client
+    prospect = Prospect(business_name="Gate Sweep Studio", stage="outreach_ready")
+    db.add(prospect)
+    db.commit()
+    db.refresh(prospect)
+    message = OutreachMessage(
+        prospect_id=prospect.id,
+        status="pending_review",
+        active=True,
+        current_text="Hello, a quick idea for your studio.",
+    )
+    db.add(message)
+    db.commit()
+
+    copy = "Approve this draft? Opening WhatsApp is a separate step; you press Send."
+    detail = client.get(f"/prospects/{prospect.id}").text
+    assert copy in detail and "I accept ungrounded content" in detail
+    editor = client.get(f"/messages/{message.id}/edit").text
+    assert copy in editor and "I accept ungrounded content" in editor
+
+    finding = Finding(
+        prospect_id=prospect.id,
+        kind="website",
+        statement="No website found for this business",
+        source_url="https://www.openstreetmap.org/",
+        source_type="provider",
+        retrieved_at=dt.datetime.now(dt.UTC),
+        verification_status="verified",
+        confidence="high",
+        origin="provider",
+        finding_key="no_website_gate_test",
+    )
+    db.add(finding)
+    db.commit()
+    message.grounding = [finding.id]
+    db.commit()
+
+    detail = client.get(f"/prospects/{prospect.id}").text
+    assert "I accept ungrounded content" not in detail
+    assert copy in detail
+    editor = client.get(f"/messages/{message.id}/edit").text
+    assert "I accept ungrounded content" not in editor
+
+
+def test_toolbar_surfaces_the_approval_queue(db_client) -> None:
+    """Critique P1 #2: the queue sits off the default fit, so the toolbar
+    carries its count and pans to it."""
+    db, client = db_client
+    plain = client.get("/prospects").text
+    assert "pending-chip" not in plain
+
+    prospect = Prospect(business_name="Queue Watch Ltd", stage="outreach_ready")
+    db.add(prospect)
+    db.commit()
+    db.add(
+        OutreachMessage(
+            prospect_id=prospect.id,
+            status="pending_review",
+            active=True,
+            current_text="Hello, small idea for your studio.",
+        )
+    )
+    db.commit()
+
+    html = client.get("/prospects").text
+    assert 'class="pending-chip"' in html
+    assert "Pending review · 1" in html
+    assert 'data-canvas-view="outreach"' in html
+    # accessible name must contain the visible label verbatim
+    # (Lighthouse: label-content-name-mismatch)
+    m = re.search(r'class="pending-chip"[^>]*aria-label="([^"]+)"', html)
+    assert m, "pending chip has no aria-label"
+    assert "Pending review · 1" in m.group(1), m.group(1)

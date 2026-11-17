@@ -108,7 +108,13 @@ Ownership: title group (h1 22px semibold + Filters) left; view/action group (Sav
 2. Filters button (opens the 360px panel) with a neutral count badge when filters are active.
 3. Saved views native <select> behind an uppercase "SAVED VIEW" micro-label (existing apply endpoint; "Manage" → /settings/saved-views). Hidden <1280px, where the Filters panel owns saved views.
 4. Add prospect .btn.primary.
-5. Active filters render as a full-width band under the row: --color-bg, 1px top hairline, 12px vertical padding, uppercase ACTIVE label, 32px removable chips with 13px text and 8px gaps, then a hairline-separated Clear all / Show all zones text action. Nothing when unfiltered. Below 1024px the band's separators drop when the clears wrap.
+5. Pending-review chip (critique P1, 2026-11-17): when ≥1 message sits in
+   `pending_review`, the toolbar shows a `Pending review · N` button (warn dot,
+   `data-canvas-view="outreach"`) between the spacer and the primary action.
+   Clicking it activates the Messages view (`.active` + `aria-current` + h1 +
+   `replaceState`), so the queue — which sits off the default fit — is always
+   one click away. Hidden when N = 0.
+6. Active filters render as a full-width band under the row: --color-bg, 1px top hairline, 12px vertical padding, uppercase ACTIVE label, 32px removable chips with 13px text and 8px gaps, then a hairline-separated Clear all / Show all zones text action. Nothing when unfiltered. Below 1024px the band's separators drop when the clears wrap.
 
 ### 1.3 Mobile shell (<768px)
 Unchanged: 52px header + hamburger off-canvas drawer (existing app.js logic); drawer keeps text labels.
@@ -161,6 +167,14 @@ Key pl.canvas.v1, one JSON blob, version in-band:
 
 ## 3. Cards & nodes
 ### 3.1 Prospect card (<article>, 84px min, card fill #1f232a, no outline, radius-md, 16px inset via `--card-pad`)
+
+> **Stage-tab scope (owner decision 2026-11-17):** the fused corner tab renders
+> **only inside the Terminal frame** (not_interested / do_not_contact /
+> archived — three stages, one zone), where it carries information. In its own
+> lane the zone header already names the stage, and long stage names truncated
+> inside a tab that repeated it. `board.js` guards a missing badge, so optimistic
+> stage moves stay safe on cards without the tab.
+
 1. Row1: business_name 13px fw-semibold truncate; right: 6px status dot — --color-warn follow-up due/overdue, --color-accent requires review; never color-alone (paired with flags row text).
 2. Row2 mono --fs-xs muted tabular: category · city ("none" as subtle — P6 honesty).
 3. Row3: StatusBadge vocabulary at --fs-xs: stage, website-status (no_website_found = info, never red — P6), Suppressed/Archived, ai origin accent on active message (P5).
@@ -224,7 +238,7 @@ No new endpoints; only content-negotiation branches on existing GETs.
 ? help (content updated) · / opens Filters panel focused search on canvas screens · j/k move highlight in DOM order (zones canonical) · Enter open panel · m Move-to menu · +/−/0/f canvas zoom · g d / g p / g o / g s (→ /settings/profile) go-to via sequence buffer · Escape: panel → move menu → help → drawer (each layer stops propagation). Ignored while typing (existing guard). Every shortcut has a pointer equivalent.
 
 ### 6.3 ARIA
-Canvas section aria-label="Pipeline canvas"; world = presentation. Zone section role=region aria-labelledby; header h2 "New — 3 prospects". Card article + h3 name + live buttons; drag never the only path (Move menu = parity). Wires + chips aria-hidden. Panels dialog/labelledby/trap/inert-on-canvas. aria-live polite: "Card moved to ⟨stage⟩", 409 reason, "N cards match filter". Zoom buttons aria-label. Contrast pairs (all AA): text 15.08, muted 7.70, subtle 5.58, accent 6.36, link 7.72, controls ≥3:1 (#6a7280), drop-target fill under text ≈13.4; dots always paired with mono text.
+Exactly one `aria-current` per page: the SSR-marked rail view (`/` → Home, `/prospects*` → Board, `/outreach` → Messages) and — on view-button clicks — `canvas.js` moves `.active` + `aria-current` together, rewrites the h1 (Prospect pipeline / Message pipeline) and `history.replaceState`s the matching path (query preserved), so URL, heading and screen-reader state always agree. Canvas section aria-label="Pipeline canvas"; world = presentation. Zone section role=region aria-labelledby; header h2 "New — 3 prospects". Card article + h3 name + live buttons; drag never the only path (Move menu = parity). Wires + chips aria-hidden. Panels dialog/labelledby/trap/inert-on-canvas. aria-live polite: "Card moved to ⟨stage⟩", 409 reason, "N cards match filter". Zoom buttons aria-label. Contrast pairs (all AA): text 15.08, muted 7.70, subtle 5.58, accent 6.36, link 7.72, controls ≥3:1 (#6a7280), drop-target fill under text ≈13.4; dots always paired with mono text.
 
 ## 7. Spec amendment text (paste-ready for docs/UI_UX_SPECIFICATION.md)
 Opening: "Design direction (amended 2026-11-11 — Pipeline Canvas redesign). The app's primary work surfaces are now a freeform canvas: a pan/zoom world (0.5–2.0×, vanilla-JS transform layer, DOM cards — never bitmap canvas) on which the prospect pipeline is arranged as a stage board — numbered phase bands (01 QUALIFY → 02 OUTREACH → 03 CONVERT → TERMINAL) containing stage zones with compact prospect cards, joined by presentation-only orange flow arrows. Zones are freely placeable (8px grid snap + alignment guides, client-persisted); cards are rigidly zoned — dragging a card is always a stage transition validated by the server (POST /prospects/{id}/stage; illegal transitions 409 → toast → snap-back), and drag never performs any outreach action (P1–P3). Detail, research, message review/edit, filters and prospect forms open as slide-over panels (modal dialogs with focus trap) over the canvas; settings, merge, import, usage and login remain conventional pages. The dashboard keeps its numbered flow-card identity as the entry point to the canvas. Visual tokens are unchanged (app.css :root); new canvas constants live in canvas.css/canvas.js. <1024px the canvas degrades to a stacked flow (zones stacked in canonical order, no pan/zoom) because mobile is review/light-triage, not spatial manipulation."

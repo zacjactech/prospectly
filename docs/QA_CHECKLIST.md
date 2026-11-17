@@ -842,3 +842,27 @@ message) and 390; gate **398 passed** (64 in the canvas contract suite),
 ruff/format/mypy clean. Manual checks still open: Arrange click
 and the mobile→desktop resize need a real viewport (no resize tool in this
 harness).
+
+
+## Critique fixes (impeccable pass) — 2026-11-17
+
+Source: `.impeccable/critique/2026-11-17T11-58-49Z__127-0-0-1-prospects.md`
+(dual-agent, 32/40; detector: 4 warnings → 2 unique, both adjudicated false
+positives). Owner answered: fix all five priority issues in order, stage tab
+only where it carries information, sync URL + aria-current.
+
+| Priority issue | Fix | Verified |
+|---|---|---|
+| P1 · research table scrolls Verification/Actions out of reach | Findings restacked into rows: statement on its own line, then kind/verification/confidence/origin + source + Verify/Edit/Delete (`.finding-list`) | Screenshot: Verify visible without horizontal scroll; contract tests green |
+| P1 · approval queue clipped from the default fit | Toolbar carries `Pending review · N` with a warn dot; clicking it pans to the messages region (`data-canvas-view="outreach"`) | `test_toolbar_surfaces_the_approval_queue`; chip renders `· 1` live on every canvas page |
+| P1 · "you are here" disagreed with itself | SSR marks exactly one view (`/`→Home, `/prospects*`→Board, `/outreach`→Messages) with `aria-current`; view clicks now move `.active` **and** `aria-current`, update the `h1`, and `history.replaceState` the path (query preserved) | Live: `/`→Home, `/prospects`→Board, `/outreach`→Messages with h1 "Message pipeline", one `aria-current` per page, 0 console errors on 6 routes; `test_nav_marks_the_current_screen` |
+| P2 · approval copy contradicted P1 and differed per panel | Both panels confirm with *"Approve this draft? Opening WhatsApp is a separate step; you press Send."*; the ungrounded acknowledgement renders **only** when the draft has no grounding | `test_approval_gate_copy_and_ack_follow_grounding` (both surfaces, both states) |
+| P2 · suppressed prospect said "you can't" three times | Banner keeps the reason + gains **`Undo: Clear suppression`** beside it; the two muted restatements are gone; the Opportunities and Outreach cards (whose only content was the restatement) are skipped while suppressed, and the Outreach tab is hidden so no anchor dangles | Live screenshot + `test_danger_zone_copy_is_not_repetitive` |
+| Owner decision · stage tab | Renders only in the Terminal frame | `test_stage_tab_only_where_stages_share_a_frame` (terminal has it, lane card doesn't) |
+
+Bonus fix found while testing: the detail panel never received
+`grounded_findings` (only the message routes computed it), so "Grounded in"
+was dead there and the acknowledgement condition could not work — the detail
+route now queries it from `active_message.grounding`.
+
+Gate: **400 tests**, ruff/format/mypy clean; 0 console errors on 6 routes.

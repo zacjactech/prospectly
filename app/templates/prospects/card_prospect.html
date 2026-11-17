@@ -15,7 +15,12 @@
   <h3 class="pc-name-row">
     <span class="pc-name" title="{{ p.business_name }}">{{ p.business_name }}</span>
     {% if dot %}<span class="pc-dot pc-dot-compact" data-hot="{{ dot }}" title="{{ dot_title }}" aria-hidden="true"></span>{% endif %}
+    {% if p.stage in ('not_interested', 'do_not_contact', 'archived') %}
+    {# Only the Terminal frame needs the tab · three stages share one zone
+       there; everywhere else the lane header already names the stage (owner:
+       the tag repeated the lane and truncated long stage names). #}
     <span class="badge pc-stage-tag stage-{{ p.stage|replace('_','-') }}" data-stage-badge title="{{ p.stage|replace('_',' ') }}">{{ p.stage|replace('_',' ') }}</span>
+    {% endif %}
   </h3>
   <div class="pc-meta">
     <span{% if not p.category %} class="subtle"{% endif %}>{{ p.category or "none" }}</span>
