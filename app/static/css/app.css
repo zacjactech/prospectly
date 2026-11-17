@@ -1242,6 +1242,11 @@ input[type="file"]::file-selector-button:hover {
   margin-bottom: var(--space-2);
 }
 
+/* Status pill inline inside a field label (danger zone). */
+.field label .badge {
+  vertical-align: middle;
+}
+
 .field input,
 .field select,
 .field textarea {

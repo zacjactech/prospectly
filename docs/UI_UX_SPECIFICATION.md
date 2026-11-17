@@ -65,7 +65,7 @@ and zoom controls are hidden.
 Prospectly
 ├── Dashboard            (pipeline strip + "needs attention" queue)
 ├── Prospects            (list = home base; filters, saved views)
-│     └── Prospect detail (tabs: Overview · Research · Opportunities · Outreach · Activity)
+│     └── Prospect detail (sections: Overview · Research · Opportunities · Outreach · Activity — no tab row; scroll)
 ├── Follow-ups           (due / overdue / upcoming)
 ├── Outreach             (message queue by status: pending_review → approved → opened_in_whatsapp)
 ├── Settings
@@ -116,11 +116,11 @@ Prospectly
 - **Header:** name, stage badge, key facts (phone with copy, email, website with "open" + status chip), suppression warning banner if `do_not_contact`.
 - **Stage card:** allowed-next-transitions select only (canonical steps + `not_interested` from post-contact stages); anything else is rejected server-side with 409.
 - **Suppression block (Danger zone):** no sub-heading (the Danger zone frame + status badge carry it). When not suppressed — "Block outreach" button with an optional reason input, and the explanation ("Blocks drafts, approvals and WhatsApp actions. Clearing requires a reason.") rendered **above the button** (confirm dialog names the prospect); when suppressed — reason + last-suppression context and a "Clear suppression" form with a **required** reason (Flow 8: clearing is explicit and audit-logged).
-- **Tab: Overview** — profile fields (inline edit), source, tags, notes (add/edit), next follow-up, primary actions (Run research / Generate draft / stage transitions).
-- **Tab: Research** — findings restacked as rows (2026-11-17; the panel is 560px, so no column ever scrolls horizontally out of reach): line 1 = statement (full width), line 2 = kind · verification · confidence · origin badges, source link (opens in new tab), and actions (Verify/Edit/Delete) right-aligned. Website check history sub-panel with outcome + signals. "Add finding" form.
-- **Tab: Opportunities** — cards *only here* (each is an evidence object): type, summary, rationale, linked evidence chips (click → jump to finding), Validate/Dismiss. Empty state explains the rule engine runs after research.
-- **Tab: Outreach** — message versions list (status timeline), current draft editor with character/line guidance, grounding panel (findings used), the gated action chain as **one primary button whose label reflects the next legal step**: `Submit for review → Approve → Open in WhatsApp → I have sent this message`. Secondary: edit, return to draft, start new outreach (guarded). After open: an explicit confirmation prompt "Did you send it?" with Yes/No — No returns to `approved`. AI-generated drafts carry an `ai` origin badge plus "verify every claim before sending" (P5); template drafts show `template`.
-- **Tab: Activity** — append-only timeline (icon, actor, description, timestamp; payload details expandable).
+- **Section: Overview** — profile fields (inline edit), source, tags, notes (add/edit), next follow-up, primary actions (Run research / Generate draft / stage transitions).
+- **Section: Research** — findings restacked as rows (2026-11-17; the panel is 560px, so no column ever scrolls horizontally out of reach): line 1 = statement (full width), line 2 = kind · verification · confidence · origin badges, source link (opens in new tab), and actions (Verify/Edit/Delete) right-aligned. Website check history sub-panel with outcome + signals. "Add finding" form.
+- **Section: Opportunities** — cards *only here* (each is an evidence object): type, summary, rationale, linked evidence chips (click → jump to finding), Validate/Dismiss. Empty state explains the rule engine runs after research.
+- **Section: Outreach** — message versions list (status timeline), current draft editor with character/line guidance, grounding panel (findings used), the gated action chain as **one primary button whose label reflects the next legal step**: `Submit for review → Approve → Open in WhatsApp → I have sent this message`. Secondary: edit, return to draft, start new outreach (guarded). After open: an explicit confirmation prompt "Did you send it?" with Yes/No — No returns to `approved`. AI-generated drafts carry an `ai` origin badge plus "verify every claim before sending" (P5); template drafts show `template`.
+- **Section: Activity** — append-only timeline (icon, actor, description, timestamp; payload details expandable).
 
 ### 2.4 Outreach queue
 - Kanban-free **grouped list** by message status: `pending_review` (needs me) → `approved` (ready to send) → `opened_in_whatsapp` (did I send?). Each row: prospect, first line of message, age, actions (Review / Open / Confirm sent). Purpose: never lose an approved-but-unconfirmed message.
@@ -252,7 +252,7 @@ Typography: two families, strict role split — system sans for body/table/form 
 |---|---|
 | ≥1200px | Sidebar + wide tables (all columns) |
 | 768–1199px | Sidebar collapses to icons; tables drop low-priority columns into row expand |
-| <768px | Top hamburger nav; tables → stacked cards *of rows* (still dense, not decorative); prospect detail tabs scroll horizontally; primary actions become sticky bottom bar |
+| <768px | Top hamburger nav; tables → stacked cards *of rows* (still dense, not decorative); primary actions become sticky bottom bar |
 
 Touch targets ≥40px on mobile. The mobile experience is **review/light-triage quality** (approve, confirm, follow-up); heavy CSV work is desktop-oriented but not blocked.
 

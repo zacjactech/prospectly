@@ -866,3 +866,15 @@ was dead there and the acknowledgement condition could not work — the detail
 route now queries it from `active_message.grounding`.
 
 Gate: **400 tests**, ruff/format/mypy clean; 0 console errors on 6 routes.
+
+
+### Owner follow-up directives — 2026-11-17 (post-critique panel polish)
+
+| Directive | Change | Verified |
+|---|---|---|
+| "remove Do not contact" | The `h4` sub-heading is gone; the block reads by its status badge + action (Danger zone frame carries the section) | Live panel + `test_danger_zone_copy_is_not_repetitive` |
+| explanation "should be above the btn" | "Blocks drafts, approvals and WhatsApp actions. Clearing requires a reason." moved inside the form, directly above `Block outreach` | Live panel + contract assert (paragraph index < button index) |
+| "Archive the btn should be in front not under" | Archive/Restore form now rides the `.danger-block-head` row beside the heading (flex row; head h4 margin zeroed so the pair centers) | Regex assert: button inside the head div; live panel |
+| ""Not suppressed" in front not above Reason (optional)" | Badge moved onto the label row: `Reason (optional) [Not suppressed]` (head exists only while suppressed) | Exact-string assert; live panel |
+| "rmove this Overview Research Outreach Activity" | `.detail-tabs` nav removed from the template and its CSS rules deleted; sections reached by scrolling | `assert "detail-tabs" not in html`; live panel |
+| Gate after pass | 401 tests, ruff/format/mypy clean, assets `?v=61` | full suite |

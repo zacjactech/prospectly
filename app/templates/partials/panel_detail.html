@@ -33,13 +33,6 @@
   </div>
 </section>
 
-<nav class="detail-tabs" aria-label="Prospect sections">
-  <a href="#detail-overview">Overview</a>
-  <a href="#detail-research">Research</a>
-  {% if not prospect.do_not_contact %}<a href="#detail-outreach">Outreach</a>{% endif %}
-  <a href="#detail-activity">Activity</a>
-</nav>
-
 {% if prospect.do_not_contact %}
 {# Safety notice sits below the sticky header so the header (and the close
    button) always own the panel's top row. #}
@@ -372,15 +365,11 @@
   <h3 id="danger-zone">Danger zone</h3>
 
   <div class="danger-block">
+    {% if prospect.do_not_contact %}
     <div class="danger-block-head">
-      {% if prospect.do_not_contact %}
       <span class="badge stage-do-not-contact">Suppressed</span>
       {% if prospect.do_not_contact_reason %}<span class="muted small">{{ prospect.do_not_contact_reason }}</span>{% endif %}
-      {% else %}
-      <span class="badge muted">Not suppressed</span>
-      {% endif %}
     </div>
-    {% if prospect.do_not_contact %}
     <form method="post" action="/prospects/{{ prospect.id }}/do-not-contact/clear" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/do-not-contact/clear"{% endif %} {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       <div class="field full">
@@ -393,7 +382,8 @@
     <form method="post" action="/prospects/{{ prospect.id }}/do-not-contact" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/do-not-contact"{% endif %} {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       <div class="field full">
-        <label for="dnc-reason">Reason (optional)</label>
+        {# Status rides the label row (owner: "in front not above"). #}
+        <label for="dnc-reason">Reason (optional) <span class="badge muted">Not suppressed</span></label>
         <input id="dnc-reason" type="text" name="reason" maxlength="500" placeholder="e.g. opt-out received on WhatsApp">
       </div>
       <p class="muted small">Blocks drafts, approvals and WhatsApp actions. Clearing requires a reason.</p>
@@ -403,21 +393,23 @@
   </div>
 
   <div class="danger-block">
+    {# Button rides the head row (owner: "in front not under") — title first,
+       action beside it, never stacked underneath. #}
     <div class="danger-block-head">
       <h4>Archive</h4>
       {% if prospect.archived_at %}<span class="badge muted">Archived</span>{% endif %}
+      {% if prospect.archived_at %}
+      <form method="post" action="/prospects/{{ prospect.id }}/unarchive" data-confirm="Restore this prospect to your active pipeline?">
+        {{ csrf_field() }}
+        <button class="btn danger-outline" type="submit">Restore prospect</button>
+      </form>
+      {% else %}
+      <form method="post" action="/prospects/{{ prospect.id }}/archive" data-confirm="Archive this prospect?">
+        {{ csrf_field() }}
+        <button class="btn danger-outline" type="submit">Archive</button>
+      </form>
+      {% endif %}
     </div>
-    {% if prospect.archived_at %}
-    <form method="post" action="/prospects/{{ prospect.id }}/unarchive" data-confirm="Restore this prospect to your active pipeline?">
-      {{ csrf_field() }}
-      <button class="btn danger-outline" type="submit">Restore prospect</button>
-    </form>
-    {% else %}
-    <form method="post" action="/prospects/{{ prospect.id }}/archive" data-confirm="Archive this prospect?">
-      {{ csrf_field() }}
-      <button class="btn danger-outline" type="submit">Archive</button>
-    </form>
-    {% endif %}
   </div>
 
   <div class="danger-block">

@@ -567,6 +567,9 @@ def test_detail_panel_drops_self_evident_section_labels(db_client) -> None:
     db.commit()
 
     html = client.get(f"/prospects/{prospect.id}").text
+    # the section tab row is gone entirely (owner: "remove this Overview /
+    # Research / Outreach / Activity" — sections are reached by scrolling)
+    assert "detail-tabs" not in html
     for gone in (
         "<h3>Key facts</h3>",
         "<h3>Research</h3>",
@@ -787,6 +790,18 @@ def test_danger_zone_copy_is_not_repetitive(db_client) -> None:
     # the Block outreach button, not below the form
     assert "<h4>Do not contact</h4>" not in html
     assert html.index("Blocks drafts, approvals") < html.index(">Block outreach</button>")
+    # owner: Archive button rides the head row beside the heading, not under it
+    assert re.search(
+        r'<div class="danger-block-head">\s*<h4>Archive</h4>(?:(?!</div>).)*?>Archive</button>',
+        html,
+        re.S,
+    ), "Archive button is not on the head row"
+    # owner: status badge sits on the Reason (optional) label row, not on its
+    # own line above it
+    assert (
+        '<label for="dnc-reason">Reason (optional) '
+        '<span class="badge muted">Not suppressed</span></label>'
+    ) in html
     assert "Change stage to" not in html  # the placeholder says it
     assert ">Move</button>" in html  # not "Change stage" again
     assert ">Archive</button>" in html  # not "Archive prospect"
