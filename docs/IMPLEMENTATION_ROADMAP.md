@@ -88,8 +88,8 @@ change. Execution tracker: `docs/design/canvas-implementation-tasks.md`.
 - [x] D — screenshots + axe/Lighthouse/contrast/interaction evidence captured
   2026-11-16; independent visual review **PASS 91/100** (no blockers).
 - [x] E2 — version **0.2.0** (whole-app UI replacement).
-- [ ] E — scoped commits and version decision (`v0.2.0` proposed for a
-  whole-app UI replacement).
+- [x] E — scoped commits and version decision: **`v0.2.0`** tagged 2026-11-17
+  on the green gate (E1–E3 recorded in `docs/design/canvas-implementation-tasks.md`).
 
 **Exit criteria:** canvas contract tests green at the §V2.7 baseline (331+),
 browser evidence for all five viewports, design-reviewer gate passed, docs
