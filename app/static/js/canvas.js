@@ -16,6 +16,9 @@
   var ALIGN_TOL = 4; // spec §2.3: guides at ±4px edge/center alignment
   var MIN_ZOOM = 0.5;
   var MAX_ZOOM = 2;
+  /* Readable floor for fit-to-view (spec §V2.1 "minimum 0.93 scale, pan
+     instead of shrinking"): 13px card name × 0.93 = 12.09px on screen. */
+  var MIN_READABLE = 0.93;
   var ZOOM_STEP = 1.25;
   /* Phase 1.1/1.2: never shrink below the readable floor (card name 13px →
      ≥12px); pan instead of shrinking. Card focus keeps the zoom, clamped to
@@ -268,9 +271,12 @@
     if (b) fitElement(b, 56, maxZoom);
   }
 
-  /* Phase 1.1 — fit-to-view: fill the viewport width from the top-left, but
-     never shrink below the readable floor. If the board is taller/wider than
-     the viewport at that scale, it stays at the floor and the user pans. */
+  /* Phase 1.1 — fit-to-view: fill the viewport width, but never shrink below
+     the readable floor (spec §V2.1: card name 13px → ≥12px ⇒ 0.93). A board
+     wider/taller than the viewport at that scale is panned, not zoomed out —
+     fitting BOTH axes collapsed tall worlds onto MIN_ZOOM (50% first load,
+     density-compact) whenever the setup cluster + four phase rows exceeded the
+     viewport height. */
   function fitBoardReadable(maxZoom) {
     var b = stageBounds();
     if (!b || !vp) return;
@@ -278,19 +284,14 @@
     if (rect.width < 10 || rect.height < 10) return;
     var cap = typeof maxZoom === "number" ? maxZoom : 1;
     var pad = 48;
-    var z = clampZoom(
-      Math.min(
-        cap,
-        (rect.width - pad * 2) / b.offsetWidth,
-        (rect.height - pad * 2) / b.offsetHeight
-      )
-    );
-    /* Centre with at least 48px on every side; never clip the Messages lane. */
-    setView(
-      z,
-      (rect.width - b.offsetWidth * z) / 2 - b.offsetLeft * z,
-      (rect.height - b.offsetHeight * z) / 2 - b.offsetTop * z
-    );
+    var z = Math.min(MAX_ZOOM, Math.max(MIN_READABLE, Math.min(cap, (rect.width - pad * 2) / b.offsetWidth)));
+    var w = b.offsetWidth * z;
+    var h = b.offsetHeight * z;
+    /* Centre while it fits; otherwise start flush at the pad (48px) so the
+       first lane / setup cluster is never clipped off-canvas. */
+    var x = w + pad * 2 <= rect.width ? (rect.width - w) / 2 - b.offsetLeft * z : pad - b.offsetLeft * z;
+    var y = h + pad * 2 <= rect.height ? (rect.height - h) / 2 - b.offsetTop * z : pad - b.offsetTop * z;
+    setView(z, x, y);
   }
 
   /* Phase 1.2 — selecting a card pans (never zooms) so the card is centered

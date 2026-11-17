@@ -1,9 +1,12 @@
-{# Live research region (SYSTEM_ARCHITECTURE §4.2) — polled while a run is in flight.
-   The outer <div> carries the HTMX polling attributes only while the latest run
-   is `running`. A terminal run renders the fragment WITHOUT them, so the
-   outerHTML swap replaces the polling node and polling stops by itself.
-   Findings live inside this region so a poll refreshes them too. #}
-<div id="research-live"{% if latest_run and latest_run.status == 'running' %} hx-get="/prospects/{{ prospect.id }}/research/status" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+{# Live research region (SYSTEM_ARCHITECTURE §4.2) — polled while a run is in
+   flight. The outer <div> carries the HTMX polling attributes while the latest
+   run is `queued` or `running`; a terminal run renders the fragment WITHOUT
+   them, so the outerHTML swap replaces the polling node and polling stops by
+   itself. Polling `queued` matters too: the panel used to freeze on "queued /
+   no findings" while the worker finished the job in the background, because
+   only `running` ever refreshed. Findings live inside this region so a poll
+   refreshes them too. #}
+<div id="research-live"{% if latest_run and latest_run.status in ('queued', 'running') %} hx-get="/prospects/{{ prospect.id }}/research/status" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
   <section class="card">
     <h3>Research status</h3>
     {% if latest_run %}
@@ -14,6 +17,8 @@
     </div>
     {% if latest_run.status == 'running' %}
     <p class="muted">Research in progress… results will appear automatically.</p>
+    {% elif latest_run.status == 'queued' %}
+    <p class="muted">Queued — waiting for the worker (<code>python -m app.cli worker</code>). This view refreshes itself.</p>
     {% endif %}
     {% if latest_run.error %}
     <div class="flash error">Research failed: {{ latest_run.error }}</div>
@@ -21,7 +26,7 @@
     {# Run actions live INSIDE the polled region so they can never go stale
        (a button outside the polled region would keep saying "running" after
        the poll ends). #}
-    {% if latest_run.status != 'running' %}
+    {% if latest_run.status not in ('queued', 'running') %}
     <div class="action-group">
       <form method="post" action="/prospects/{{ prospect.id }}/research/start" data-confirm="Run research again? This refreshes all findings.">
         {{ csrf_field() }}

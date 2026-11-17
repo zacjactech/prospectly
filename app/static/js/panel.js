@@ -431,6 +431,14 @@
   document.addEventListener("htmx:responseError", function (e) {
     var panel = panelFor(e.detail.target);
     if (!panel) return;
+    /* beforeSwap already handled the HTTP case: an HTML fragment swaps in
+       (validation re-render) and anything else surfaced the server's reason
+       as a toast. Wiping the panel here replaced a real business error
+       ("A reason is required…", "ungrounded acknowledgement required") with a
+       misleading "Couldn't load this panel. Check your connection" and threw
+       away the form the user was filling in. Only genuine transport failures
+       (no response) still get the retry state. */
+    if (e.detail.xhr && e.detail.xhr.status >= 400) return;
     panelBodyError(panel);
   });
 

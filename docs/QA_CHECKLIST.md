@@ -740,3 +740,50 @@ and label-centre/stranded-action on setup cards.
   `DEBUG=true` guard removed; §3 now states plainly that the cookie `Secure`
   flag is hardcoded off and must be flipped for TLS/LAN deployments; test-count
   strings updated in `QA_CHECKLIST.md` and `design/pipeline-canvas.md`.
+
+## Full browser QA pass — 2026-11-17 (findings + fixes)
+
+Interactive pass over the running app (Chrome desktop + headless sweeps at
+375/768/1024/1280/1320/1440), seeded synthetic DB: dashboard/status, filters
++ chips + saved views, add prospect, detail panel (research → findings →
+reply → notes → suppression round trip), message draft → approve → open chain,
+setup cards (Usage, Providers, Import, General, Retention, Saved views), board
+refresh and error paths. **Six defects found and fixed:**
+
+| # | Finding | Fix | Verified |
+|---|---|---|---|
+| 1 | First-load fit collapsed to the 0.5 floor (50–52% at 375–1440, `density-compact`) — a `8f97c7c` regression against §V2.1 "fits the board **width**, min 0.93, pan instead of shrinking" | `fitBoardReadable()` fits width only, floors at `MIN_READABLE = 0.93`, centres when it fits and flush-mounts at the 48px pad otherwise (`canvas.js`) | Headless: **93% + density-full at 375/768/1280/1320/1440**; pinned by `test_canvas_fit_keeps_the_readable_floor` |
+| 2 | Any HTMX 4xx (e.g. "A reason is required to clear suppression", approval without acknowledgement) **wiped the panel** with a misleading "Couldn't load this panel. Check your connection" + Retry, destroying the form | `htmx:responseError` now leaves the panel alone for HTTP ≥400 — `beforeSwap` already toasted the server's real reason; only transport failures get the retry state | Live: empty-reason clear → toast shows the reason, panel keeps all 5 forms; `test_panel_http_errors_keep_the_form` |
+| 3 | A redirect flash rendered **three times**: shell banner + two identical toasts (`message` and `?flash=` are the same string) | `partials/flashes.html` de-duplicates and skips the message the canvas banner already shows; the banner carries `role="status"` for the announcement | Live: notice count **1**, no toast container on canvas; `test_flash_query_renders_exactly_one_notice` |
+| 4 | After a validation error every optional prospect field showed the literal text **"None"**; the error banner repeated the field name ("business name: business name is required") | Inputs render `… or ''` for `None`; the banner lists each validator message once (they already name their field) | `test_form_values_never_render_python_none`, `test_validation_error_banner_does_not_repeat_the_field`; live re-render clean |
+| 5 | A required `Form(...)` missing from the POST returned a **raw JSON 422** and threw away the canvas (FastAPI rejects before the route's `field_errors` page) | `RequestValidationError` handler renders a readable 400 page (`templates/error.html`) for HTML posts; JSON/API keeps the 422 contract | Live: field removed → styled 400 page + "Back to the pipeline"; `test_missing_required_form_field_returns_readable_html` |
+| 6 | Research panel only polled while `running`, so an open panel froze on **"queued / no findings"** after the worker finished | Polls while `queued` too, adds "waiting for the worker" copy, hides Re-run while queued | `test_queued_run_polls_for_the_worker` (page + fragment) |
+| 7 | htmx settled the `style` attribute on board/outreach region swaps → **CSP violation after every `data-refresh-board` action** (blocked write; layout re-applied by `canvas.js`) | `htmx-config` meta settles `class/width/height` only — no `unsafe-hashes` added to the CSP | Live: reply → board refresh → **0 CSP violations**; CSP directive unchanged |
+
+Also verified in this pass: filter apply/chip-remove/Clear all, saved-view
+apply, add prospect (400 validation → create → `14 on the board` + detail
+panel), reply recording (activity + stage unchanged from `converted`),
+suppression set/clear round trip (guards remove Generate draft/WhatsApp),
+message approve with ungrounded acknowledgement, Usage/Providers/Import/
+General drawers, `.env` line-29 dotenv parse warning fixed, **Lighthouse
+a11y 1.0 / best-practices 1.0 / SEO 1.0 with 0 failures** and **0 console
+errors** on `/`, `/prospects`, `/outreach`, `/prospects/14/research`,
+`/prospects/new`.
+
+Gate: **385 tests**, `ruff check`, `ruff format --check`, `mypy app` clean.
+
+### Known/observed, not defects
+
+- Canvas zoom reached 200% once during the pass and was restored from the
+  saved camera on later loads — 200% is the documented max (wheel/`+`), so this
+  is a user-zoomed view being remembered; no code path was identified writing
+  it, and it did not reproduce.
+- "AI (template) → Configured: **no**" in General → Daily caps is literally
+  correct (template needs no key) but reads oddly next to a working AI floor.
+- Import shows the native file control ("Choose File / No file chosen") inside
+  the drop zone — functional, styled only.
+- "Run research" / "Archive prospect" post as plain forms (full navigation)
+  while every other panel action is HTMX; each lands on a sensible page, so it
+  is an inconsistency rather than a bug.
+- Long stage names truncate on the card tag by design (48% max + title
+  tooltip), e.g. "OPPORTUNITY IDE…".

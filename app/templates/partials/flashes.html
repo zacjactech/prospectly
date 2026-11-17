@@ -1,21 +1,38 @@
 {# Render flash/toast messages. Accepts either a `flashes` list
    [{type, message}] or the legacy `error`/`message`+`message_type` vars.
-   Types: error, info, success, warn. #}
+   Types: error, info, success, warn.
+
+   Two de-duplication rules keep one event to one notice:
+   - On a canvas page the shell already renders `message` as the persistent
+     banner (and `?flash=` is the same string the route put in `message`), so
+     the toast list skips both instead of stacking two identical toasts over
+     the banner. Non-canvas renders (login, HTMX board fragment) have no
+     banner and keep their toast.
+   - Within the list itself, identical texts collapse to the first entry. #}
 {% set flashes = flashes or [] %}
 {% if error %}
   {% set flashes = flashes + [{"type": "error", "message": error}] %}
 {% endif %}
-{% if message is string %}
+{% set banner_shows_message = canvas_mode|default(false) and message is string and message %}
+{% if message is string and message and not banner_shows_message %}
   {% set flashes = flashes + [{"type": message_type or "info", "message": message}] %}
 {% endif %}
 {# Flash carried across a redirect via URL query params (?flash=...&flash_type=...) #}
 {% set qflash = request.query_params.get("flash") %}
-{% if qflash %}
+{% if qflash and qflash != message %}
   {% set flashes = flashes + [{"type": request.query_params.get("flash_type") or "info", "message": qflash}] %}
 {% endif %}
-{% if flashes %}
+{% set seen = namespace(messages=[]) %}
+{% set unique_flashes = [] %}
+{% for flash in flashes %}
+  {% if flash.message and flash.message not in seen.messages %}
+    {% set _ = seen.messages.append(flash.message) %}
+    {% set _ = unique_flashes.append(flash) %}
+  {% endif %}
+{% endfor %}
+{% if unique_flashes %}
 <div class="toasts" aria-live="polite" aria-label="Notifications">
-  {% for flash in flashes %}
+  {% for flash in unique_flashes %}
   <div class="toast {{ flash.type }}" id="toast-{{ loop.index0 }}">
     <span>{{ flash.message }}</span>
     <button class="toast-close" data-dismiss="toast-{{ loop.index0 }}" aria-label="Dismiss">×</button>

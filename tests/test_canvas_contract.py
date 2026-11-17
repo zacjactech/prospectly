@@ -12,6 +12,7 @@ import os
 import re
 import tempfile
 from contextlib import suppress
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -409,3 +410,156 @@ def test_panel_forms_post_to_their_own_action(db_client) -> None:
     detail_panel = client.get(f"/prospects/{prospect.id}", headers={"HX-Request": "true"})
     assert detail_panel.status_code == 200
     assert f'hx-post="/prospects/{prospect.id}/stage"' in detail_panel.text
+
+
+# ---------------------------------------------------------------------------
+# Browser-QA regressions (manual pass 2026-11-17)
+# ---------------------------------------------------------------------------
+
+_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_canvas_fit_keeps_the_readable_floor() -> None:
+    """Spec §V2.1: first load fits the board **width** at ≥0.93, then pans.
+
+    Regression: a spacing pass made ``fitBoardReadable`` fit both axes with
+    only the global 0.5 floor, so any world taller than the viewport opened at
+    50% (density-compact, card name under 12px) instead of the documented
+    93–100% recorded in ``docs/QA_CHECKLIST.md``.
+    """
+    src = (_ROOT / "app/static/js/canvas.js").read_text(encoding="utf-8")
+    assert "var MIN_READABLE = 0.93" in src
+    body = src.split("function fitBoardReadable(")[1].split("\n  }")[0]
+    z_lines = [line for line in body.splitlines() if "var z =" in line]
+    assert z_lines, "fitBoardReadable no longer computes a zoom level"
+    assert "MIN_READABLE" in z_lines[0]
+    assert "offsetHeight" not in z_lines[0], "height must not drive the zoom (pan instead)"
+
+
+def test_panel_http_errors_keep_the_form() -> None:
+    """An HTMX 4xx must not replace the panel with "Couldn't load this panel".
+
+    Regression: ``htmx:responseError`` wiped the body for every failed request
+    even though ``beforeSwap`` had already toasted the server's real reason
+    ("A reason is required to clear suppression", "…ungrounded acknowledgement"),
+    leaving a misleading connection error and destroying the form in progress.
+    """
+    src = (_ROOT / "app/static/js/panel.js").read_text(encoding="utf-8")
+    handler = src.split('htmx:responseError"')[1].split("});")[0]
+    assert "status >= 400" in handler, "HTTP errors must leave the panel alone"
+    assert "panelBodyError(panel)" in handler, "transport failures still need the retry state"
+    send_handler = src.split('htmx:sendError"')[1].split("});")[0]
+    assert "panelBodyError(panel)" in send_handler
+
+
+def test_flash_query_renders_exactly_one_notice(db_client) -> None:
+    """A redirect flash must surface once on the canvas.
+
+    It used to arrive three times: the shell banner plus two identical toasts
+    (the route's ``message`` and ``?flash=`` are the same string).
+    """
+    _, client = db_client
+    r = client.get("/prospects", params={"flash": "Duplicate flash check", "flash_type": "success"})
+    assert r.status_code == 200
+    assert r.text.count("Duplicate flash check") == 1
+    assert 'class="flash success"' in r.text  # the canvas notice
+    assert 'class="toasts"' not in r.text  # and not a second copy
+
+
+def test_form_values_never_render_python_none() -> None:
+    """A ``None`` field value renders as an empty input, never as "None".
+
+    Regression: after a validation error every optional prospect field showed
+    the literal text "None" (Jinja stringifies Python ``None``).
+    """
+    from starlette.requests import Request
+
+    from app.routes.pages import templates
+
+    # csrf_field is @pass_context and reads request cookies from the context.
+    fake_request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/prospects/new",
+            "headers": [],
+            "query_string": b"",
+        }
+    )
+    fields = [
+        "business_name",
+        "category",
+        "location_area",
+        "location_city",
+        "location_state",
+        "location_country",
+        "address",
+        "phone_raw",
+        "email",
+        "website_url",
+    ]
+    html = templates.get_template("partials/panel_prospect_form.html").render(
+        request=fake_request,
+        prospect=None,
+        action="/prospects/new",
+        form={name: None for name in fields},
+        field_errors={"business_name": "business name is required"},
+        panel_mode=True,
+        error=None,
+    )
+    assert 'value="None"' not in html
+    assert 'value=""' in html
+    # The banner names the field once — not "business name: business name is…" .
+    assert "business name is required" in html
+    assert "business name:</strong>" not in html
+
+
+def test_validation_error_banner_does_not_repeat_the_field(db_client) -> None:
+    """The create form's error banner shows each message once."""
+    _, client = db_client
+    client.get("/")
+    r = client.post(
+        "/prospects/new",
+        data={
+            "csrf_token": client.cookies.get("csrf_token", ""),
+            "business_name": "   ",
+            "category": "",
+            "location_area": "",
+            "location_city": "",
+            "location_state": "",
+            "location_country": "",
+            "address": "",
+            "phone_raw": "",
+            "email": "",
+            "website_url": "",
+        },
+    )
+    assert r.status_code == 400
+    assert "business name is required" in r.text
+    assert "business name:</strong>" not in r.text
+    assert 'value="None"' not in r.text
+
+
+def test_missing_required_form_field_returns_readable_html(db_client) -> None:
+    """A required ``Form(...)`` missing from the POST is a readable 400 page.
+
+    Regression: FastAPI rejected it before the route could re-render, so the
+    browser navigated away from the canvas onto a raw
+    ``{"detail":[{"type":"missing"…}]}`` JSON document. JSON/API callers keep
+    the 422 contract.
+    """
+    _, client = db_client
+    client.get("/")
+    r = client.post("/prospects/new", data={"csrf_token": client.cookies.get("csrf_token", "")})
+    assert r.status_code == 400
+    assert r.headers["content-type"].startswith("text/html")
+    assert "That form could not be processed" in r.text
+    assert "business name: Field required" in r.text  # readable, not a JSON blob
+    assert '"detail"' not in r.text
+
+    from tests.conftest import post_json
+
+    api = post_json(client, "/api/v1/prospects", {})
+    assert api.status_code == 422
+    assert api.headers["content-type"].startswith("application/json")
+    assert '"type"' in api.text

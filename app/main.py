@@ -11,6 +11,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
@@ -76,6 +78,44 @@ def create_app() -> FastAPI:
     app.include_router(pages.router)
     app.include_router(auth.router)
     app.include_router(api.router, prefix="/api/v1")
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error_handler(request: Request, exc: RequestValidationError) -> Response:
+        """HTML form posts get a readable 400 page; JSON keeps FastAPI's 422.
+
+        Required ``Form(...)`` fields are rejected before the route runs, so a
+        handler's own ``field_errors`` re-render never gets the chance — the
+        browser used to land on a raw ``{"detail":[{"type":"missing"…}]}``
+        document with the canvas gone. API/JSON callers keep the 422 contract.
+        """
+        content_type = request.headers.get("content-type", "")
+        accept = request.headers.get("accept", "")
+        if (
+            request.url.path.startswith("/api/")
+            or "application/json" in content_type
+            or "application/json" in accept
+        ):
+            return JSONResponse({"detail": exc.errors()}, status_code=422)
+        detail = []
+        for err in exc.errors():
+            location = ".".join(str(part) for part in err.get("loc", ()) if part != "body")
+            location = location.replace("_", " ")
+            message = str(err.get("msg", "Invalid value"))
+            detail.append(f"{location}: {message}" if location else message)
+        return pages.templates.TemplateResponse(
+            request=request,
+            name="error.html",
+            context={
+                "app_name": settings.app_name,
+                "title": "That form could not be processed",
+                "message": (
+                    "A required field was missing from the submission. "
+                    "Go back and try again — nothing was saved."
+                ),
+                "detail": detail,
+            },
+            status_code=400,
+        )
 
     # CSRF protection (SECURITY_AND_PRIVACY.md §3): double-submit cookie.
     app.add_middleware(CSRFMiddleware)

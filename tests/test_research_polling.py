@@ -125,6 +125,37 @@ def test_running_run_page_and_fragment_poll() -> None:
         _cleanup(db, path)
 
 
+def test_queued_run_polls_for_the_worker() -> None:
+    """A `queued` run must poll too.
+
+    Regression: only `running` carried the polling attributes, so a panel
+    opened right after "Run research" froze on "queued / no findings" while
+    the worker finished the job in the background — the user saw stale state
+    until a manual reload.
+    """
+    db, path = _make_db()
+    try:
+        prospect = _add_prospect(db)
+        _add_run(db, prospect, "queued")
+        db.commit()
+        client = _client(db)
+
+        url = f"/prospects/{prospect.id}/research"
+        r = client.get(url)
+        assert r.status_code == 200, r.text
+        assert f'hx-get="/prospects/{prospect.id}/research/status"' in r.text
+        assert 'hx-trigger="every 2s"' in r.text
+        assert "waiting for the worker" in r.text
+        # Not re-runnable while still queued.
+        assert "Re-run research" not in r.text
+
+        r = client.get(f"/prospects/{prospect.id}/research/status")
+        assert r.status_code == 200, r.text
+        assert 'hx-trigger="every 2s"' in r.text
+    finally:
+        _cleanup(db, path)
+
+
 def test_terminal_run_stops_polling() -> None:
     db, path = _make_db()
     try:

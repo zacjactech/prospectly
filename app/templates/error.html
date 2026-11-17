@@ -1,0 +1,35 @@
+{# Standalone error page for HTML form posts FastAPI rejects before a handler
+   runs (a required form field was absent). Rendered by the
+   RequestValidationError handler in app/main.py: the canvas cannot render a
+   panel here, so a readable page replaces the raw JSON 422. No base.html on
+   purpose — it needs route context this handler does not have. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{{ title }} — {{ app_name }}</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/css/canvas.css">
+</head>
+<body>
+  <main class="page">
+    <section class="card error-page">
+      <h1>{{ title }}</h1>
+      <p class="muted">{{ message }}</p>
+      {% if detail %}
+      <ul class="mini-list">
+        {% for line in detail %}
+        <li>{{ line }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <div class="action-group">
+        <a class="btn primary" href="/">Back to the pipeline</a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
