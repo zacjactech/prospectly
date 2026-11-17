@@ -1,0 +1,21 @@
+[Unit]
+Description=Prospectly background job worker
+Documentation=file:///path/to/prospectly/deploy/systemd/README.md
+After=network-online.target prospectly-app.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/prospectly
+ExecStart=/path/to/prospectly/.venv/bin/python -m app.cli worker
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+Nice=5
+
+[Install]
+WantedBy=default.target

@@ -195,8 +195,9 @@ provider key required for live data) · `not implemented` = spec gap.
 
 ## Test suite
 
-`uv run pytest` — **374 tests pass, 0 failed** (2026-11-16); `ruff check`, `ruff format --check`, `mypy app` all clean. The 374 include the
-43-test canvas contract suite below (331 baseline + 43).
+`uv run pytest` — **378 tests pass, 0 failed** (2026-11-17); `ruff check`, `ruff format --check`, `mypy app` all clean. The 378 include the
+45-test canvas contract suite below (333 baseline + 45). Dependency audit
+(`uvx pip-audit`) reported no known vulnerabilities on 2026-11-17.
 
 Coverage by area (newest first):
 - `test_provider_status.py` — 11: Settings → Providers page + JSON twin,
@@ -712,3 +713,30 @@ and label-centre/stranded-action on setup cards.
   link no longer prints the `OutreachMessage` ORM repr above the toolbar.
   Regression test added in `tests/test_canvas_contract.py`.
 - Verified at 1440 and 390; 376 tests, ruff, format and mypy clean.
+
+## Release-readiness pass — 2026-11-17
+
+- Gate on the committed tree: **378 passed / 0 failed**; `ruff check`,
+  `ruff format --check` and `mypy app` clean.
+- Dependency audit: `uvx pip-audit` → **no known vulnerabilities** (2026-11-17).
+- Fresh-install drill: empty SQLite file → `alembic upgrade head` → 20 tables
+  at revision `3b7e5d9a1c42`; app boots against it.
+- Access-gate smoke on the fresh DB with `APP_ACCESS_TOKEN` set:
+  `/healthz` 200, `/login` 200, `/prospects` 302 to login, `/api/docs` 401.
+- Backup drill: `python -m app.cli backup` writes a snapshot to `backups/`.
+- Service packaging: Linux user units for app, worker and a daily backup timer
+  added under `deploy/systemd/` with install/verify/remove instructions.
+- Release process documented in `docs/RELEASE_CHECKLIST.md` (gate, migration
+  and restore drills, doc consistency, tagging, rollback).
+- **Fix: CSV row cap rejected instead of truncated.** `parse_csv` used to stop
+  reading at `csv_max_rows`, so a 10,000-row file produced a preview whose
+  "rows in file" number was wrong and whose overflow rows vanished without a
+  word. It now raises a clear error (400 on both the import page and
+  `/api/v1/imports/preview`), matching the panel hint and SECURITY §1/§9.
+  Covered by `tests/test_csv_import.py::test_parse_csv_rejects_rows_over_the_cap`
+  and `::test_row_cap_rejected_on_both_surfaces`.
+- Docs reconciled: SECURITY §9 all eight abuse cases checked with their
+  owning tests; §10 audit command corrected to `uvx pip-audit`; §4's nonexistent
+  `DEBUG=true` guard removed; §3 now states plainly that the cookie `Secure`
+  flag is hardcoded off and must be flipped for TLS/LAN deployments; test-count
+  strings updated in `QA_CHECKLIST.md` and `design/pipeline-canvas.md`.

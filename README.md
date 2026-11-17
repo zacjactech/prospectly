@@ -36,6 +36,8 @@ Full list: `docs/PRODUCT_BRIEF.md` §4.
 | [docs/design/canvas-implementation-tasks.md](docs/design/canvas-implementation-tasks.md) | Canvas V2 task tracker, test gate, open QA items |
 | [docs/SECURITY_AND_PRIVACY.md](docs/SECURITY_AND_PRIVACY.md) | Validation, SSRF, CSRF, outreach posture, checklist |
 | [docs/IMPLEMENTATION_ROADMAP.md](docs/IMPLEMENTATION_ROADMAP.md) | Phases with testable exit criteria |
+| [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Pre-tag gate, migration/backup drill, version and rollback steps |
+| [deploy/systemd/README.md](deploy/systemd/README.md) | Run the app, worker and daily backup as Linux user services |
 | [docs/COST_ANALYSIS.md](docs/COST_ANALYSIS.md) | Free / low-cost / scalable configurations |
 | [AGENTS.md](AGENTS.md) | Engineering instructions for AI agents & contributors |
 
@@ -78,6 +80,18 @@ py -m uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 py -m uv run python -m app.cli worker
 ```
 
+The app and worker are two processes. If the worker is not running, research
+and discovery jobs stay queued; the UI reports them as queued, not failed.
+
+### Run as a service (Linux, optional)
+
+`deploy/systemd/` contains user units for the web app, the worker and a daily
+backup timer, so the two processes restart with the machine and backups do not
+depend on remembering a command. See
+[`deploy/systemd/README.md`](deploy/systemd/README.md) for install, logs and
+removal. Windows users can run the two commands in separate terminals or use
+Task Scheduler.
+
 ### Quality gate (runs before every milestone)
 
 ```powershell
@@ -85,7 +99,11 @@ py -m uv run ruff check .
 py -m uv run ruff format --check .
 py -m uv run mypy app
 py -m uv run pytest
+uvx pip-audit          # dependency audit (network required)
 ```
+
+The full pre-tag sequence, including migration and restore drills, is in
+[`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
 
 ### Configuration
 
@@ -110,7 +128,7 @@ All keys are documented in `.env.example`. Highlights:
 py -m uv run python -m app.cli backup    # consistent snapshot to backups/ (Phase 0+)
 ```
 
-Back up before major operations (import batches, bulk edits) and weekly. Keep `backups/` out of cloud-sync folders (it contains personal data).
+Back up before major operations (import batches, bulk edits) and weekly. Keep `backups/` out of cloud-sync folders (it contains personal data). On Linux, `deploy/systemd/prospectly-backup.timer` can run this daily; test a restore once using [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) §4.
 
 ## License / data note
 

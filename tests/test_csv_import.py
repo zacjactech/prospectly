@@ -17,8 +17,13 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.db import Base, get_db
 from app.main import app
-from app.services.import_service import ImportError as ImportServiceError
-from app.services.import_service import parse_csv
+from app.services.import_service import (
+    MAX_UPLOAD_ROWS,
+    parse_csv,
+)
+from app.services.import_service import (
+    ImportError as ImportServiceError,
+)
 
 
 def _make_db() -> tuple[Session, str]:
@@ -83,6 +88,24 @@ def test_parse_empty_csv() -> None:
     """Empty CSV raises ImportError."""
     with pytest.raises(ImportServiceError):
         parse_csv(b"", default_country=None)
+
+
+def test_parse_csv_rejects_rows_over_the_cap() -> None:
+    """A file with more rows than csv_max_rows is rejected outright.
+
+    Previously the parser stopped reading at the cap and returned a preview
+    whose "rows in file" number was wrong — the caller had no way to know rows
+    were dropped (SECURITY §1: ≤ MAX_UPLOAD_ROWS rows)."""
+    body = "name,city\n" + "".join(f"Biz {i},Berlin\n" for i in range(MAX_UPLOAD_ROWS + 1))
+    with pytest.raises(ImportServiceError) as exc:
+        parse_csv(_csv(body), default_country=None)
+    assert "Too many rows" in str(exc.value)
+    assert str(MAX_UPLOAD_ROWS) in str(exc.value)
+
+    # Exactly at the cap the file still parses, untouched.
+    ok = "name,city\n" + "".join(f"Biz {i},Berlin\n" for i in range(MAX_UPLOAD_ROWS))
+    result = parse_csv(_csv(ok), default_country=None)
+    assert result["total_rows"] == MAX_UPLOAD_ROWS
 
 
 def test_parse_invalid_email_and_url() -> None:
@@ -264,6 +287,36 @@ def test_html_invalid_csv_returns_400_not_500() -> None:
         )
         assert r.status_code == 400, r.text
         assert "business name" in r.text.lower()
+    finally:
+        _cleanup(db, path)
+
+
+def test_row_cap_rejected_on_both_surfaces() -> None:
+    """An over-cap CSV returns 400 with a clear reason on the page and the API
+    — never a silent truncate and never a 500 (SECURITY §9, Flow 10)."""
+    db, path = _make_db()
+    try:
+        client = _client_with_db(db)
+        body = _csv(
+            "name,city\n" + "".join(f"Biz {i},Berlin\n" for i in range(MAX_UPLOAD_ROWS + 1))
+        )
+        token = client.cookies.get("csrf_token", "")
+
+        html = client.post(
+            "/settings/import",
+            data={"csrf_token": token},
+            files={"file": ("big.csv", body, "text/csv")},
+        )
+        assert html.status_code == 400, html.text
+        assert "Too many rows" in html.text
+
+        api = client.post(
+            "/api/v1/imports/preview",
+            files={"file": ("big.csv", body, "text/csv")},
+            headers={"X-CSRF-Token": token},
+        )
+        assert api.status_code == 400, api.text
+        assert "Too many rows" in api.json()["detail"]
     finally:
         _cleanup(db, path)
 

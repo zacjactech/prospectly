@@ -246,11 +246,17 @@ def parse_csv(content: bytes, default_country: str | None = None) -> dict[str, A
 
     rows_raw: list[dict[str, str]] = []
     for raw_row in reader:
-        if len(rows_raw) >= MAX_UPLOAD_ROWS:
-            break
         # Skip fully blank rows.
         if not any((v or "").strip() for v in raw_row.values()):
             continue
+        if len(rows_raw) >= MAX_UPLOAD_ROWS:
+            # Reject the file instead of silently dropping the overflow: the
+            # preview would otherwise report a row count the file does not
+            # have (SECURITY §1: upload is capped at MAX_UPLOAD_ROWS).
+            raise ImportError(
+                f"Too many rows: the file has more than {MAX_UPLOAD_ROWS} data rows. "
+                "Split the file and import it in batches."
+            )
         rows_raw.append(raw_row)
 
     if not rows_raw:

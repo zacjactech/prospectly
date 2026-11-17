@@ -8,7 +8,7 @@ Scope: a local-first, single-operator tool that stores personal contact data (na
 
 - All API bodies validated by Pydantic schemas (`extra='forbid'`, max lengths on every string, URL format checks).
 - HTML forms re-validate server-side (never trust the client) with per-field limits: business name ≤200, statement ≤1000, message ≤4096 (WhatsApp's practical limit ~65k, we cap lower for quality).
-- CSV upload (secondary Settings utility): ≤2 MB, ≤5,000 rows, UTF-8/UTF-16 sniff with replacement-char report, per-cell length caps, reject embedded NUL/control chars, max 30 columns.
+- CSV upload (secondary Settings utility): ≤2 MB, ≤5,000 rows (over-cap files are rejected with a clear error, never silently truncated), UTF-8/UTF-16 sniff with replacement-char report, per-cell length caps, reject embedded NUL/control chars, max 30 columns.
 - Phone numbers validated with `phonenumbers`; invalid numbers stored as `phone_raw` only (never normalized) and flagged.
 
 ## 2. Injection & XSS
@@ -22,14 +22,15 @@ Scope: a local-first, single-operator tool that stores personal contact data (na
 
 - Session cookie: `HttpOnly`, `SameSite=Strict`, `Secure` off only for pure-localhost HTTP (documented), path `/`.
 - Every state-changing request (forms and JSON) requires a per-session CSRF token (double-submit cookie pattern); enforced by middleware for `POST/PATCH/PUT/DELETE`.
-- **Access model:** default bind `127.0.0.1` (no auth needed for loopback). Optional `APP_ACCESS_TOKEN` env: if set, a login gate (`GET/POST /login`) issues a stateless signed session cookie `{expiry_unix}.{HMAC-SHA256(expiry)}` keyed by the token (`HttpOnly; SameSite=Strict; Path=/`, `Secure` off only for loopback HTTP). Every request except `/login`, `/healthz` and `/static/*` requires a valid session — including `/api/docs`, `/api/redoc`, `/api/openapi.json`. Unauthenticated API/JSON requests get `401 {"detail": …}`; HTML gets `302 /login?next=<local path>` (`next` accepts local paths only). The login POST stays CSRF-protected and deletes the `csrf_token` cookie so a fresh token is minted. `POST /logout` clears the session. Startup still refuses a non-loopback bind without a token.
+- **Access model:** default bind `127.0.0.1` (no auth needed for loopback). Optional `APP_ACCESS_TOKEN` env: if set, a login gate (`GET/POST /login`) issues a stateless signed session cookie `{expiry_unix}.{HMAC-SHA256(expiry)}` keyed by the token (`HttpOnly; SameSite=Strict; Path=/`, `Secure` currently hardcoded off — see the note below). Every request except `/login`, `/healthz` and `/static/*` requires a valid session — including `/api/docs`, `/api/redoc`, `/api/openapi.json`. Unauthenticated API/JSON requests get `401 {"detail": …}`; HTML gets `302 /login?next=<local path>` (`next` accepts local paths only). The login POST stays CSRF-protected and deletes the `csrf_token` cookie so a fresh token is minted. `POST /logout` clears the session. Startup still refuses a non-loopback bind without a token.
 - Session expiry: 12h **sliding** idle timeout (cookie re-issued as `now+12h` on every authenticated response; no `Max-Age`, so it also dies with the browser). Rotating `APP_ACCESS_TOKEN` invalidates every outstanding session. No rate limiting on `/login` and no server-side revocation list — LAN exposure should sit behind TLS (reverse proxy); plain-HTTP LAN sends the token POST in clear text.
+- **Cookie `Secure` flag (known gap for non-loopback deployments):** `app/auth.py` and `app/csrf.py` pass `secure=False`, which is correct for loopback HTTP but wrong behind TLS. Any LAN/public deployment must terminate TLS **and** flip those flags (a code change — there is no config switch yet) before it should be called secure.
 
 ## 4. Secure local configuration & secret handling
 
 - `.env` gitignored; `.env.example` contains placeholder names only. `.gitignore` also excludes `data/*.db*`, `logs/`, `backups/`, `uploads/`.
 - Secrets read via pydantic-settings; never logged (redaction filter masks `*_KEY`, `*TOKEN*`, `*SECRET*` patterns), never rendered in HTML (provider page shows "configured" booleans only), never placed in URLs/query strings.
-- Startup refuses weak states: missing `.env` permissions guidance on Windows (file ACL note in README), LAN bind without token, `DEBUG=true` with non-loopback bind.
+- Startup refuses weak states: LAN bind without a token (the app has no `DEBUG` mode — the guard lives in the `lifespan` hook in `app/main.py`); `.env` file-permissions guidance on Windows (file ACL note in README).
 - No third-party telemetry/analytics of any kind.
 
 ## 5. Safe URL fetching (SSRF & abuse) — `SafeFetcher`
@@ -88,16 +89,19 @@ Additionally: research jobs only target URLs already attached to a prospect (or 
 
 ## 9. Abuse-case checklist (tested in QA)
 
-- [ ] `do_not_contact` prospect: draft generation, approve, open all return 403 with reason.
-- [ ] Skipping states via direct API (`POST /confirm-sent` on `draft`) → 409.
-- [ ] CSRF token missing → rejected on every mutating endpoint.
-- [ ] `file:///etc/passwd` / `http://169.254.169.254/` / `http://localhost:8000/` as website_url → blocked by SafeFetcher with clear error, check row outcome `blocked`.
-- [ ] CSV with 10k rows / 10 MB / formula cells → rejected/escaped.
-- [ ] XSS payload in business name, finding statement, message text → renders escaped everywhere.
-- [ ] Logs grepped for API keys → zero matches (redaction test).
-- [ ] Non-loopback bind without token → process refuses to start.
+All eight items are automated; names below are the tests that pin them
+(last verified: `uv run pytest` 378 passed, 2026-11-17).
+
+- [x] `do_not_contact` prospect: draft generation, approve, open all return 403 with reason. — `tests/test_phase5_security.py::test_do_not_contact_blocks_draft_generate`, `…_blocks_approve_and_open`; round trips in `tests/test_suppression_and_stages.py`
+- [x] Skipping states via direct API (`POST /confirm-sent` on `draft`) → 409. — `tests/test_phase3_routes.py::test_illegal_transition_returns_409`, `tests/test_suppression_and_stages.py`
+- [x] CSRF token missing → rejected on every mutating endpoint. — `tests/test_csrf.py` (7 tests: missing/wrong multipart token, non-ASCII fails closed)
+- [x] `file:///etc/passwd` / `http://169.254.169.254/` / `http://localhost:8000/` as website_url → blocked by SafeFetcher with clear error, check row outcome `blocked`. — `tests/test_phase5_security.py::test_safe_fetcher_blocks_file_scheme`, `…_blocks_private_ip`; per-hop revalidation in `tests/test_safe_fetcher_redirects.py`
+- [x] CSV over the size cap, over the 5,000-row cap, or with formula cells → rejected with a 400 (never a truncate, never a 500). — `tests/test_phase5_security.py::test_csv_import_rejects_oversized_file`, `…_rejects_formula_cells`; `tests/test_csv_import.py::test_row_cap_rejected_on_both_surfaces`, `…::test_parse_csv_rejects_rows_over_the_cap`
+- [x] XSS payload in business name, finding statement, message text → renders escaped everywhere. — `tests/test_phase5_security.py::test_xss_renders_escaped_in_templates`
+- [x] Logs grepped for API keys → zero matches (redaction test). — `tests/test_phase5_security.py::test_log_redaction_masks_api_keys`
+- [x] Non-loopback bind without token → process refuses to start. — `tests/test_phase5_security.py::test_non_loopback_bind_without_token_refuses`
 
 ## 10. Dependency & supply-chain hygiene
 
 - Minimal dependency set (see README): fastapi, uvicorn, jinja2, sqlalchemy, alembic, httpx, phonenumbers, pydantic-settings, python-multipart, pytest (+ ruff, mypy dev). Each justified in `AGENTS.md` §dependency policy.
-- Pin exact versions in `requirements.txt` (or `uv.lock`); `pip-audit`/`uv pip audit` run at Phase 0 and each milestone; no JS dependencies in MVP.
+- Versions pinned in `uv.lock`; no JS dependencies in MVP. Audit command: `uvx pip-audit` (the `uv pip audit` subcommand does not exist in the installed uv). **Last run: 2026-11-17 → "No known vulnerabilities found".** Re-run at every milestone and before tagging (`docs/RELEASE_CHECKLIST.md` §2), and record the date here or in the release notes.
