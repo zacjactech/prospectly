@@ -190,7 +190,9 @@ def test_findings_render_inside_fragment() -> None:
         r = client.get(f"/prospects/{prospect.id}/research/status")
         assert r.status_code == 200, r.text
         assert "Cached evidence statement" in r.text
-        assert "Findings" in r.text
+        # The `Findings` card heading was dropped in the label cleanup
+        # (2026-11-17); the form heading that groups the controls remains.
+        assert "Add finding" in r.text
         assert "Add finding" in r.text
         # Envelope opens in the fragment so the outerHTML swap keeps the node id.
         assert 'id="research-live"' in r.text

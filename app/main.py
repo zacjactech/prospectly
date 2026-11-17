@@ -21,6 +21,7 @@ from app.auth import AuthMiddleware
 from app.config import BASE_DIR, settings
 from app.csrf import CSRFMiddleware, csrf_field, csrf_token
 from app.logging_setup import setup_logging
+from app.services.activity import describe_payload
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +131,8 @@ def create_app() -> FastAPI:
     # Expose CSRF helpers to Jinja2 templates.
     pages.templates.env.globals["csrf_token"] = csrf_token
     pages.templates.env.globals["csrf_field"] = csrf_field
+    # Activity payloads render as readable text (never raw JSON) in the panels.
+    pages.templates.env.filters["describe_payload"] = describe_payload
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next: RequestResponseEndpoint) -> Response:

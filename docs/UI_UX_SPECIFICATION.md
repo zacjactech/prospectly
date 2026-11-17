@@ -1,6 +1,6 @@
 # UI/UX Specification
 
-Design direction: **"charcoal + signal orange" operations console** — near-black charcoal surfaces (`#0b0c0e`–`#1f2126`) with 1px hairline borders, one vivid orange accent (`#ff6b1a` family) reserved for primary actions, active states, focus and running/`hot` statuses, and monospace micro-typography (uppercase group labels, tabular numeric readouts, log-style timestamps) against a system sans body. Influences: Nexus Pipeline dark dashboard (surfaces, accent discipline, numbered stages, pipeline-log type), evo-team/Academy grouped sidebars, oNeX line icons, the black+orange MARKETING poster (one loud orange element per screen). Dark-only — no `prefers-color-scheme` variant. Explicitly *not*: HUD/gauge decoration, gradients, glassmorphism, animated counters, color-coded-everything.
+Design direction: **"charcoal + signal orange" operations console** — a charcoal shade ladder (`#090a0c` → `#292d35`) where **levels come from fill contrast and element outlines are gone** (borderless pass 2026-11-17), one vivid orange accent (`#ff6b1a` family) reserved for primary actions, active states, focus and running/`hot` statuses, and monospace micro-typography (uppercase group labels, tabular numeric readouts, log-style timestamps) against a system sans body. Influences: Nexus Pipeline dark dashboard (surfaces, accent discipline, numbered stages, pipeline-log type), evo-team/Academy grouped sidebars, oNeX line icons, the black+orange MARKETING poster (one loud orange element per screen). Dark-only — no `prefers-color-scheme` variant. Explicitly *not*: HUD/gauge decoration, gradients, glassmorphism, animated counters, color-coded-everything.
 
 Influences researched (2026): CRM UX best-practice literature (aufaitux, eseospace, designstudiouiux) emphasizing density + clarity over visual flourish; practitioner HTMX-vs-React write-ups confirming server-rendered CRUD patterns; Linear/Notion-style restraint (compact tables, keyboard-friendly filters, inline editing).
 
@@ -79,7 +79,7 @@ Prospectly
 
 **Design rule:** the pipeline is never more than two clicks deep; every list page has one dominant primary action in the header (Add prospect / Import / Run research / Generate draft).
 
-**Design system:** `app/static/css/app.css` is the single source of visual truth — dark charcoal surfaces with 1px hairline borders, orange primary button, orange reserved for accent roles only (actions, active nav, focus, running/hot statuses, AI-origin badges), compact 13px table rows, mono uppercase section labels and mono tabular numerals for all readouts, semantic badges as dark tint + colored text + colored border (icon/word always present — never color alone). Behaviors live in `app/static/js/app.js` (CSP forbids inline handlers): mobile nav drawer, `data-confirm` prompts, whole-row navigation.
+**Design system:** `app/static/css/app.css` is the single source of visual truth — a dark charcoal **shade ladder** (`bg → surface → hover/card → raised → field`) where every container, chip and control reads by fill level instead of an outline; `--color-border` survives only on **internal dividers** (rows, tabs, regions) and `--color-border-strong` only on focus/error boundaries (≥3:1, WCAG 1.4.11). Orange primary button, orange reserved for accent roles only (actions, active nav, focus, running/hot statuses, AI-origin badges), compact 13px table rows, mono uppercase micro-labels **for data groups only** (card section headings were dropped 2026-11-17 — content speaks for itself; headings remain where they group controls) and mono tabular numerals for all readouts, semantic badges as dark tint + colored text (icon/word always present — never color alone). Behaviors live in `app/static/js/app.js` (CSP forbids inline handlers): mobile nav drawer, `data-confirm` prompts, whole-row navigation.
 
 ## 2. Pages & responsibilities
 
@@ -96,9 +96,9 @@ Prospectly
 - **Responsibility:** answer "what do I do next today?" — not analytics theater.
 - **Sections:**
   1. *Needs attention* queue (overdue follow-ups, drafts pending review, research runs failed, findings unverified) — the primary block, sorted by urgency. Empty state: "Nothing needs attention. ✓"
-  2. *Pipeline strip*: counts for every stage, grouped into three labelled display phases so the numbers read as a progression — **Qualify** (new, researched, opportunity, ready) · **Outreach** (contacted, replied, follow-up) · **Convert** (interested, converted). Each phase is its own bordered card of stage cells (not a funnel chart, not a single undifferentiated row); since the 2026-11-11 pipeline-style refresh the cards are numbered **01–03** with a phase-total in the header and joined by orange flow arrows (presentation-only decoration — the numbers carry the order, so nothing depends on color or arrow direction). Phase grouping is presentation-only: stage order and semantics come from `SYSTEM_ARCHITECTURE.md` §3.2 and are unchanged.
+  2. *Pipeline strip*: counts for every stage, grouped into three labelled display phases so the numbers read as a progression — **Qualify** (new, researched, opportunity, ready) · **Outreach** (contacted, replied, follow-up) · **Convert** (interested, converted). Each phase is its own shaded card of stage cells (not a funnel chart, not a single undifferentiated row); since the 2026-11-11 pipeline-style refresh the cards are numbered **01–03** with a phase-total in the header and joined by orange flow arrows (presentation-only decoration — the numbers carry the order, so nothing depends on color or arrow direction). Phase grouping is presentation-only: stage order and semantics come from `SYSTEM_ARCHITECTURE.md` §3.2 and are unchanged.
   3. *Today*: follow-ups due today + recently replied.
-  4. *Metrics groups*: the nine operational metrics (`PRODUCT_BRIEF §8`) arranged as **three themed cards** — **Pipeline** (Total, Researched, Requires review) · **Outreach** (Approved, Sent, Replies) · **Results** (Interested, Follow-ups due, Converted). Each card is a bordered surface with an uppercase mono group label and left-label / right-value rows (tabular numerals). Empty values are dimmed; actionable backlogs (Requires review > 0, Follow-ups due > 0) read in the accent (`hot` role, redesign 2026-11-11). Cards sit in one column on mobile, three columns from 640px. Grouping is presentation-only: the metric definitions come from `app/services/dashboard.py` and are unchanged.
+  4. *Metrics groups*: the nine operational metrics (`PRODUCT_BRIEF §8`) arranged as **three themed cards** — **Pipeline** (Total, Researched, Requires review) · **Outreach** (Approved, Sent, Replies) · **Results** (Interested, Follow-ups due, Converted). Each card is a shaded surface with an uppercase mono group label and left-label / right-value rows (tabular numerals). Empty values are dimmed; actionable backlogs (Requires review > 0, Follow-ups due > 0) read in the accent (`hot` role, redesign 2026-11-11). Cards sit in one column on mobile, three columns from 640px. Grouping is presentation-only: the metric definitions come from `app/services/dashboard.py` and are unchanged.
 - All numbers link to the pre-filtered Prospects list.
 
 **Status (Phase 5):** the **pipeline strip** and all **nine metrics groups** are built and rendered honestly — real per-stage counts of non-archived prospects (`app/services/dashboard.py`, whose `PIPELINE_PHASES` defines the stage grouping and derives `PIPELINE_STAGES`), zero-filled and grayed when empty, every pipeline cell linking to `/prospects?stage=…`. The "Needs attention" queue is live. Empty dashboard: one sentence + Add prospect / Set up profile.
@@ -178,11 +178,13 @@ Moved under Settings because CSV is not the default discovery path. 3-step wizar
 Defined once in `app/static/css/app.css` `:root` (plain CSS custom properties; no framework). Pre-composited solid hex for every tint — never `rgba(…)` overlays of the semantic hues, or the contrast table stops holding:
 
 ```css
-/* Surfaces & borders — charcoal stack, hairline structure
-   (text 15.08:1, muted 7.70:1 on surface) */
---color-bg:#0b0c0e; --color-surface:#14161a; --color-surface-hover:#1b1e24;
---color-surface-raised:#1f2126;      /* dialogs, tooltips, dropdowns, toasts */
---color-border:#26292f; --color-border-strong:#6a7280;  /* control boundaries ≥3:1 (WCAG 1.4.11) */
+/* Surfaces — charcoal shade ladder, NO element outlines (2026-11-17)
+   (body 14.52:1, muted 7.41:1 on surface; adjacent steps 1.11–1.21:1) */
+--color-bg:#090a0c; --color-surface:#171a20; --color-surface-hover:#1f232a;
+--color-surface-raised:#292d35;     /* menus, toasts, chips, active tiles */
+--color-field:#0e1014;              /* sunken control fill: inputs, buttons */
+--color-border:#33373f;             /* INTERNAL DIVIDERS only — never boxes */
+--color-border-strong:#6a7280;      /* focus/error boundary ≥3:1 (WCAG 1.4.11) */
 --shadow-1:0 1px 2px rgba(0,0,0,.4); --shadow-2:0 8px 24px rgba(0,0,0,.5);
 
 /* Text — warm-tinted white (15.08 / 7.70 / 5.58:1 on surface) */
@@ -190,18 +192,19 @@ Defined once in `app/static/css/app.css` `:root` (plain CSS custom properties; n
 
 /* Single accent — primary actions, active nav, focus, running/hot, AI origin */
 --color-accent:#ff6b1a; --color-accent-hover:#ff8340;   /* hover lightens on dark */
---color-accent-light:#30201a;    /* pre-composited 12% orange over surface */
+--color-accent-light:#3d271d;    /* accent tint — carries active states alone */
 --color-accent-border:#7a3d1c;   /* pre-composited 35% orange over surface */
 --glow-accent:0 0 20px rgba(255,107,26,.12);  /* CTA hover + active nav + focus rings */
 --color-link:#ff8a3d;            /* same family, one hue lighter (7.72:1) */
 --focus-ring:rgba(255,107,26,.28);
 
-/* Semantic — dark tint bg + colored text + colored border (word/icon always
-   present, never color alone) */
---color-success:#4cc38a; --color-success-light:#122a1d; --color-success-border:#1e5c3a;
---color-danger:#f87171;  --color-danger-light:#2b1512;  --color-danger-border:#6e2f28;
---color-warn:#fbbf24;    --color-warn-light:#2a2110;    --color-warn-border:#7a5a18;
---color-info:#56b8d8;    --color-info-light:#10262c;    --color-info-border:#1d5563;
+/* Semantic — tint bg + coloured text (word/icon always present, never colour
+   alone; the *-border tokens remain for focused states only, not chip outlines) */
+--color-success:#4cc38a; --color-success-light:#173b2b; --color-success-border:#1e5c3a;
+--color-danger:#f87171;  --color-danger-light:#3a1d17;  --color-danger-border:#6e2f28;
+                         --color-danger-hover:#4a211b;  /* destructive button hover */
+--color-warn:#fbbf24;    --color-warn-light:#3a2f17;    --color-warn-border:#7a5a18;
+--color-info:#56b8d8;    --color-info-light:#153440;    --color-info-border:#1d5563;
 
 /* Type — system sans body + mono micro-typography; tabular numerals for data */
 --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -219,9 +222,19 @@ Defined once in `app/static/css/app.css` `:root` (plain CSS custom properties; n
 /* Layout — grouped sidebar (spec §1 amendment 2026-11-11, §7) */
 --nav-w:15rem; --topbar-h:52px; --max-w:960px;
 
-/* Motion — functional only, ≤150ms; prefers-reduced-motion → 0ms / static */
---dur-fast:120ms; --dur-base:150ms;
+/* Motion — functional only; fast/base for micro-interactions, slow for the
+   drawer class; decelerating ease, never a snap (2026-11-17: "make it smooth
+   and not too fast"). prefers-reduced-motion → 0ms / static. */
+--dur-fast:120ms; --dur-base:200ms; --dur-slow:320ms;
+--ease-out:cubic-bezier(0.22, 1, 0.36, 1);
 ```
+
+**Amendment — borderless pass (2026-11-17, owner directives):**
+1. **No element outlines.** Cards, zones, panels, drawers, badges, chips, buttons, inputs, banners, tooltips, menus and tables are fill-only; levels come from the shade ladder above. `--color-border` is dividers only (row rules, tab underline, region edges); `--color-border-strong` stays for focus rings and error borders. Focus outlines (`:focus-visible`, 2px accent) are untouched — they are state, not decoration.
+2. **Stage tab.** The prospect card's stage pill became a **sunken corner tab** welded into the card's top-right edge: negative margins pull it onto the edge, its top-right radius matches the card's (`0 var(--radius-md) 0 var(--radius-sm)`), no border. Neutral fill by default; only an opt-out stage (`do not contact`) keeps the danger tint.
+3. **Colour = signal.** On prospect cards every chip is neutral (`raised` fill, muted text); red survives for suppression/failure and amber for `check failed`/overdue. Semantic tints were brightened so chips still read as blocks without borders.
+4. **Labels.** Card section headings that only restated their content (Key facts, Research, Opportunities, Outreach, Notes, Activity, Draft editor, Grounding, Send chain, Message history, Research status, Findings) are **removed**; headings remain only where they group many controls (Defaults, Daily caps, Backup, Discovery, Danger zone, Add finding). Panel titles are real `<h2>` so the outline never skips a level (axe `heading-order`).
+5. **Panel arrangement.** The suppression banner sits *below* the sticky header; the head is one row (name + badges inline, actions opposite); danger-zone blocks carry their status in the block head instead of a `Status:` line; Outreach shows a state row + message preview; activity payloads render as readable text (`describe_payload`) — never JSON.
 
 Typography: two families, strict role split — system sans for body/table/form text, mono for uppercase group labels, numeric readouts and log-style timestamps. Data tables use `font-variant-numeric: tabular-nums`. Hierarchy comes from weight/spacing/size, not color.
 

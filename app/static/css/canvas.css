@@ -94,13 +94,13 @@
   max-width: 200px;
   font-size: var(--fs-sm);
   color: var(--color-text);
-  background: var(--color-surface-hover);
-  border: 1px solid var(--color-border-strong);
+  background: var(--color-field);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
 }
 
 .canvas-toolbar .views-picker select:hover {
-  border-color: var(--color-text-subtle);
+  background: var(--color-surface);
 }
 
 .canvas-toolbar .views-picker select:focus-visible {
@@ -169,20 +169,18 @@
   max-width: 100%;
   min-height: var(--control-h-sm);
   padding: 0 var(--space-3);
-  background: var(--color-surface-hover);
-  border: 1px solid var(--color-border-strong);
+  background: var(--color-field);
+  border: 1px solid transparent;
   border-radius: 999px;
   color: var(--color-text);
   font-size: var(--fs-sm);
   text-decoration: none;
   white-space: nowrap;
-  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease,
-    background-color var(--dur-fast) ease;
+  transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
 
 .filter-pill:hover {
   background: var(--color-surface-raised);
-  border-color: var(--color-text-subtle);
   color: var(--color-text);
 }
 
@@ -272,7 +270,7 @@
   padding: 0 var(--space-1);
   border-radius: 999px;
   background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid transparent;
   color: var(--color-text);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
@@ -370,7 +368,7 @@
   display: flex;
   flex-direction: column;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent; /* zone vs page and card vs zone = fill steps */
   border-radius: var(--radius-md);
 }
 
@@ -567,16 +565,15 @@
   flex: none;
   min-height: var(--card-h);
   padding: var(--space-3);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--color-surface-hover);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   cursor: grab;
-  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  transition: background-color var(--dur-base) var(--ease-out);
 }
 
 .prospect-card:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border-strong);
+  background: var(--color-surface-raised);
 }
 
 .prospect-card:focus-visible {
@@ -734,8 +731,7 @@
 }
 
 .pc-icon-btn:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border);
+  background: var(--color-surface-raised);
   color: var(--color-text);
 }
 
@@ -767,9 +763,10 @@
   border-radius: var(--radius-md);
 }
 
-/* Rejected (409): snap back into the slot over 120ms ease-out (spec §3.1). */
+/* Rejected (409): settle back into the slot — smooth and decelerating, never
+   a snap (owner pass 2026-11-17: "make it smooth and not too fast"). */
 .prospect-card.snapback {
-  transition: transform 120ms ease-out;
+  transition: transform var(--dur-base) var(--ease-out);
 }
 
 /* ===== Density (spec §2.5) =====
@@ -801,7 +798,7 @@
   gap: var(--space-2);
   padding: var(--space-1);
   background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-1);
   z-index: 10;
@@ -903,7 +900,7 @@
   max-width: 260px;
   padding: var(--sp-1);
   background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-2);
   display: flex;
@@ -973,12 +970,12 @@
   display: flex;
   flex-direction: column;
   background: var(--color-surface);
-  border-left: 1px solid var(--color-border);
+  border-left: 1px solid transparent; /* fill step + shadow carry the drawer edge */
   box-shadow: var(--shadow-2);
   z-index: 91;
-  transform: translateX(24px);
+  transform: translateX(32px);
   opacity: 0;
-  transition: transform var(--dur-base) ease, opacity var(--dur-base) ease;
+  transition: transform var(--dur-slow) var(--ease-out), opacity var(--dur-slow) var(--ease-out);
 }
 
 .panel.open {
@@ -1073,7 +1070,7 @@
 .panel-body .card {
   margin: 0 0 var(--space-4);
   padding: var(--space-4);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
 }
 
@@ -1145,9 +1142,9 @@
   opacity: 0.75;
 }
 
-/* Danger zone: one border style, separated blocks. */
+/* Danger zone: separated blocks; the red heading and tinted buttons carry it. */
 .panel-body .card.danger-zone {
-  border-color: var(--color-danger-border);
+  border-color: transparent;
 }
 
 .danger-zone > h3 {
@@ -1284,8 +1281,8 @@
   font-size: var(--fs-xs);
   letter-spacing: 0.08em;
   color: var(--color-text-muted);
-  background: var(--color-surface-hover);
-  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-raised);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-2);
 }
@@ -1310,17 +1307,16 @@
   align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-3);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--color-surface-hover);
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
   color: inherit;
   text-decoration: none;
-  transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
+  transition: background-color var(--dur-base) var(--ease-out);
 }
 
 .setup-card:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border-strong);
+  background: var(--color-surface-raised);
 }
 
 .setup-card:focus-visible {
@@ -1337,7 +1333,7 @@
   justify-content: center;
   border-radius: var(--radius-md);
   background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   color: var(--color-text-muted);
 }
 
@@ -1381,7 +1377,7 @@
 }
 
 .setup-card[data-state="warn"] {
-  border-color: var(--color-warn-border);
+  background: var(--color-warn-light); /* warning reads as fill, not an outline */
 }
 
 /* --- Outreach region: three message zones --- */
@@ -1398,7 +1394,7 @@
 
 .msg-zone {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
   padding: var(--space-3);
 }
@@ -1436,7 +1432,7 @@
 }
 
 .msg-card {
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: var(--color-surface-hover);
   padding: var(--space-3);
@@ -1515,12 +1511,23 @@
 }
 
 .panel-body .data-table {
-  min-width: 520px;
+  min-width: 680px;
 }
 
 .panel-body .data-table th:first-child,
 .panel-body .data-table td:first-child {
   min-width: 140px;
+}
+
+/* Statement columns keep a readable measure: the table scrolls sideways
+   instead of squeezing evidence text into a one-word-wide ribbon. */
+.panel-body .data-table td:nth-child(2),
+.panel-body table.prospects td:nth-child(2) {
+  min-width: 240px;
+}
+
+.panel-body table.prospects {
+  min-width: 680px;
 }
 
 /* Inputs fill their card; helper text wraps instead of clipping (5.25). */
@@ -1629,7 +1636,7 @@
 
 .flow-step {
   position: relative;
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
   background: var(--color-surface-raised);
   padding: var(--space-3);
@@ -1659,8 +1666,8 @@
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   color: var(--color-text-muted);
-  background: var(--color-surface-hover);
-  border: 1px solid var(--color-border-strong);
+  background: var(--color-field);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-2);
 }
@@ -1883,8 +1890,8 @@
   width: 32px;
   height: 32px;
   padding: 0;
-  background: transparent;
-  border: 1px solid var(--color-border-strong);
+  background: var(--color-field);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--color-danger);
   cursor: pointer;
@@ -1897,7 +1904,6 @@
 
 .icon-btn:hover {
   background: var(--color-danger-light);
-  border-color: var(--color-danger-border);
 }
 
 /* Duplicates slider: accent track/thumb + min/max labels. */
@@ -2061,9 +2067,9 @@ input[type="range"]::-moz-range-thumb {
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--color-surface-hover);
+  background: var(--color-surface-raised);
   color: var(--color-text);
   font-size: var(--fs-xs);
 }
@@ -2082,7 +2088,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .chip-remove:hover {
-  background: var(--color-surface);
+  background: var(--color-field);
   color: var(--color-text);
 }
 
@@ -2109,8 +2115,8 @@ select {
   min-height: 32px;
   padding: 0 10px;
   color: var(--color-text);
-  background: var(--color-surface-hover);
-  border: 1px solid var(--color-border-strong);
+  background: var(--color-field);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
 }
 
@@ -2125,7 +2131,7 @@ input[type="file"]::file-selector-button {
   padding: 0 12px;
   color: var(--color-text);
   background: var(--color-surface-hover);
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   cursor: pointer;
 }
@@ -2217,21 +2223,28 @@ input[type="file"]::file-selector-button {
 }
 
 
-/* Stage tag lives in the card's top-right corner: a compact outlined label,
-   not a second filled pill. */
-.pc-name-row .badge.pc-stage-tag {
+/* Stage tag = a sunken TAB welded into the card's top-right corner (owner:
+   "another design entirely for the tags that bends with the card"). Negative
+   margins pull it out of the padding box onto the card edge, its top-right
+   radius matches the card's, and it carries no outline — the notch IS the
+   stage. Neutral fill; only an opt-out stage keeps the danger tint. */
+.pc-name-row .pc-stage-tag {
   flex: 0 0 auto;
-  max-width: 48%;
-  height: 20px;
-  padding: 2px 5px;
+  align-self: flex-start;
+  max-width: 46%;
+  margin: calc(-1 * (var(--space-3) + 1px)) calc(-1 * (var(--space-3) + 1px)) 0 0;
+  padding: 4px var(--space-2) 5px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: transparent;
-  border-color: currentColor;
+  background: var(--color-field);
+  border: 0;
+  border-radius: 0 var(--radius-md) 0 var(--radius-sm);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
   font-size: 10px;
   font-weight: var(--fw-semibold);
-  letter-spacing: 0.01em;
+  letter-spacing: var(--tracking-label);
   line-height: 1;
   text-transform: uppercase;
 }
@@ -2586,4 +2599,120 @@ input[type="file"]::file-selector-button {
 
 .history-note {
   margin: var(--space-2) 0 0;
+}
+
+/* ===== Borderless pass 2026-11-17: shade levels, colour = signal ===== */
+
+/* Cards: every chip on a prospect card is neutral by default — colour only
+   ever means "act on this" (suppression, failed verification). Verified by
+   `test_card_chips_use_colour_only_for_signals`. */
+.prospect-card .badge {
+  background: var(--color-surface-raised);
+  border-color: transparent;
+  color: var(--color-text-muted);
+}
+
+/* The stage tab keeps its sunken notch fill even against the neutral rule. */
+.prospect-card .pc-stage-tag {
+  background: var(--color-field);
+  border: 0;
+  color: var(--color-text-muted);
+}
+
+.prospect-card .pc-stage-tag.stage-do-not-contact {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.prospect-card .badge.danger,
+.prospect-card .badge.stage-do-not-contact,
+.prospect-card .badge.stage-failed,
+.prospect-card .badge.stage-contradicted {
+  background: var(--color-danger-light);
+  border-color: transparent;
+  color: var(--color-danger);
+}
+
+.prospect-card .badge.stage-check-failed {
+  background: var(--color-warn-light);
+  border-color: transparent;
+  color: var(--color-warn);
+}
+
+/* Detail head: name and badges share one wrapping line, actions centre
+   opposite them — one row instead of a title with floating pills under it. */
+.panel-body .card.detail-head {
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
+.panel-body .card.detail-head .header-row {
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.panel-body .card.detail-head .grow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.panel-body .card.detail-head .badge-row {
+  margin-top: 0;
+}
+
+/* Danger zone: status rides in each block head instead of a "Status:" line. */
+.danger-block-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.danger-block-head h4 {
+  margin: 0;
+  flex: 1 1 auto;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+/* Outreach: state row, then the message as a quiet preview, then actions. */
+.outreach-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.outreach-status .muted.small {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.outreach-preview {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Activity: payload reads on its own line under the event, never as JSON. */
+.activity-list li {
+  flex-wrap: wrap;
+}
+
+.activity-list li .payload {
+  flex: 0 0 100%;
+  margin-left: 0;
+  margin-top: 2px;
+  color: var(--color-text-subtle);
 }

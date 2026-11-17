@@ -6,19 +6,13 @@
 {% set hxpost = 'hx-target="closest .panel-body"' if panel_mode else '' %}
 {% set hxpost_refresh = 'hx-target="closest .panel-body" data-refresh-board' if panel_mode else '' %}
 {% set active_status = message.status|replace('_',' ') %}
-{% if prospect.do_not_contact %}
-<div class="banner danger">
-  Suppressed: {{ prospect.do_not_contact_reason or "do not contact" }}. No drafts or outreach actions allowed.
-</div>
-{% endif %}
-
 <section class="card message-head">
   <a href="/prospects/{{ prospect.id }}" class="message-back"{% if panel_mode %} data-panel-back="/prospects/{{ prospect.id }}"{% endif %}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
     Back to prospect
   </a>
   <div class="message-head-title">
-    <div class="prospect-name" data-panel-title>{{ prospect.business_name }}</div>
+    <h2 class="prospect-name" data-panel-title>{{ prospect.business_name }}</h2>
     <div class="badge-row">
       <span class="badge stage-{{ prospect.stage|replace('_','-') }}">{{ prospect.stage|replace('_',' ') }}</span>
       <span class="badge">{{ active_status }}</span>
@@ -26,8 +20,14 @@
   </div>
 </section>
 
+{% if prospect.do_not_contact %}
+{# Below the sticky head so the header owns the panel's top row. #}
+<div class="banner danger">
+  Suppressed: {{ prospect.do_not_contact_reason or "do not contact" }}. No drafts or outreach actions allowed.
+</div>
+{% endif %}
+
 <section class="card">
-  <h3>Draft editor</h3>
   <p class="muted small">Edits are logged and demote the message back to draft — approval is invalidated by any change.</p>
   <form method="post" action="/messages/{{ message.id }}/edit" {% if panel_mode %}hx-post="/messages/{{ message.id }}/edit"{% endif %} {{ hxpost|safe }}>
     {{ csrf_field() }}
@@ -43,7 +43,6 @@
 </section>
 
 <section class="card">
-  <h3>Grounding</h3>
   {% if grounded_findings %}
   <p class="muted small">Findings this draft is based on (AI claims start unverified — verify before relying on them).</p>
   <ul class="mini-list">
@@ -62,7 +61,6 @@
 </section>
 
 <section class="card">
-  <h3>Send chain</h3>
   <p class="muted small">One primary action at a time. The app builds a wa.me link; you press Send in WhatsApp. "Sent" is recorded only by your explicit confirmation.</p>
   <div class="action-group">
     {% if message.status == "draft" %}
@@ -106,7 +104,6 @@
 </section>
 
 <section class="card">
-  <h3>Message history</h3>
   <dl class="history-list">
     <div>
       <dt>Origin</dt>

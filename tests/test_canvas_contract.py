@@ -21,7 +21,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db import Base, get_db
 from app.main import app
-from app.models import OutreachMessage, Prospect, SavedView
+from app.models import Activity, OutreachMessage, Prospect, SavedView
 
 # Retired route → the card that must be pre-opened on a plain GET.
 CARD_ROUTES = [
@@ -563,3 +563,150 @@ def test_missing_required_form_field_returns_readable_html(db_client) -> None:
     assert api.status_code == 422
     assert api.headers["content-type"].startswith("application/json")
     assert '"type"' in api.text
+
+
+# ---------------------------------------------------------------------------
+# Borderless / label / motion pass (owner requests 2026-11-17)
+# ---------------------------------------------------------------------------
+
+
+def test_detail_panel_drops_self_evident_section_labels(db_client) -> None:
+    """Card labels that only restated their content are gone; control groups keep a heading.
+
+    Owner decision on the label cleanup: "Drop the labels entirely — keep only
+    headings that group many controls."
+    """
+    db, client = db_client
+    prospect = Prospect(business_name="Label Sweep Hotel")
+    db.add(prospect)
+    db.commit()
+
+    html = client.get(f"/prospects/{prospect.id}").text
+    for gone in (
+        "<h3>Key facts</h3>",
+        "<h3>Research</h3>",
+        "<h3>Opportunities</h3>",
+        "<h3>Outreach</h3>",
+        "<h3>Notes</h3>",
+        "<h3>Activity</h3>",
+        "<h3>Record reply</h3>",
+        "<h3>Follow-ups</h3>",
+    ):
+        assert gone not in html, f"redundant label still rendered: {gone}"
+    # The destructive group still names itself (it groups three control blocks).
+    assert "<h3>Danger zone</h3>" in html
+
+
+def test_panel_titles_render_as_headings(db_client) -> None:
+    """Detail/message titles are h2 so the outline never skips (axe heading-order)."""
+    db, client = db_client
+    prospect = Prospect(business_name="Heading Order Ltd")
+    db.add(prospect)
+    db.commit()
+    html = client.get(f"/prospects/{prospect.id}").text
+    assert '<h2 class="prospect-name" data-panel-title>Heading Order Ltd</h2>' in html
+    assert '<div class="prospect-name"' not in html
+
+
+def test_activity_payload_renders_human_text(db_client) -> None:
+    """Activity rows read as words, never as a JSON blob (UI pass).
+
+    Regression: the panel printed `payload|tojson`, so the list showed
+    ``{"reason": "asked to be removed"}`` next to the event name.
+    """
+    from app.services.activity import describe_payload
+
+    db, client = db_client
+    prospect = Prospect(business_name="Payload Hotel")
+    db.add(prospect)
+    db.commit()
+    activity = Activity(
+        prospect_id=prospect.id,
+        type="do_not_contact_set",
+        actor="user",
+        payload={"reason": "asked to be removed"},
+    )
+    db.add(activity)
+    db.commit()
+
+    html = client.get(f"/prospects/{prospect.id}").text
+    assert "reason: asked to be removed" in html
+    assert "{&quot;reason&quot;" not in html and '{"reason"' not in html
+
+    # formatter contract: nested maps flatten to readable pairs, empties drop out
+    assert describe_payload({"run_id": 5, "status": "succeeded"}) == "run id: 5 · status: succeeded"
+    assert (
+        describe_payload({"steps": {"search": "ok", "inspect": "failed"}})
+        == "steps: search ok, inspect failed"
+    )
+    assert describe_payload({"note": None, "flag": True}) == "flag: yes"
+    assert describe_payload({}) == "" and describe_payload(None) == ""
+
+
+def test_card_chips_use_colour_only_for_signals() -> None:
+    """Prospect-card chips are neutral; colour survives only as a signal.
+
+    Owner decision: "too many bright colors in all cards" → neutral tags,
+    colour = signal (suppression, failed verification, check failed).
+    """
+    css = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
+    neutral = css.split(".prospect-card .badge {", 1)[1].split("}", 1)[0]
+    assert "background: var(--color-surface-raised)" in neutral
+    assert "border-color: transparent" in neutral
+
+    for signal in (
+        ".prospect-card .badge.danger",
+        ".prospect-card .badge.stage-do-not-contact",
+        ".prospect-card .badge.stage-failed",
+        ".prospect-card .badge.stage-check-failed",
+    ):
+        assert signal in css, f"signal chip lost its colour rule: {signal}"
+
+
+def test_stage_tab_is_fused_to_the_card_edge() -> None:
+    """The stage tag is a sunken corner tab that bends with the card, not a pill.
+
+    Owner decision: "another design entirely for the tags that bends with the
+    card" — negative margins pull it onto the card edge, its radius matches the
+    card's, and it carries no outline.
+    """
+    css = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
+    tab = css.split(".pc-name-row .pc-stage-tag {", 1)[1].split("}", 1)[0]
+    assert "margin: calc(-1 * (var(--space-3) + 1px)) calc(-1 * (var(--space-3) + 1px)) 0 0" in tab
+    assert "border-radius: 0 var(--radius-md) 0 var(--radius-sm)" in tab
+    assert "border: 0" in tab
+    assert "background: var(--color-field)" in tab
+
+
+def test_element_outlines_replaced_by_shade_levels() -> None:
+    """No element keeps a box outline: levels come from the fill ladder.
+
+    `--color-border` survives only on single-side dividers (rows, tabs,
+    regions); a full `border: 1px solid var(--color-border)` box is a defect.
+    """
+    import re
+
+    for name in ("app/static/css/app.css", "app/static/css/canvas.css"):
+        css = (_ROOT / name).read_text(encoding="utf-8")
+        boxes = [
+            line.strip()
+            for line in css.splitlines()
+            if re.match(r"\s*border: 1px solid var\(--color-border\);", line)
+        ]
+        assert not boxes, f"{name} still draws box outlines: {boxes}"
+    app = (_ROOT / "app/static/css/app.css").read_text(encoding="utf-8")
+    assert "--color-field: #0e1014" in app, "shade ladder lost its control fill"
+
+
+def test_canvas_motion_is_smooth_not_snappy() -> None:
+    """Drawer-class motion decelerates over the slow token (owner: "make it smooth")."""
+    app = (_ROOT / "app/static/css/app.css").read_text(encoding="utf-8")
+    canvas = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
+    assert "--dur-slow: 320ms" in app
+    assert "--ease-out: cubic-bezier(0.22, 1, 0.36, 1)" in app
+    assert "--dur-slow: 0ms" in app, "reduced-motion must zero the slow token too"
+    panel = canvas.split(".panel {", 1)[1].split("}", 1)[0]
+    assert "transition: transform var(--dur-slow) var(--ease-out)" in panel
+    snap = canvas.split(".prospect-card.snapback {", 1)[1].split("}", 1)[0]
+    assert "transform var(--dur-base) var(--ease-out)" in snap
+    assert "120ms ease-out" not in snap

@@ -31,6 +31,20 @@
 > **Owner request 2026-11-16:** plain wheel zooms at the pointer and
 > Ctrl/Cmd+wheel pans (§2.2).
 >
+> **Borderless / label pass (2026-11-17, owner directives):** no element
+> outlines — cards, zones, panels, badges, inputs and buttons read from the
+> shade ladder (`bg → surface → card → raised → field`); `--color-border` is
+> internal dividers only. The prospect card's stage pill is a **sunken corner
+> tab** welded to the card edge (radius matches the card, no border) and card
+> chips are neutral — colour only for suppression/failure/overdue signals.
+> Self-evident card section labels were dropped (headings remain only where
+> they group controls; panel titles are `<h2>` for heading order). The
+> suppression banner sits below the sticky head, danger-zone status rides in
+> the block head, outreach shows state row + message preview, activity
+> payloads render as readable text. Drawer motion: `--dur-slow` 320ms with a
+> decelerating ease. Verified: lighthouse a11y 1.0 on board and detail,
+> 0 console errors across 7 routes, 392 tests green.
+>
 > **Phase 5–6 UX (2026-11-16):** detail/settings/message drawers share 560px
 > with a sticky header; only Import keeps numbered steps; comma-separated
 > fields get chip previews; usage caps are progress bars; the duplicates
@@ -52,7 +66,7 @@ Status: implementation-ready · saved from ui-design session ses_e33218438ffeMMC
 Orchestrator adjustments applied: (1) rail group dividers = plain hairlines with title tooltips (no clipped text); (2) `g s` → /settings/profile (no /settings index exists); (3) engineer must verify CSRF header acceptance before relying on X-CSRF-Token.
 
 ## 0. Direction
-A freeform pan/zoom canvas (Canva metaphor) on which the stage board is drawn as the default arrangement — Nexus-Pipeline-style numbered stage zones (01→03) joined by orange flow arrows, prospect cards as compact DOM cards inside zones, details/message review/filters as slide-over panels. Dashboard keeps its numbered flow-card identity as the entry point. Visual language unchanged: shipped charcoal+orange tokens (app.css :root), mono micro-labels, hairline borders, one orange accent.
+A freeform pan/zoom canvas (Canva metaphor) on which the stage board is drawn as the default arrangement — Nexus-Pipeline-style numbered stage zones (01→03) joined by orange flow arrows, prospect cards as compact DOM cards inside zones, details/message review/filters as slide-over panels. Dashboard keeps its numbered flow-card identity as the entry point. Visual language: shipped charcoal+orange tokens (app.css :root), mono micro-labels for data groups, **shade-contrast levels instead of outlines** (borderless pass 2026-11-17 — `--color-border` is dividers only), one orange accent.
 
 ### 0.1 Tension resolutions (binding)
 | Tension | Resolution |

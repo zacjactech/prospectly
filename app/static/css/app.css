@@ -1,6 +1,7 @@
 /* Prospectly operations UI — "charcoal + signal orange" operations console.
-   Dark-only (no light-theme media-query variant anywhere), 3-step charcoal
-   surfaces with hairline borders, one orange accent reserved for primary
+   Dark-only (no light-theme media-query variant anywhere), a charcoal shade
+   ladder where levels come from fill contrast instead of element outlines,
+   one orange accent reserved for primary
    actions / active states / focus / running & hot statuses / AI-origin, mono
    micro-typography for group labels and numeric readouts.
    Spec: docs/UI_UX_SPECIFICATION.md (redesign 2026-11-11). */
@@ -14,13 +15,18 @@
      the dark palette instead of the UA light default. */
   color-scheme: dark;
 
-  /* Surfaces: charcoal 3-step stack + hairline borders (structure, not fill) */
-  --color-bg: #0b0c0e;
-  --color-surface: #14161a;
-  --color-surface-hover: #1b1e24;
-  --color-surface-raised: #1f2126; /* dialogs, tooltips, dropdowns, toasts */
-  --color-border: #26292f;
-  --color-border-strong: #6a7280; /* control boundaries: ≥3:1 vs surface/hover/raised (WCAG 1.4.11 — handoff intent, corrected value) */
+  /* Surfaces: charcoal shade ladder (borderless pass 2026-11-17). Levels come
+     from fill contrast — bg → surface (containers) → hover (cards) → raised
+     (menus/chips) → field (sunken controls). `--color-border` is for INTERNAL
+     DIVIDERS ONLY; element outlines are gone. `--color-border-strong` survives
+     as the focus/error boundary (≥3:1 vs fill, WCAG 1.4.11). */
+  --color-bg: #090a0c;
+  --color-surface: #171a20;        /* containers: zones, panels, sections */
+  --color-surface-hover: #1f232a;  /* cards, rows, hover */
+  --color-surface-raised: #292d35; /* menus, toasts, chips, active tiles */
+  --color-field: #0e1014;          /* sunken control fill: inputs, buttons */
+  --color-border: #33373f;         /* dividers between rows/regions, never boxes */
+  --color-border-strong: #6a7280;  /* focus/error boundary: ≥3:1 vs fill (WCAG 1.4.11) */
 
   /* Text (warm-tinted white to sit with the orange accent) */
   --color-text: #eceae6;
@@ -30,7 +36,7 @@
   /* The single accent: primary actions, active nav, focus, running/hot */
   --color-accent: #ff6b1a;
   --color-accent-hover: #ff8340; /* hover lightens on dark, not darkens */
-  --color-accent-light: #30201a; /* pre-composited 12% orange over surface */
+  --color-accent-light: #3d271d; /* accent tint — carries active states without a hairline */
   --color-accent-border: #7a3d1c; /* pre-composited 35% orange over surface */
   --glow-accent: 0 0 20px rgba(255, 107, 26, 0.12); /* CTA hover + active nav */
 
@@ -41,16 +47,17 @@
   /* Semantic: status only, never decoration — dark tint bg + colored text +
      colored border; an icon or word always accompanies the color. */
   --color-success: #4cc38a;
-  --color-success-light: #122a1d;
+  --color-success-light: #173b2b;
   --color-success-border: #1e5c3a;
   --color-danger: #f87171;
-  --color-danger-light: #2b1512;
+  --color-danger-light: #3a1d17;
   --color-danger-border: #6e2f28;
+  --color-danger-hover: #4a211b; /* destructive button hover fill (4.98:1 text) */
   --color-warn: #fbbf24;
-  --color-warn-light: #2a2110;
+  --color-warn-light: #3a2f17;
   --color-warn-border: #7a5a18;
   --color-info: #56b8d8;
-  --color-info-light: #10262c;
+  --color-info-light: #153440;
   --color-info-border: #1d5563;
 
   /* Typography: system sans body, mono micro-typography (labels, readouts) */
@@ -98,7 +105,9 @@
 
   /* Transitions */
   --dur-fast: 120ms;
-  --dur-base: 150ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms; /* drawer-class motion: smooth, never a snap */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1); /* decelerating, no bounce */
 
   /* Elevation: borders carry structure, shadows carry only lift */
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);   /* tooltips, sticky headers */
@@ -125,6 +134,7 @@
   :root {
     --dur-fast: 0ms;
     --dur-base: 0ms;
+    --dur-slow: 0ms;
   }
 
   *,
@@ -344,8 +354,8 @@ textarea:focus-visible {
   flex: none;
   width: 40px;
   height: 40px;
-  background: none;
-  border: 1px solid var(--color-border);
+  background: var(--color-field);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--color-text);
@@ -396,16 +406,16 @@ textarea:focus-visible {
   width: min(84vw, 280px);
   overflow-y: auto;
   background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
+  border-right: 1px solid transparent; /* shade step vs page carries the edge */
   transform: translateX(-100%);
   visibility: hidden; /* closed drawer is unreachable by keyboard */
-  transition: transform var(--dur-base) ease, visibility 0s linear var(--dur-base);
+  transition: transform var(--dur-slow) var(--ease-out), visibility 0s linear var(--dur-slow);
 }
 
 body.nav-open .sidenav {
   transform: translateX(0);
   visibility: visible;
-  transition: transform var(--dur-base) ease, visibility 0s;
+  transition: transform var(--dur-slow) var(--ease-out), visibility 0s;
 }
 
 .sidenav-head {
@@ -423,8 +433,8 @@ body.nav-open .sidenav {
   justify-content: center;
   width: 40px;
   height: 40px;
-  background: none;
-  border: 1px solid var(--color-border);
+  background: var(--color-field);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--color-text);
@@ -517,7 +527,7 @@ button.nav-link {
   transform: translateY(-50%);
   padding: var(--space-1) var(--space-2);
   background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--color-text);
   font-family: var(--font-sans);
@@ -715,8 +725,8 @@ p {
 
 /* ===== Cards ===== */
 .card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--color-surface-hover);
+  border: 1px solid transparent; /* no outline — the fill step is the level */
   border-radius: var(--radius-md);
   padding: var(--sp-4);
   margin-bottom: var(--sp-4);
@@ -831,7 +841,7 @@ p {
   flex: 1; /* phases share one row height regardless of cell count */
   min-width: 0;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   overflow: hidden;
 }
@@ -995,7 +1005,7 @@ p {
 
 .metric-group {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   padding: 10px 14px 8px;
   min-width: 0;
@@ -1067,9 +1077,9 @@ p {
   justify-content: center;
   height: var(--control-h);
   padding: 0 14px;
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: var(--color-surface-hover);
+  background: var(--color-field);
   color: var(--color-text);
   font-family: inherit;
   font-size: var(--fs-sm);
@@ -1090,13 +1100,12 @@ p {
    discipline): solid accent + near-black text (6.76:1), lightens + glows. */
 .btn.primary {
   background: var(--color-accent);
-  border-color: var(--color-accent);
+  border-color: transparent;
   color: #140d07;
 }
 
 .btn.primary:hover {
   background: var(--color-accent-hover);
-  border-color: var(--color-accent-hover);
   box-shadow: var(--glow-accent);
 }
 
@@ -1107,35 +1116,33 @@ p {
 }
 
 .btn.ghost:hover {
-  background: var(--color-surface-hover);
+  background: var(--color-field);
   color: var(--color-text);
 }
 
 /* Destructive actions are outlined by default; confirmation dialogs carry the
    filled red state. */
 .btn.danger {
-  background: transparent;
-  border-color: var(--color-danger-border);
+  background: var(--color-danger-light);
+  border-color: transparent;
   color: var(--color-danger);
   font-weight: var(--fw-semibold);
 }
 
 .btn.danger:hover {
-  background: var(--color-danger-light);
-  border-color: var(--color-danger);
+  background: var(--color-danger-hover);
 }
 
 /* Destructive-adjacent but not delete-grade: outline keeps the red semantics
    without a wall of solid red in dense lists (e.g. per-row Merge). */
 .btn.danger-outline {
-  background: transparent;
-  border-color: var(--color-danger);
+  background: var(--color-danger-light);
+  border-color: transparent;
   color: var(--color-danger);
 }
 
 .btn.danger-outline:hover {
-  background: var(--color-danger-light);
-  border-color: var(--color-danger);
+  background: var(--color-danger-hover);
   color: var(--color-danger);
 }
 
@@ -1169,8 +1176,8 @@ p {
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
        select,
        textarea) {
-  background: var(--color-surface-hover);
-  border: 1px solid var(--color-border-strong); /* control boundary ≥3:1 (WCAG 1.4.11) */
+  background: var(--color-field);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   color: var(--color-text);
   font-family: inherit;
@@ -1198,8 +1205,8 @@ input[type="range"] {
 
 /* File picker button: match the dark control language (no light UA gray) */
 input[type="file"]::file-selector-button {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-hover);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--color-text);
   font: inherit;
@@ -1211,7 +1218,7 @@ input[type="file"]::file-selector-button {
 }
 
 input[type="file"]::file-selector-button:hover {
-  border-color: var(--color-text-subtle);
+  background: var(--color-surface-raised);
 }
 
 .form-section {
@@ -1244,13 +1251,14 @@ input[type="file"]::file-selector-button:hover {
   width: 100%;
   height: var(--control-h-md);
   padding: 0 10px;
-  border: 1px solid var(--color-border-strong); /* control boundary ≥3:1 (WCAG 1.4.11) */
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: var(--color-surface-hover);
+  background: var(--color-field);
   font-family: inherit;
   font-size: 1rem; /* 16px: prevents iOS zoom */
   color: var(--color-text);
-  transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .field select {
@@ -1265,7 +1273,7 @@ input[type="file"]::file-selector-button:hover {
 .field input:hover,
 .field select:hover,
 .field textarea:hover {
-  border-color: var(--color-text-subtle);
+  background: var(--color-surface);
 }
 
 .field input:focus,
@@ -1311,7 +1319,7 @@ input[type="file"]::file-selector-button:hover {
 .flash {
   padding: 9px 12px;
   border-radius: var(--radius-md);
-  border: 1px solid;
+  border: 1px solid transparent;
   margin-bottom: var(--sp-4);
   font-size: var(--fs-sm);
   display: flex;
@@ -1321,26 +1329,26 @@ input[type="file"]::file-selector-button:hover {
 
 .flash.error {
   background: var(--color-danger-light);
-  border-color: var(--color-danger-border);
+  border-color: transparent;
   color: var(--color-danger);
 }
 
 .flash.info {
   background: var(--color-info-light);
-  border-color: var(--color-info-border);
+  border-color: transparent;
   color: var(--color-info);
 }
 
 .flash.success {
   background: var(--color-success-light);
-  border-color: var(--color-success-border);
+  border-color: transparent;
   color: var(--color-success);
 }
 
 .banner {
   padding: 10px 12px;
   border-radius: var(--radius-md);
-  border: 1px solid;
+  border: 1px solid transparent;
   margin-bottom: var(--sp-4);
   font-size: var(--fs-sm);
   display: flex;
@@ -1350,7 +1358,7 @@ input[type="file"]::file-selector-button:hover {
 
 .banner.danger {
   background: var(--color-danger-light);
-  border-color: var(--color-danger-border);
+  border-color: transparent;
   color: var(--color-danger);
   font-weight: var(--fw-medium);
 }
@@ -1381,12 +1389,12 @@ input[type="file"]::file-selector-button:hover {
   gap: var(--sp-2);
   padding: 9px 12px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  border-left-width: 2px; /* semantic edge — per-type below */
+  border: 1px solid transparent;
+  border-left-width: 0; /* type rides the text colour, not an edge */
   background: var(--color-surface-raised);
   font-size: var(--fs-sm);
   box-shadow: var(--shadow-1);
-  animation: toast-slide var(--dur-base) ease-out;
+  animation: toast-slide var(--dur-base) var(--ease-out);
   max-width: 100%;
 }
 
@@ -1403,7 +1411,7 @@ input[type="file"]::file-selector-button:hover {
   margin: 0;
   border-width: 0;
   overflow: hidden;
-  transition: all 180ms ease;
+  transition: all var(--dur-base) var(--ease-out);
 }
 
 .toast.error  { border-left-color: var(--color-danger); color: var(--color-danger); }
@@ -1425,10 +1433,11 @@ input[type="file"]::file-selector-button:hover {
 .toast-close:hover { opacity: 1; }
 
 /* ===== Badges =====
-   Three-token contract per family: tint bg + colored text + colored border —
-   and a word/icon always accompanies the color (never color alone). Neutral
-   families ride the surface ramp so orange stays scarce: accent badges are
-   reserved for sent_confirmed, running and the AI origin (P5). */
+   Two-token contract per family: tint bg + coloured text, and a word/icon
+   always accompanies the colour (never colour alone). Outlines are gone —
+   neutral chips lift to the raised fill; semantic chips carry their tint.
+   Orange stays scarce: accent badges are reserved for sent_confirmed, running
+   and the AI origin (P5). */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -1437,8 +1446,8 @@ input[type="file"]::file-selector-button:hover {
   font-size: var(--fs-xs);
   font-weight: var(--fw-medium);
   line-height: 1.6;
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-surface-hover);
+  border: 1px solid transparent;
+  background: var(--color-surface-raised);
   color: var(--color-text-muted);
   white-space: nowrap;
   vertical-align: middle;
@@ -1447,39 +1456,39 @@ input[type="file"]::file-selector-button:hover {
 .badge.danger {
   background: var(--color-danger-light);
   color: var(--color-danger);
-  border-color: var(--color-danger-border);
+  border-color: transparent;
 }
 
 .badge.success {
   background: var(--color-success-light);
   color: var(--color-success);
-  border-color: var(--color-success-border);
+  border-color: transparent;
 }
 
 .badge.warn {
   background: var(--color-warn-light);
   color: var(--color-warn);
-  border-color: var(--color-warn-border);
+  border-color: transparent;
 }
 
 .badge.info {
   background: var(--color-info-light);
   color: var(--color-info);
-  border-color: var(--color-info-border);
+  border-color: transparent;
 }
 
-/* Neutral: bg #1b1e24, border var(--color-border-strong), text #a6a9b0 */
+/* Neutral: raised fill + muted text (no outline) */
 .badge.muted {
-  background: var(--color-surface-hover);
+  background: var(--color-surface-raised);
   color: var(--color-text-muted);
-  border-color: var(--color-border-strong);
+  border-color: transparent;
 }
 
 /* Neutral outline; the dotted edge reads as "metadata, not status" */
 .badge.tag {
-  background: transparent;
+  background: var(--color-field);
   border-style: dotted;
-  border-color: var(--color-border-strong);
+  border-color: transparent;
   color: var(--color-text-muted);
 }
 
@@ -1489,9 +1498,9 @@ input[type="file"]::file-selector-button:hover {
 .badge.stage-archived,
 .badge.stage-queued,
 .badge.stage-not-attempted {
-  background: var(--color-surface-hover);
+  background: var(--color-surface-raised);
   color: var(--color-text-muted);
-  border-color: var(--color-border-strong);
+  border-color: transparent;
 }
 
 .badge.stage-researched,
@@ -1504,7 +1513,7 @@ input[type="file"]::file-selector-button:hover {
 .badge.stage-succeeded {
   background: var(--color-success-light);
   color: var(--color-success);
-  border-color: var(--color-success-border);
+  border-color: transparent;
 }
 
 .badge.stage-opportunity-identified,
@@ -1519,7 +1528,7 @@ input[type="file"]::file-selector-button:hover {
 .badge.stage-redirect-loop {
   background: var(--color-warn-light);
   color: var(--color-warn);
-  border-color: var(--color-warn-border);
+  border-color: transparent;
 }
 
 .badge.stage-failed,
@@ -1527,7 +1536,7 @@ input[type="file"]::file-selector-button:hover {
 .badge.stage-do-not-contact {
   background: var(--color-danger-light);
   color: var(--color-danger);
-  border-color: var(--color-danger-border);
+  border-color: transparent;
 }
 
 /* P6: "no website found" and outreach-ready are not errors — calm info,
@@ -1536,7 +1545,7 @@ input[type="file"]::file-selector-button:hover {
 .badge.stage-outreach-ready {
   background: var(--color-info-light);
   color: var(--color-info);
-  border-color: var(--color-info-border);
+  border-color: transparent;
 }
 
 /* In-progress = accent + pulsing dot (the dot is decoration only — the word
@@ -1544,7 +1553,7 @@ input[type="file"]::file-selector-button:hover {
 .badge.stage-running {
   background: var(--color-accent-light);
   color: var(--color-accent);
-  border-color: var(--color-accent-border);
+  border-color: transparent;
 }
 
 .badge.stage-running::before {
@@ -1569,19 +1578,19 @@ input[type="file"]::file-selector-button:hover {
 .badge.stage-opened_in_whatsapp {
   background: var(--color-warn-light);
   color: var(--color-warn);
-  border-color: var(--color-warn-border);
+  border-color: transparent;
 }
 
 .badge.stage-approved {
   background: var(--color-success-light);
   color: var(--color-success);
-  border-color: var(--color-success-border);
+  border-color: transparent;
 }
 
 .badge.stage-sent_confirmed {
   background: var(--color-accent-light);
   color: var(--color-accent);
-  border-color: var(--color-accent-border);
+  border-color: transparent;
 }
 
 /* Origin badges (P5: origin is evidence metadata, never decoration) */
@@ -1589,21 +1598,21 @@ input[type="file"]::file-selector-button:hover {
 .badge.stage-provider {
   background: var(--color-info-light);
   color: var(--color-info);
-  border-color: var(--color-info-border);
+  border-color: transparent;
 }
 
 /* P5: AI origin is the most eye-catching badge on screen — accent family. */
 .badge.stage-ai {
   background: var(--color-accent-light);
   color: var(--color-accent);
-  border-color: var(--color-accent-border);
+  border-color: transparent;
 }
 
 /* Template drafts: zero-AI floor (D7) — deliberately understated, neutral. */
 .badge.stage-template {
-  background: var(--color-surface-hover);
+  background: var(--color-surface-raised);
   color: var(--color-text-muted);
-  border-color: var(--color-border-strong);
+  border-color: transparent;
 }
 
 /* Aliases used by the import wizard and merge review (validation severity
@@ -1612,28 +1621,29 @@ input[type="file"]::file-selector-button:hover {
 .badge.stage-success {
   background: var(--color-success-light);
   color: var(--color-success);
-  border-color: var(--color-success-border);
+  border-color: transparent;
 }
 
 .badge.stage-warn {
   background: var(--color-warn-light);
   color: var(--color-warn);
-  border-color: var(--color-warn-border);
+  border-color: transparent;
 }
 
 .badge.stage-danger {
   background: var(--color-danger-light);
   color: var(--color-danger);
-  border-color: var(--color-danger-border);
+  border-color: transparent;
 }
 
 .badge.stage-muted {
-  background: var(--color-surface-hover);
+  background: var(--color-surface-raised);
   color: var(--color-text-muted);
-  border-color: var(--color-border-strong);
+  border-color: transparent;
 }
 
 .prospect-name {
+  margin: 0;
   font-size: var(--fs-2xl);
   font-weight: var(--fw-semibold);
   letter-spacing: -0.02em;
@@ -1659,7 +1669,7 @@ table.prospects .prospect-name {
 
 .filter-bar {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   padding: var(--sp-3);
   display: flex;
@@ -1678,7 +1688,7 @@ table.prospects .prospect-name {
   flex: 1 1 140px;
   padding: 8px;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
 }
 
@@ -1700,9 +1710,9 @@ table.prospects .prospect-name {
   width: 100%;
   height: var(--control-h);
   padding: 0 10px;
-  border: 1px solid var(--color-border-strong); /* control boundary ≥3:1 (WCAG 1.4.11) */
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: var(--color-surface-hover);
+  background: var(--color-field);
   font-family: inherit;
   font-size: var(--fs-sm);
   color: var(--color-text);
@@ -1751,8 +1761,8 @@ table.prospects .prospect-name {
   padding: 0 12px;
   height: var(--control-h);
   border-radius: 999px;
-  border: 1px solid var(--color-border-strong); /* control boundary ≥3:1 (WCAG 1.4.11) */
-  background: var(--color-surface);
+  border: 1px solid transparent;
+  background: var(--color-field);
   color: var(--color-text-muted);
   font-size: var(--fs-xs);
   font-weight: var(--fw-medium);
@@ -1779,20 +1789,19 @@ table.prospects .prospect-name {
 }
 
 .toggle-chip:hover {
-  border-color: var(--color-border-strong);
+  background: var(--color-surface);
   color: var(--color-text);
 }
 
 /* Active filter toggle: accent tint + accent border + accent text */
 .toggle-chip.active {
   background: var(--color-accent-light);
-  border-color: var(--color-accent-border);
+  border-color: transparent;
   color: var(--color-accent);
 }
 
 .toggle-chip.active:hover {
   background: var(--color-accent-light);
-  border-color: var(--color-accent);
   color: var(--color-accent);
 }
 
@@ -1805,7 +1814,7 @@ table.prospects .prospect-name {
 /* ===== Tables ===== */
 .table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: var(--color-surface);
   -webkit-overflow-scrolling: touch;
@@ -1903,11 +1912,11 @@ table.prospects td a:not(.btn):hover {
 
   table.prospects tbody tr {
     display: block;
-    border: 1px solid var(--color-border);
+    border: 1px solid transparent;
     border-radius: var(--radius-md);
     margin-bottom: var(--sp-3);
     overflow: hidden;
-    background: var(--color-surface);
+    background: var(--color-surface-hover);
   }
 
   table.prospects tbody tr[data-href] {
@@ -1961,11 +1970,11 @@ table.prospects td a:not(.btn):hover {
 
   table.data-table tbody tr {
     display: block;
-    border: 1px solid var(--color-border);
+    border: 1px solid transparent;
     border-radius: var(--radius-md);
     margin-bottom: var(--sp-3);
     overflow: hidden;
-    background: var(--color-surface);
+    background: var(--color-surface-hover);
   }
 
   table.data-table tbody tr td {
@@ -2261,9 +2270,9 @@ table.data-table tbody tr:last-child td {
   min-width: 180px;
   height: var(--control-h);
   padding: 0 24px 0 10px;
-  border: 1px solid var(--color-border-strong); /* control boundary ≥3:1 (WCAG 1.4.11) */
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: var(--color-surface-hover);
+  background: var(--color-field);
   font-family: inherit;
   font-size: var(--fs-sm);
   color: var(--color-text);
@@ -2384,7 +2393,7 @@ ul.spaced li .muted {
 .help-panel {
   position: relative;
   background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
   padding: var(--sp-6);
   width: min(560px, 92vw);
@@ -2412,9 +2421,9 @@ ul.spaced li .muted {
 kbd {
   display: inline-block;
   padding: 1px 6px;
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--color-surface-hover);
+  background: var(--color-field);
   font-size: var(--fs-xs);
   font-family: var(--font-mono);
   font-weight: var(--fw-medium);

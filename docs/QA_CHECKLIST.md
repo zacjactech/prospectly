@@ -787,3 +787,34 @@ Gate: **385 tests**, `ruff check`, `ruff format --check`, `mypy app` clean.
   is an inconsistency rather than a bug.
 - Long stage names truncate on the card tag by design (48% max + title
   tooltip), e.g. "OPPORTUNITY IDE…".
+
+
+## Borderless + label + motion pass — 2026-11-17 (owner directives)
+
+Seven element comments plus three system directives were taken as one pass:
+
+| Directive | What shipped |
+|---|---|
+| "arrange element properly" — Danger zone | Blocks share one head layout: `h4` + status badge + reason inline (the `Status:` line is gone); fields and actions align the same way in all three blocks |
+| "cleanup" — Activity | `payload\|tojson` replaced by `describe_payload()`: `reason: asked to be removed`, `run id: 5 · status: succeeded · steps: search ok, inspect failed` — never a JSON blob, wrapped on its own line |
+| "cleanup labels … all pages" (decision: **drop them**) | Self-evident card headings removed from detail, message and research panels (Key facts, Research, Opportunities, Outreach, Notes, Activity, Record reply, Follow-ups, Draft editor, Grounding, Send chain, Message history, Research status, Findings). Headings kept only where they group controls (Defaults, Daily caps, Backup, Discovery, Danger zone, Add finding, flow steps) |
+| "arrange element properly" — Outreach | State row (status + origin + grounding) → message preview (left-rule block) → actions; no more badges inside an `action-group` and no `Message` definition row |
+| "fix the ui issue" — suppression banner | Moved **below** the sticky header in detail and message panels, so the header (and close button) own the panel's top row |
+| "arrange element properly" — detail head | One wrapping row: name + badges inline, `Edit details` opposite and centred; head padding tightened. Titles are now `<h2>` (axe `heading-order` back to 1.0) |
+| "too many bright colors in all cards" (decision: **neutral tags, colour = signal**) | Every prospect-card chip neutral (`raised` fill + muted text); red only for suppression/failure, amber for `check failed`; tints brightened so borderless chips still read as blocks |
+| "another design entirely for the tags that bends with the card" (decision: **edge-fused tab**) | Stage pill → sunken corner tab: negative margins pull it onto the card edge, radius `0 8px 0 6px` matches the card, no outline; `do not contact` keeps the danger tint |
+| "remove the border outline from all elements, use shade contrast" | Full borderless pass: cards, zones, panels, drawers, badges, chips, buttons, inputs, banners, tooltips, menus, tables are fill-only. Ladder `#090a0c → #171a20 → #1f232a → #292d35` + `--color-field #0e1014`; `--color-border` demoted to dividers (no `border: 1px solid var(--color-border)` box survives in either stylesheet — pinned by a test); focus rings and error borders untouched (≥3:1) |
+| "some of the canvas is too fast, make it smooth" | `--dur-base` 150→200ms, new `--dur-slow` 320ms + `--ease-out` decelerating curve; drawer slide and sidenav use slow, card snap-back uses base, toast slide eases; `prefers-reduced-motion` zeroes the new token too. Pan/zoom stays untransitioned (direct manipulation, §2.1) |
+
+Also fixed while verifying: research findings tables squeezed their statement
+column into a ribbon — statement cells now hold a 240px measure and the table
+scrolls (`.panel-body` min-width 680px).
+
+**Verification:** headless captures at 1440 (board, suppressed detail 3000px
+tall, settings, research) and 390; Lighthouse **a11y/best-practices/SEO 1.0
+with 0 failures on both `/prospects` and `/prospects/11`**; 0 console errors
+on `/`, `/prospects`, `/prospects/11`, `/prospects/14/research`,
+`/settings/general`, `/outreach`, `/prospects?category=hotel`; gate **392
+tests**, ruff/format/mypy clean. Contract tests added: dropped labels, `<h2>`
+titles, human payloads, neutral-vs-signal chips, fused stage tab, no box
+outlines, smooth motion.

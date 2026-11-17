@@ -8,7 +8,6 @@
    refreshes them too. #}
 <div id="research-live"{% if latest_run and latest_run.status in ('queued', 'running') %} hx-get="/prospects/{{ prospect.id }}/research/status" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
   <section class="card">
-    <h3>Research status</h3>
     {% if latest_run %}
     <div class="action-group">
       <span class="badge stage-{{ latest_run.status|replace('_','-') }}">{{ latest_run.status|replace('_',' ') }}</span>
@@ -46,7 +45,6 @@
   </section>
 
   <section class="card">
-    <h3>Findings</h3>
     {% if findings %}
     <div class="table-scroll">
       <table class="prospects">
