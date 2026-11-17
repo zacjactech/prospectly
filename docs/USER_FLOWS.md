@@ -74,7 +74,7 @@ Single-user tool; every flow is designed for one operator moving prospects throu
 
 ## Flow 8 — Opt-out / do not contact
 
-1. Any time: **Do not contact** button (also available from reply recording).
+1. Any time: **Block outreach** button in the Danger zone (optional reason; the explanation sits above the button).
 2. ⚠ Effect: blocks draft generation, approval, opening WhatsApp, and new-outreach actions; badge shown on prospect everywhere; counted in dashboard "requires review" only if set mid-pipeline.
 3. Clearing requires explicit action + reason (audit-logged). Opt-out requests received via WhatsApp are recorded here (P10).
 

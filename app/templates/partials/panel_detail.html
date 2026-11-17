@@ -373,7 +373,6 @@
 
   <div class="danger-block">
     <div class="danger-block-head">
-      <h4>Do not contact</h4>
       {% if prospect.do_not_contact %}
       <span class="badge stage-do-not-contact">Suppressed</span>
       {% if prospect.do_not_contact_reason %}<span class="muted small">{{ prospect.do_not_contact_reason }}</span>{% endif %}
@@ -397,9 +396,9 @@
         <label for="dnc-reason">Reason (optional)</label>
         <input id="dnc-reason" type="text" name="reason" maxlength="500" placeholder="e.g. opt-out received on WhatsApp">
       </div>
+      <p class="muted small">Blocks drafts, approvals and WhatsApp actions. Clearing requires a reason.</p>
       <button class="btn danger" type="submit" data-confirm="Block all outreach to this prospect?">Block outreach</button>
     </form>
-    <p class="muted small">Blocks drafts, approvals and WhatsApp actions. Clearing requires a reason.</p>
     {% endif %}
   </div>
 

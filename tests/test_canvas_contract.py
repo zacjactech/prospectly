@@ -783,6 +783,10 @@ def test_danger_zone_copy_is_not_repetitive(db_client) -> None:
     db.commit()
     html = client.get(f"/prospects/{prospect.id}").text
     assert "Reason (optional)" in html  # unsuppressed: setting the flag
+    # owner: no "Do not contact" sub-heading, and the explanation sits ABOVE
+    # the Block outreach button, not below the form
+    assert "<h4>Do not contact</h4>" not in html
+    assert html.index("Blocks drafts, approvals") < html.index(">Block outreach</button>")
     assert "Change stage to" not in html  # the placeholder says it
     assert ">Move</button>" in html  # not "Change stage" again
     assert ">Archive</button>" in html  # not "Archive prospect"
