@@ -907,3 +907,33 @@ def test_toolbar_surfaces_the_approval_queue(db_client) -> None:
     m = re.search(r'class="pending-chip"[^>]*aria-label="([^"]+)"', html)
     assert m, "pending chip has no aria-label"
     assert "Pending review · 1" in m.group(1), m.group(1)
+
+
+def test_card_drag_positions_in_world_space() -> None:
+    """Owner: "when i drag a card the card is far away from the mouse dragging it".
+
+    position() writes world coordinates (worldPoint strips pan/zoom), so the
+    dragged card must be a child of the transformed world layer. Appended to
+    the untransformed viewport it read those numbers as screen pixels and
+    drifted from the cursor by the pan/zoom factor (measured: cursor +80,+60
+    moved the card +2,+338 at load zoom and -210,+496 at 50%).
+
+    snapBack runs with the card already re-inserted into a zone (inside the
+    world), so its screen-space deltas must divide back through the zoom or
+    the animation undershoots at zoom != 1.
+    """
+    js = (_ROOT / "app/static/js/board.js").read_text(encoding="utf-8")
+
+    activate = js.split("function activate()", 1)[1].split("function position(", 1)[0]
+    assert "worldLayer.appendChild(card)" in activate
+    assert "viewport().appendChild(card)" not in activate
+    assert "PlCanvas.world" in activate
+
+    position = js.split("function position(", 1)[1].split("function move(", 1)[0]
+    assert "worldPoint" in position  # coordinates stay world-space (spec §3.1)
+
+    snap = js.split("function snapBack(", 1)[1].split("function startCardDrag", 1)[0]
+    assert "zoom()" in snap and "/ z" in snap
+
+    canvas = (_ROOT / "app/static/js/canvas.js").read_text(encoding="utf-8")
+    assert "world: function ()" in canvas  # the accessor board.js needs

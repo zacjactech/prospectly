@@ -282,7 +282,11 @@
     var dx = dragRect.left - slot.left;
     var dy = dragRect.top - slot.top;
     if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-    card.style.transform = "translate(" + dx + "px, " + dy + "px)";
+    /* Both rects are screen-space, but the card is back inside the
+       transformed world: a translate in world units renders scaled by zoom,
+       so divide through or the animation undershoots at zoom != 1. */
+    var z = (window.PlCanvas && window.PlCanvas.zoom && window.PlCanvas.zoom()) || 1;
+    card.style.transform = "translate(" + dx / z + "px, " + dy / z + "px)";
     void card.offsetWidth; // flush the start value
     card.classList.add("snapback");
     card.style.transform = "";
@@ -355,7 +359,16 @@
 
       card.style.width = card.offsetWidth + "px";
       card.classList.add("dragging");
-      window.PlCanvas.viewport().appendChild(card); // world layer, above zones
+      /* The dragged card must live in the WORLD layer: position() writes
+         world coordinates (worldPoint strips pan/zoom), and a child of the
+         untransformed viewport reads those numbers as screen pixels — so the
+         card drifted from the cursor by the pan/zoom factor (owner: "the card
+         is far away from the mouse dragging it"; measured: cursor +80,+60
+         moved the card +2,+338 at load and -210,+496 at 50% zoom). */
+      var worldLayer =
+        (window.PlCanvas.world && window.PlCanvas.world()) ||
+        window.PlCanvas.viewport();
+      worldLayer.appendChild(card); // world layer, above zones
       /* Capture only once the gesture becomes a drag — capturing on
          pointerdown would retarget the trailing click and break
          click-to-open (browser-verified reasoning, see Phase A report). */

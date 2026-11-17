@@ -887,6 +887,9 @@
     viewport: function () {
       return vp;
     },
+    world: function () {
+      return world;
+    },
     store: function () {
       return store;
     },
