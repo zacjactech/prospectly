@@ -7,12 +7,13 @@
 
 /* ===== Canvas constants (mirrored in canvas.js) ===== */
 .canvas-screen {
-  --zone-w: 264px;
+  --zone-w: 288px;
   --zone-gap: 48px;
   --zone-head-h: 36px;
-  --card-h: 72px;
-  --card-gap: var(--space-3);
-  --zone-pad: 8px;
+  --card-h: 84px;
+  --card-pad: var(--space-4); /* card + stage-tab inset, one source */
+  --card-gap: var(--space-4);
+  --zone-pad: 12px;
   --band-label-h: 36px;
 }
 
@@ -135,21 +136,18 @@
 }
 
 /* ===== Active-filter summary (base spec §1.2) =====
-   Removable URL-state chips get their own full-width band under the toolbar
-   row: darker surface, hairline separator and 12px vertical padding so they
-   read as a distinct group instead of crowding the header controls. */
-.canvas-toolbar .filter-summary {
-  flex: 1 1 100%;
-  order: 10;
+   Removable URL-state chips get their own full-width band **below** the
+   toolbar as a sibling element (owner 2026-11-17: it overlapped the toolbar
+   row): darker surface, hairline separator, 12px vertical padding. */
+.canvas-screen .filter-summary {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  margin: 0 calc(var(--space-4) * -1);
   padding: var(--space-3) var(--space-4);
   background: var(--color-bg);
-  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .filter-summary-label {
@@ -564,7 +562,7 @@
   justify-content: flex-start;
   flex: none;
   min-height: var(--card-h);
-  padding: var(--space-3);
+  padding: var(--card-pad);
   background: var(--color-surface-hover);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
@@ -775,7 +773,8 @@
    when the footer is hidden. */
 .canvas-screen.density-compact .prospect-card {
   min-height: 40px;
-  padding: var(--space-3);
+  --card-pad: var(--space-3);
+  padding: var(--card-pad);
 }
 
 .canvas-screen.density-compact .pc-meta,
@@ -1037,7 +1036,16 @@
 }
 
 .message-head-title {
+  display: flex;
+  width: 100%;
   min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.panel-body .card.message-head .badge-row {
+  margin-top: 0;
+  margin-left: auto; /* matches the detail head: tags ride the right edge */
 }
 
 .panel-body .detail-head .prospect-name,
@@ -1296,8 +1304,8 @@
 .setup-cluster {
   position: absolute;
   display: grid;
-  grid-template-columns: repeat(3, 232px);
-  gap: var(--space-4);
+  grid-template-columns: repeat(3, 248px);
+  gap: var(--space-5);
   width: max-content;
 }
 
@@ -1306,17 +1314,22 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-3);
+  padding: var(--space-4);
   background: var(--color-surface-hover);
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
   color: inherit;
   text-decoration: none;
-  transition: background-color var(--dur-base) var(--ease-out);
+  transition: background-color var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
 }
 
+/* Hover = fill step + 1px lift (owner: no underline, use another state). */
 .setup-card:hover {
   background: var(--color-surface-raised);
+  box-shadow: var(--shadow-1);
+  transform: translateY(-1px);
+  text-decoration: none;
 }
 
 .setup-card:focus-visible {
@@ -1435,7 +1448,12 @@
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: var(--color-surface-hover);
-  padding: var(--space-3);
+  padding: var(--space-4);
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+
+.msg-card:hover {
+  background: var(--color-surface-raised);
 }
 
 .msg-card-main {
@@ -1779,7 +1797,7 @@
      meta + status rows even though the transform-layer zoom is clamped. */
   .canvas-screen.density-compact .prospect-card {
     height: var(--card-h);
-    padding: var(--space-3);
+    padding: var(--card-pad);
   }
 
   .canvas-screen.density-compact .pc-meta {
@@ -2232,7 +2250,7 @@ input[type="file"]::file-selector-button {
   flex: 0 0 auto;
   align-self: flex-start;
   max-width: 46%;
-  margin: calc(-1 * (var(--space-3) + 1px)) calc(-1 * (var(--space-3) + 1px)) 0 0;
+  margin: calc(-1 * (var(--card-pad) + 1px)) calc(-1 * (var(--card-pad) + 1px)) 0 0;
   padding: 4px var(--space-2) 5px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2660,6 +2678,7 @@ input[type="file"]::file-selector-button {
 
 .panel-body .card.detail-head .badge-row {
   margin-top: 0;
+  margin-left: auto; /* name left, tags right, actions beside them */
 }
 
 /* Danger zone: status rides in each block head instead of a "Status:" line. */
@@ -2715,4 +2734,10 @@ input[type="file"]::file-selector-button {
   margin-left: 0;
   margin-top: 2px;
   color: var(--color-text-subtle);
+}
+
+/* Owner 2026-11-17: canvas links never underline on hover — the fill/lift
+   state above carries the affordance (global a:hover would reintroduce it). */
+.canvas-screen a:hover {
+  text-decoration: none;
 }

@@ -45,7 +45,7 @@
         <td>{{ label }}</td>
         <td>
           <span class="badge {% if u.reached %}stage-failed{% elif u.used %}stage-succeeded{% else %}muted{% endif %}">{{ u.used }} / {{ u.cap }}</span>
-          {% if u.reached %}<span class="badge stage-failed">cap reached — calls blocked</span>{% endif %}
+          {% if u.reached %}<span class="badge stage-failed">cap reached · blocked</span>{% endif %}
         </td>
         <td><span class="badge {% if configured %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if configured else 'no' }}</span></td>
       </tr>
@@ -57,7 +57,7 @@
       </tr>
     </tbody>
   </table>
-  <p class="muted small">At the cap a call is skipped and counted as rate-limited — never as “no results”.</p>
+  <p class="muted small">At the cap a call is skipped and counted as rate-limited, never as “no results”.</p>
   <details class="advanced">
     <summary>Advanced</summary>
     <p class="muted small">Daily caps are set through environment variables and require a server restart. Unmetered sources have no cap.</p>

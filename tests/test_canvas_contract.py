@@ -672,7 +672,10 @@ def test_stage_tab_is_fused_to_the_card_edge() -> None:
     """
     css = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
     tab = css.split(".pc-name-row .pc-stage-tag {", 1)[1].split("}", 1)[0]
-    assert "margin: calc(-1 * (var(--space-3) + 1px)) calc(-1 * (var(--space-3) + 1px)) 0 0" in tab
+    assert (
+        "margin: calc(-1 * (var(--card-pad) + 1px)) calc(-1 * (var(--card-pad) + 1px)) 0 0" in tab
+    )
+    assert "--card-pad: var(--space-3)" in css, "compact cards must override the inset"
     assert "border-radius: 0 var(--radius-md) 0 var(--radius-sm)" in tab
     assert "border: 0" in tab
     assert "background: var(--color-field)" in tab
@@ -710,3 +713,99 @@ def test_canvas_motion_is_smooth_not_snappy() -> None:
     snap = canvas.split(".prospect-card.snapback {", 1)[1].split("}", 1)[0]
     assert "transform var(--dur-base) var(--ease-out)" in snap
     assert "120ms ease-out" not in snap
+
+
+# ---------------------------------------------------------------------------
+# Owner pass 2026-11-17b: em dashes, arrange, cards, nav, copy trims
+# ---------------------------------------------------------------------------
+
+
+def test_rendered_pages_carry_no_em_dashes(db_client) -> None:
+    """Owner: "remove all em dashes between text" — checked on rendered HTML."""
+    _, client = db_client
+    for url in (
+        "/prospects",
+        "/settings/general",
+        "/settings/providers",
+        "/outreach",
+        "/settings/import",
+        "/settings/usage",
+    ):
+        html = client.get(url).text
+        assert "—" not in html, f"{url} still renders an em dash"
+
+
+def test_active_filter_band_sits_outside_the_toolbar(db_client) -> None:
+    """The band is a sibling below the toolbar (it overlapped the toolbar row)."""
+    _, client = db_client
+    html = client.get("/prospects", params={"category": "hotel"}).text
+    band = html.index('class="filter-summary"')
+    toolbar_close = html.index("</div>", html.index("Add prospect"))
+    assert band > toolbar_close, "filter band is still a flex child of the toolbar"
+
+
+def test_arrange_control_and_layout_reset(db_client) -> None:
+    """Owner: "a btn that properly arranges the elements when they are scattered"."""
+    _, client = db_client
+    html = client.get("/prospects").text
+    assert 'data-canvas="tidy"' in html
+    assert 'aria-label="Arrange the canvas layout"' in html
+    js = (_ROOT / "app/static/js/canvas.js").read_text(encoding="utf-8")
+    assert "function tidy()" in js
+    assert 'action === "tidy"' in js
+    assert "b.zones = {}" in js  # scattered zones are forgotten, not re-applied
+    # resize redraws wires; crossing the stacked/wide breakpoint re-arranges
+    assert 'window.addEventListener("resize"' in js
+    tail = js.split("lastLayoutMode", 1)[1]
+    assert "scheduleWires()" in tail and "applyDefaultLayout()" in tail
+
+
+def test_nav_marks_the_current_screen(db_client) -> None:
+    """Owner: "active state is not working, only hover styling works"."""
+    _, client = db_client
+    board = client.get("/prospects").text
+    assert 'class="nav-link active" data-canvas-view="world"' in board
+    assert '<span class="nav-group-label">Session</span>' in board
+    outreach = client.get("/outreach").text
+    assert 'class="nav-link active" data-canvas-view="outreach"' in outreach
+
+
+def test_cards_have_more_room() -> None:
+    """Owner: "make the cards on canvas bigger with more spacing in and out"."""
+    css = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
+    js = (_ROOT / "app/static/js/canvas.js").read_text(encoding="utf-8")
+    assert "--zone-w: 288px" in css
+    assert "--card-h: 84px" in css
+    assert "--card-gap: var(--space-4)" in css
+    assert "--zone-pad: 12px" in css
+    assert "--card-pad: var(--space-4)" in css
+    assert "var ZONE_W = 288" in js  # layout arithmetic mirrors the CSS token
+    # hover states: fill + lift, never an underline (global a:hover loses)
+    hover = css.split(".setup-card:hover {", 1)[1].split("}", 1)[0]
+    assert "text-decoration: none" in hover and "translateY(-1px)" in hover
+    assert ".canvas-screen a:hover" in css
+    assert ".msg-card:hover" in css
+
+
+def test_danger_zone_copy_is_not_repetitive(db_client) -> None:
+    """Owner trims: no heading/button echoes, no empty-state filler."""
+    db, client = db_client
+    prospect = Prospect(business_name="Copy Sweep Clinic", stage="researched")
+    db.add(prospect)
+    db.commit()
+    html = client.get(f"/prospects/{prospect.id}").text
+    assert "Reason (optional)" in html  # unsuppressed: setting the flag
+    assert "Change stage to" not in html  # the placeholder says it
+    assert ">Move</button>" in html  # not "Change stage" again
+    assert ">Archive</button>" in html  # not "Archive prospect"
+    assert "No notes yet." not in html
+    assert "No activity yet." not in html
+    assert "One primary action at a time" not in html  # confirm dialog owns it
+
+    # suppressed: the same block carries the required-reason label
+    prospect.do_not_contact = True
+    prospect.do_not_contact_reason = "asked to stop"
+    db.commit()
+    html = client.get(f"/prospects/{prospect.id}").text
+    assert "Reason (required)" in html
+    assert "asked to stop" in html

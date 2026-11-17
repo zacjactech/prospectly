@@ -145,7 +145,7 @@ def test_queued_run_polls_for_the_worker() -> None:
         assert r.status_code == 200, r.text
         assert f'hx-get="/prospects/{prospect.id}/research/status"' in r.text
         assert 'hx-trigger="every 2s"' in r.text
-        assert "waiting for the worker" in r.text
+        assert "Waiting for the worker" in r.text
         # Not re-runnable while still queued.
         assert "Re-run research" not in r.text
 

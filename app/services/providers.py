@@ -77,7 +77,7 @@ SPECS: tuple[ProviderSpec, ...] = (
         key_attr="brave_api_key",
         usage_name="brave",
         step="search",
-        note="config only — not used for searches yet",
+        note="config only · not used for searches yet",
     ),
     ProviderSpec(
         "ddgs",
@@ -85,7 +85,7 @@ SPECS: tuple[ProviderSpec, ...] = (
         "search",
         usage_name="ddgs",
         step="search",
-        note="fallback — used only when no keyed search provider is set",
+        note="fallback · used only when no keyed search provider is set",
     ),
     ProviderSpec(
         "bizdata",
@@ -109,7 +109,7 @@ SPECS: tuple[ProviderSpec, ...] = (
         "fetch",
         usage_name="http_fetch",
         step="website_check",
-        note="own fetcher — not an external provider, no cap",
+        note="own fetcher · not an external provider, no cap",
     ),
     ProviderSpec(
         "gemini",
@@ -146,7 +146,7 @@ SPECS: tuple[ProviderSpec, ...] = (
         "template",
         "Template floor",
         "floor",
-        note="zero-key, zero-network drafts — never capped; active when no AI provider is selected",
+        note="zero-key, zero-network drafts · never capped; active when no AI provider is selected",
     ),
 )
 

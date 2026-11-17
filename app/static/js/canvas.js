@@ -7,7 +7,7 @@
   "use strict";
 
   /* ----- constants (mirrored in canvas.css) ----- */
-  var ZONE_W = 264;
+  var ZONE_W = 288;
   var ZONE_GAP_X = 24;
   var ZONE_GAP_Y = 48;
   var BAND_LABEL_H = 36;
@@ -332,6 +332,20 @@
 
   function fitOutreach() {
     fitElement(world ? world.querySelector('[data-region="outreach"]') : null, 56);
+  }
+
+  /* Owner 2026-11-17: "a btn that properly arranges the elements when they
+     are scattered" — forget every dragged zone position, re-run the default
+     arrangement and frame the whole world. */
+  function tidy() {
+    if (!world) return;
+    patchBoard(function (b) {
+      b.zones = {};
+    });
+    applyDefaultLayout();
+    applyStoredZones();
+    scheduleWires();
+    fit();
   }
 
   /* ----- layout (default arrangement, spec §2.3) ----- */
@@ -787,6 +801,11 @@
       if (what === "world") fit();
       else if (what === "board") fitBoardReadable();
       else if (what === "outreach") fitOutreach();
+      /* Active state follows the chosen view (owner 2026-11-17). */
+      var viewLinks = document.querySelectorAll(".nav-link[data-canvas-view]");
+      for (var vi = 0; vi < viewLinks.length; vi++) {
+        viewLinks[vi].classList.toggle("active", viewLinks[vi].getAttribute("data-canvas-view") === what);
+      }
       return;
     }
     var btn = e.target.closest && e.target.closest("[data-canvas]");
@@ -796,6 +815,7 @@
     else if (action === "out") zoomCenter(1 / ZOOM_STEP);
     else if (action === "reset") resetZoom();
     else if (action === "fit") fitBoardReadable();
+    else if (action === "tidy") tidy();
   });
 
   /* Board swaps in place (HTMX): re-init against the fresh DOM. */
@@ -818,6 +838,7 @@
     fitBoardReadable: fitBoardReadable,
     fitOutreach: fitOutreach,
     focusCard: focusCard,
+    tidy: tidy,
     zoom: function () {
       return zoom;
     },
@@ -832,6 +853,31 @@
       return store;
     },
   };
+
+  /* Viewport resize (owner 2026-11-17): wires are geometry, so they always
+     recompute; crossing the stacked/wide breakpoint rebuilds the arrangement
+     the world was laid out for — saved coordinates only fit the layout they
+     were dragged in, and stale ones leave connectors scattered. */
+  var lastLayoutMode = window.innerWidth < 1024 ? "stacked" : "wide";
+  var resizeFrame = 0;
+  window.addEventListener("resize", function () {
+    if (resizeFrame) return;
+    resizeFrame = window.requestAnimationFrame(function () {
+      resizeFrame = 0;
+      if (!vp || !world) return;
+      var mode = window.innerWidth < 1024 ? "stacked" : "wide";
+      if (mode !== lastLayoutMode) {
+        lastLayoutMode = mode;
+        patchBoard(function (b) {
+          b.zones = {};
+        });
+        applyDefaultLayout();
+        applyStoredZones();
+        fit();
+      }
+      scheduleWires();
+    });
+  });
 
   init();
 })();

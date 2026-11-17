@@ -151,13 +151,13 @@
   {% elif latest_run %}
   <p class="muted">No findings recorded yet.</p>
   {% else %}
-  <p class="muted">Not researched yet. Use <strong>Run research</strong> above to collect evidence.</p>
+  <p class="muted">Not researched yet.</p>
   {% endif %}
 </section>
 
 <section class="card">
   {% if prospect.do_not_contact %}
-  <p class="muted">Suppressed — no outreach actions available.</p>
+  <p class="muted">Suppressed: no outreach actions available.</p>
   {% elif opportunities %}
   <div class="action-group">
     <form method="post" action="/prospects/{{ prospect.id }}/opportunities" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/opportunities"{% endif %} {{ hxpost|safe }}>
@@ -192,16 +192,16 @@
     {% endfor %}
   </ul>
   {% else %}
-  <p class="muted">No opportunities yet. Run research — the rule engine proposes evidence-backed outreach reasons.</p>
+  <p class="muted">No opportunities yet. Run research to propose evidence-backed outreach reasons.</p>
   <a class="btn small" href="#detail-research">Go to research</a>
   {% endif %}
 </section>
 
 <section class="card" id="detail-outreach">
   {% if prospect.do_not_contact %}
-  <p class="muted">Suppressed — no drafts, approvals, or WhatsApp actions allowed.</p>
+  <p class="muted">Suppressed: no drafts, approvals or WhatsApp actions.</p>
   {% elif is_terminal %}
-  <p class="muted">This prospect is in a terminal stage — outreach is closed.</p>
+  <p class="muted">Terminal stage: outreach is closed.</p>
   {% elif active_message %}
   <div class="outreach-status">
     <span class="badge stage-{{ active_message.status|replace('_','-') }}">{{ active_message.status|replace('_',' ') }}</span>
@@ -228,11 +228,10 @@
       <button class="btn primary" type="submit">Approve</button>
     </form>
     {% elif active_message.status == "approved" %}
-    <form method="post" action="/messages/{{ active_message.id }}/open" data-confirm="Open WhatsApp with this message prefilled? You press Send in WhatsApp — the app never sends automatically.">
+    <form method="post" action="/messages/{{ active_message.id }}/open" data-confirm="Open WhatsApp with this message prefilled? You press Send in WhatsApp; the app never sends automatically.">
       {{ csrf_field() }}
       <button class="btn primary" type="submit"{% if not has_phone %} disabled title="Add a phone number first" aria-label="Open in WhatsApp (add a phone number first)"{% endif %}>Open in WhatsApp</button>
     </form>
-    {% if not has_phone %}<p class="muted small">Add a phone number to open WhatsApp.</p>{% endif %}
     {% elif active_message.status == "opened_in_whatsapp" %}
     <form method="post" action="/messages/{{ active_message.id }}/confirm-sent" {% if panel_mode %}hx-post="/messages/{{ active_message.id }}/confirm-sent"{% endif %} data-confirm="Did you send this message? Yes confirms it was sent." {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
@@ -250,6 +249,9 @@
     {% endif %}
     <a href="/messages/{{ active_message.id }}/edit" class="btn"{% if panel_mode %} data-panel-href="/messages/{{ active_message.id }}/edit" data-panel-width="560" data-panel-dirty="1"{% endif %}>Edit text</a>
   </div>
+  {% if active_message.status == "approved" and not has_phone %}
+  <p class="muted small action-hint">Add a phone number to open WhatsApp.</p>
+  {% endif %}
   {% else %}
   <div class="action-group">
     <form method="post" action="/prospects/{{ prospect.id }}/draft/generate" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/draft/generate"{% endif %} {{ hxpost_refresh|safe }}>
@@ -258,9 +260,7 @@
     </form>
   </div>
   {% if validated_opps %}
-  <p class="muted small">No active outreach. Generate a draft from validated opportunities and research findings.</p>
-  {% else %}
-  <p class="muted small">Generate draft is disabled until at least one opportunity is validated.</p>
+  <p class="muted small">No active outreach yet.</p>
   {% endif %}
   {% endif %}
 </section>
@@ -338,8 +338,6 @@
     </li>
     {% endfor %}
   </ul>
-  {% else %}
-  <p class="muted">No notes yet.</p>
   {% endif %}
   <form method="post" action="/prospects/{{ prospect.id }}/notes" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/notes"{% endif %} {{ hxpost|safe }}>
     {{ csrf_field() }}
@@ -353,8 +351,8 @@
   </form>
 </section>
 
+{% if activities %}
 <section class="card" id="detail-activity">
-  {% if activities %}
   <ul class="activity-list">
     {% for a in activities %}
     <li>
@@ -364,10 +362,8 @@
     </li>
     {% endfor %}
   </ul>
-  {% else %}
-  <p class="muted">No activity yet.</p>
-  {% endif %}
 </section>
+{% endif %}
 
 <section class="card danger-zone">
   <h3>Danger zone</h3>
@@ -386,7 +382,7 @@
     <form method="post" action="/prospects/{{ prospect.id }}/do-not-contact/clear" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/do-not-contact/clear"{% endif %} {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       <div class="field full">
-        <label for="clear-reason">Reason to clear (required)</label>
+        <label for="clear-reason">Reason (required)</label>
         <input id="clear-reason" type="text" name="reason" maxlength="500" required>
       </div>
       <button class="btn" type="submit" data-confirm="Clear suppression and return this prospect to the pipeline?">Clear suppression</button>
@@ -398,7 +394,7 @@
         <label for="dnc-reason">Reason (optional)</label>
         <input id="dnc-reason" type="text" name="reason" maxlength="500" placeholder="e.g. opt-out received on WhatsApp">
       </div>
-      <button class="btn danger" type="submit" data-confirm="Block all outreach to this prospect?">Do not contact</button>
+      <button class="btn danger" type="submit" data-confirm="Block all outreach to this prospect?">Block outreach</button>
     </form>
     <p class="muted small">Blocks drafts, approvals and WhatsApp actions. Clearing requires a reason.</p>
     {% endif %}
@@ -417,7 +413,7 @@
     {% else %}
     <form method="post" action="/prospects/{{ prospect.id }}/archive" data-confirm="Archive this prospect?">
       {{ csrf_field() }}
-      <button class="btn danger-outline" type="submit">Archive prospect</button>
+      <button class="btn danger-outline" type="submit">Archive</button>
     </form>
     {% endif %}
   </div>
@@ -430,15 +426,15 @@
     <form method="post" action="/prospects/{{ prospect.id }}/stage" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/stage"{% endif %} class="stage-form" {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       <div class="field full">
-        <label for="stage-override">Change stage to</label>
+        <label class="sr-only" for="stage-override">Move to stage</label>
         <div class="stage-override-row">
           <select id="stage-override" name="stage" data-stage-select required>
-            <option value="" selected disabled>Select stage...</option>
+            <option value="" selected disabled>Move to...</option>
             {% for t in next_stages %}
             <option value="{{ t }}">{{ t|replace('_',' ') }}</option>
             {% endfor %}
           </select>
-          <button class="btn" type="submit" data-stage-submit disabled>Change stage</button>
+          <button class="btn" type="submit" data-stage-submit disabled aria-label="Move to the selected stage">Move</button>
         </div>
       </div>
     </form>

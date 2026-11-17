@@ -182,7 +182,7 @@
         );
       })
       .catch(function () {
-        return { ok: false, status: 0, msg: "Network unavailable — the move was not saved." };
+        return { ok: false, status: 0, msg: "Network unavailable: the move was not saved." };
       });
   }
 

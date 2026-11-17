@@ -17,7 +17,7 @@
     {% if latest_run.status == 'running' %}
     <p class="muted">Research in progress… results will appear automatically.</p>
     {% elif latest_run.status == 'queued' %}
-    <p class="muted">Queued — waiting for the worker (<code>python -m app.cli worker</code>). This view refreshes itself.</p>
+    <p class="muted">Queued. Waiting for the worker (<code>python -m app.cli worker</code>); this view refreshes itself.</p>
     {% endif %}
     {% if latest_run.error %}
     <div class="flash error">Research failed: {{ latest_run.error }}</div>
@@ -103,7 +103,6 @@
       </table>
     </div>
     {% else %}
-    <p class="muted">No findings yet. Run research to collect evidence.</p>
     {% endif %}
 
     <h4>Add finding</h4>

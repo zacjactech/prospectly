@@ -6,6 +6,7 @@
 {% set hxpost = 'hx-target="closest .panel-body"' if panel_mode else '' %}
 {% set hxpost_refresh = 'hx-target="closest .panel-body" data-refresh-board' if panel_mode else '' %}
 {% set active_status = message.status|replace('_',' ') %}
+{% set has_phone = prospect.phone_raw or prospect.phone_e164 %}
 <section class="card message-head">
   <a href="/prospects/{{ prospect.id }}" class="message-back"{% if panel_mode %} data-panel-back="/prospects/{{ prospect.id }}"{% endif %}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
@@ -28,7 +29,7 @@
 {% endif %}
 
 <section class="card">
-  <p class="muted small">Edits are logged and demote the message back to draft — approval is invalidated by any change.</p>
+  <p class="muted small">Edits are logged and demote the message back to draft. Approval is invalidated by any change.</p>
   <form method="post" action="/messages/{{ message.id }}/edit" {% if panel_mode %}hx-post="/messages/{{ message.id }}/edit"{% endif %} {{ hxpost|safe }}>
     {{ csrf_field() }}
     <div class="field">
@@ -44,7 +45,7 @@
 
 <section class="card">
   {% if grounded_findings %}
-  <p class="muted small">Findings this draft is based on (AI claims start unverified — verify before relying on them).</p>
+  <p class="muted small">Findings this draft is based on (AI claims start unverified; verify before relying on them).</p>
   <ul class="mini-list">
     {% for f in grounded_findings %}
     <li>
@@ -56,12 +57,11 @@
     {% endfor %}
   </ul>
   {% else %}
-  <p class="muted">No grounded findings. You can still approve — you'll be asked to accept ungrounded content at the approval step.</p>
+  <p class="muted">No grounded findings. You can still approve; you'll accept ungrounded content at approval.</p>
   {% endif %}
 </section>
 
 <section class="card">
-  <p class="muted small">One primary action at a time. The app builds a wa.me link; you press Send in WhatsApp. "Sent" is recorded only by your explicit confirmation.</p>
   <div class="action-group">
     {% if message.status == "draft" %}
     <form method="post" action="/messages/{{ message.id }}/submit" {% if panel_mode %}hx-post="/messages/{{ message.id }}/submit"{% endif %} data-confirm="Submit this draft for review?" {{ hxpost_refresh|safe }}>
@@ -81,9 +81,9 @@
     {% elif message.status == "approved" %}
     {# P1: unchanged flow — the wa.me handoff stays a real POST, and the
        answer is the canvas with this panel open (spec §V2.2). #}
-    <form method="post" action="/messages/{{ message.id }}/open" data-confirm="Open WhatsApp with this message prefilled? You press Send — the app never sends automatically.">
+    <form method="post" action="/messages/{{ message.id }}/open" data-confirm="Open WhatsApp with this message prefilled? You press Send; the app never sends automatically.">
       {{ csrf_field() }}
-      <button class="btn primary" type="submit">Open in WhatsApp</button>
+      <button class="btn primary" type="submit"{% if not has_phone %} disabled title="Add a phone number first" aria-label="Open in WhatsApp (add a phone number first)"{% endif %}>Open in WhatsApp</button>
     </form>
     {% elif message.status == "opened_in_whatsapp" %}
     <form method="post" action="/messages/{{ message.id }}/confirm-sent" {% if panel_mode %}hx-post="/messages/{{ message.id }}/confirm-sent"{% endif %} data-confirm="Did you send this message? Yes confirms it was sent." {{ hxpost_refresh|safe }}>
@@ -101,6 +101,9 @@
     </form>
     {% endif %}
   </div>
+  {% if message.status == "approved" and not has_phone %}
+  <p class="muted small action-hint">Add a phone number to open WhatsApp.</p>
+  {% endif %}
 </section>
 
 <section class="card">
@@ -133,6 +136,6 @@
     {% endif %}
   </dl>
   {% if message.origin == 'ai' %}
-  <p class="history-note muted small">AI-generated — verify every claim before sending (P5)</p>
+  <p class="history-note muted small">AI-generated. Verify every claim before sending.</p>
   {% endif %}
 </section>

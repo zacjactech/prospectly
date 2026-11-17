@@ -309,7 +309,7 @@ def run_research(
                             prospect_id=prospect_id,
                             research_run_id=research_run.id,
                             kind="identity",
-                            statement=f"{r.get('title', '')} — {r.get('snippet', '')}",
+                            statement=f"{r.get('title', '')} · {r.get('snippet', '')}",
                             source_url=r.get("url"),
                             source_type="search_result",
                             verification_status="unverified",

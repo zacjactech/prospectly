@@ -1195,7 +1195,7 @@ def profile_discovery_run(
     queue_discover_job(db, profile_id=profile.id, discovery_job_id=discovery_job.id)
     return RedirectResponse(
         url=(
-            f"/settings/profile?flash={quote('Discovery queued — run the worker (python -m app.cli worker) to process it')}"
+            f"/settings/profile?flash={quote('Discovery queued. Run the worker (python -m app.cli worker) to process it')}"
             "&flash_type=success"
         ),
         status_code=303,
@@ -1276,7 +1276,7 @@ def general_settings_update(
                     "app_name": settings.app_name,
                     "settings": settings,
                     "usage": usage_summary(db),
-                    "error": "Backup failed — is the database a SQLite file?",
+                    "error": "Backup failed: is the database a SQLite file?",
                 },
             )
         return RedirectResponse(

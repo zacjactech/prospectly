@@ -20,7 +20,7 @@
 > floor, so tablet portrait gets the readable stacked flow. Filters and saved
 > views live in the contracted **360px Filters panel**; the toolbar is one
 > compact row (heading · Filters · chips · saved view · Add prospect). Card
-> height is 68px with 12px gaps; density stays full at board fit (floor 0.75).
+> cards are 84px minimum with 16px gaps; density stays full at board fit (floor 0.75).
 > Wire annotations and setup→pipeline connectors are removed (only
 > orthogonal stage-flow connectors remain); setup cards show title + state
 > only. `?stage=` keeps every lane visible and dims the non-matching ones
@@ -45,6 +45,20 @@
 > decelerating ease. Verified: lighthouse a11y 1.0 on board and detail,
 > 0 console errors across 7 routes, 392 tests green.
 >
+> **Owner pass 2026-11-17 (part 2):** an **Arrange** control in the canvas
+> cluster (`data-canvas="tidy"`) forgets every dragged zone position, re-runs
+> the default layout and frames the world; `resize` always redraws the wires
+> and, on crossing the 1024px stacked/wide breakpoint, rebuilds the layout the
+> saved coordinates were made for (fixes scattered connectors after
+> mobile→desktop resize). Cards grew to 84px with 16px gaps / 12px zone
+> padding, setup cards to 248px columns with 24px gaps and a fill + 1px-lift
+> hover (no underline anywhere on canvas links). The active-filter band moved
+> out of the toolbar to a sibling row below it. The drawer gained a **Session**
+> group label with a divider, and nav items mark the current screen (`Home`
+> on /prospects, `Messages` on /outreach; view clicks sync in JS). Head tags
+> ride the right edge in detail and message panels. Copy is em-dash free
+> (verified on rendered HTML) and trimmed of repeat/empty-state lines.
+
 > **Phase 5–6 UX (2026-11-16):** detail/settings/message drawers share 560px
 > with a sticky header; only Import keeps numbered steps; comma-separated
 > fields get chip previews; usage caps are progress bars; the duplicates
@@ -126,7 +140,7 @@ New: app/static/js/canvas.js, app/static/css/canvas.css (tokens only; constants 
 - Four phase bands: 01 QUALIFY (4) · 02 OUTREACH (3) · 03 CONVERT (2) · TERMINAL (1). Phase chip: 24px square, accent-light bg, accent text, mono, radius-sm. Phase label row 36px above its band.
 - Default: horizontal row per band, 48px gaps; first load = fit-to-content capped 1.0.
 - Zone drag: pointer on frame/header only; 8px grid snap; 1px dashed --color-border-strong alignment guides at ±4px edge/center alignment; guides not persisted.
-- Card stacks: 12px gaps; zone body max-height = 4×(CARD_H+CARD_GAP) then internal scroll.
+- Card stacks: 16px gaps (`--card-gap`), zone padding 12px; zone body max-height = 4×(CARD_H+CARD_GAP) then internal scroll.
 - Wires: straight right-mid → next canonical left-mid; recompute rAF-throttled on zone drag.
 
 ### 2.4 States
@@ -136,7 +150,7 @@ New: app/static/js/canvas.js, app/static/css/canvas.css (tokens only; constants 
 - Error: page-level flash banner with request ID; last-known board stays.
 
 ### 2.5 Density (zoom-linked)
-- density-full (zoom ≥0.75): 72px cards (name/meta/flags).
+- density-full (zoom ≥0.75): 84px cards (name/meta/flags).
 - density-compact (<0.75): 40px (name + dots); meta row hidden. Board fit lands 0.75–1.0 on laptops (full cards); whole-world fit and narrow canvases switch to compact.
 
 ### 2.6 localStorage
@@ -146,7 +160,7 @@ Key pl.canvas.v1, one JSON blob, version in-band:
 - cardOrder pruned to server payload IDs each load; cap 500/zone (beyond → server order); unknown IDs append bottom. Multi-tab last-write-wins (documented contract).
 
 ## 3. Cards & nodes
-### 3.1 Prospect card (<article>, 72px, surface bg, hairline, radius-md, 12px h-pad)
+### 3.1 Prospect card (<article>, 84px min, card fill #1f232a, no outline, radius-md, 16px inset via `--card-pad`)
 1. Row1: business_name 13px fw-semibold truncate; right: 6px status dot — --color-warn follow-up due/overdue, --color-accent requires review; never color-alone (paired with flags row text).
 2. Row2 mono --fs-xs muted tabular: category · city ("none" as subtle — P6 honesty).
 3. Row3: StatusBadge vocabulary at --fs-xs: stage, website-status (no_website_found = info, never red — P6), Suppressed/Archived, ai origin accent on active message (P5).

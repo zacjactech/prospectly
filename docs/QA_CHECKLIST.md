@@ -818,3 +818,27 @@ on `/`, `/prospects`, `/prospects/11`, `/prospects/14/research`,
 tests**, ruff/format/mypy clean. Contract tests added: dropped labels, `<h2>`
 titles, human payloads, neutral-vs-signal chips, fused stage tab, no box
 outlines, smooth motion.
+
+
+## Canvas usability pass (owner directives) — 2026-11-17 (part 2)
+
+| Directive | Shipped |
+|---|---|
+| "remove all em dashes between text" | Every rendered route checked: `/prospects`, `/prospects/11`, `/settings/general`, `/settings/providers`, `/outreach`, `/settings/import`, `/settings/usage`, `/prospects/14/research` return **0 em dashes**. Templates, JS strings, service/route messages and the QA DB's provider statements converted (`·` for separators, `.`/`;` for clauses). Python/JS/template *comments* keep them (never rendered); pinned by `test_rendered_pages_carry_no_em_dashes` |
+| "btn that properly arranges the elements when they are scattered" | New **Arrange** control (`data-canvas="tidy"`) beside zoom/fit: clears saved zone positions → default layout → fit the world. `PlCanvas.tidy` exported; pinned by `test_arrange_control_and_layout_reset` |
+| "resize to mobile and back → connecting lines scattered, no reset" | `canvas.js` now listens to `resize`: wires always redraw (rAF), and crossing the 1024px stacked/wide breakpoint drops the saved coordinates (they only fit the layout they were dragged in), re-runs `applyDefaultLayout()` and fits. No viewport-resize tool exists in this browser harness, so the fix is pinned at source level (same test) and should get one manual desktop check |
+| "make the cards on canvas bigger with more spacing in and out" | `--card-h` 72→**84px**, `--card-gap` 12→**16px**, `--zone-pad` 8→**12px**, `--zone-w` 264→**288px** (JS `ZONE_W` mirrored), card inset token `--card-pad` (16px, 12px compact — the fused stage tab follows it), message cards 16px padding, setup grid 248px columns with 24px gaps. `test_cards_have_more_room` |
+| "remove unnecessary texts e.g. No notes yet." | Dropped: `No notes yet.`, `No activity yet.` (card renders only with activity), `No findings yet. Run research…`, `Generate draft is disabled…` (the disabled button's title/aria says it), `Not researched yet. Use Run research above…`, the whole send-chain paragraph (the confirm dialog carries the warning), the `—` placeholder cell in Import |
+| "clean up the Danger zone text" | `Reason (required)`; stage label removed (placeholder `Move to…`), button `Move`; `Archive` (was "Archive prospect"); `Block outreach` (was a second "Do not contact"); status stays inline in the block head. `test_danger_zone_copy_is_not_repetitive` |
+| "remove unnecessary text / labels / elements project-wide" | Sweep: providers notes → `·`, usage `· blocked`, filters/import/general copy rewritten, spec jargon `(P4)`/`(P5)` dropped from user-facing sentences, activity payloads already human, message panel hint placed **outside** the button row, message panel now disables Open-in-WhatsApp without a phone (it was the only surface letting the click fail server-side) |
+| "sidebar: proper grouping and separation" | Drawer gained a **Session** group label with one hairline above it (`.rail-foot` border always on; removed the double rule inside the Sign-out form). `test_nav_marks_the_current_screen` |
+| "active state is not working, only hover styling" | Server marks `Home` active on `/` + `/prospects` and `Messages` on `/outreach` (Status already); canvas view clicks sync `.active` across the rail/drawer |
+| "setup card: no underline on hover, add hover states" | `.canvas-screen a:hover { text-decoration: none }` + setup card = fill step + 1px lift + `--shadow-1`; message cards gained the same fill hover |
+| "filter bar overlapping the top bar" | The active-filter band is now a **sibling row below** the toolbar (was a flex child with `order:10`), verified at 390/768/900/1280/1440. `test_active_filter_band_sits_outside_the_toolbar` |
+| "message head: arrange + tag design (and everywhere else)" | Both heads: name left, **tags riding the right edge**, actions beside them (`.badge-row { margin-left: auto }`), back link on its own line |
+
+Verification: headless captures at 1440 (board, filtered band, 2400px detail,
+message) and 390; gate **398 passed** (64 in the canvas contract suite),
+ruff/format/mypy clean. Manual checks still open: Arrange click
+and the mobile→desktop resize need a real viewport (no resize tool in this
+harness).

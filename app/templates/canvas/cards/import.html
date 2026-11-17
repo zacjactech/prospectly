@@ -16,7 +16,7 @@
     </header>
     <div class="flow-step-body">
       {% if step == 1 %}
-      <p class="muted small">CSV only — max {{ (settings.csv_max_bytes / 1048576)|round(0)|int }} MB, {{ settings.csv_max_rows }} rows.</p>
+      <p class="muted small">CSV only. Max {{ (settings.csv_max_bytes / 1048576)|round(0)|int }} MB, {{ settings.csv_max_rows }} rows.</p>
       <div class="card">
         <form method="post" action="/settings/import" enctype="multipart/form-data">
           {{ csrf_field() }}
@@ -76,8 +76,6 @@
                 <td>
                   {% if row.status == 'valid' %}
                   <input type="checkbox" name="row_indices" value="{{ row.index }}" checked>
-                  {% else %}
-                  <span class="muted small">—</span>
                   {% endif %}
                 </td>
                 <td><strong>{{ row.business_name }}</strong></td>

@@ -480,22 +480,19 @@ body.nav-open .sidenav {
 
 /* Pinned rail foot (Shortcuts, Sign out) — auto-margins to the bottom of
    the flex column in both drawer and rail. */
+/* Pinned foot = its own group (owner 2026-11-17: "proper grouping and
+   separation of groups"): one hairline above the Session group in the drawer,
+   label hidden with the others in the >=768 icon rail. */
 .rail-foot {
   margin-top: auto;
   padding-top: var(--sp-2);
-}
-
-@media (min-width: 768px) {
-  .rail-foot {
-    border-top: 1px solid var(--color-border);
-  }
+  border-top: 1px solid var(--color-border);
 }
 
 .rail-form {
   display: block;
   margin: var(--space-2) 0 0;
   padding-top: var(--space-2);
-  border-top: 1px solid var(--color-border);
 }
 
 /* <button> nav items (Shortcuts, Sign out) behave exactly like links. */
