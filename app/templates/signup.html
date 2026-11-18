@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Create account · {{ app_name }}</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <!-- Open registration (ALLOW_SIGNUP=true); creates a member account. -->
+  <main class="auth-shell">
+    <div class="card auth-card">
+      <div class="brand auth-brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span class="brand-text">{{ app_name }}</span>
+      </div>
+      <h1>Create your account</h1>
+      <p class="muted">New accounts start as members — an owner grants more later.</p>
+
+      {% if error %}
+      <div class="flash error" role="alert">{{ error }}</div>
+      {% endif %}
+
+      <form method="post" action="/signup">
+        {{ csrf_field() }}
+        <div class="form-section full-width">
+          <div class="field full">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username"
+                   autocomplete="username" autofocus required>
+          </div>
+          <div class="field full">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password"
+                   autocomplete="new-password" required>
+          </div>
+          <div class="field full">
+            <label for="confirm">Confirm password</label>
+            <input type="password" id="confirm" name="confirm"
+                   autocomplete="new-password" required>
+          </div>
+        </div>
+        <div class="action-group">
+          <button class="btn primary" type="submit">Create account</button>
+        </div>
+      </form>
+
+      <div class="auth-links">
+        <a href="/login">Already have an account? Sign in</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

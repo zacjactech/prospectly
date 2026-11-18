@@ -10,6 +10,16 @@ Single-user tool; every flow is designed for one operator moving prospects throu
 2. ⚠ Discovery cannot run until a profile exists — it is the filter for who gets surfaced.
 3. Saved as the single owner profile; edit anytime (re-running discovery re-applies the new criteria).
 
+## Flow 0.5 — Sign in / accounts (gate on: `APP_ACCESS_TOKEN` set)
+
+*Owner decision 2026-11-18: full accounts + roles replaced the access-token credential.*
+
+1. **First run:** any page → redirected to `/setup` → create the **owner** account (username, password, confirm) → signed in, lands on the canvas.
+2. **Returning:** `/login` → username + password → canvas (or `?next=` target). Wrong credentials → inline error (same copy for unknown user); 5 failures / minute → wait-a-minute error.
+3. **Forgot password:** `/login` → *Forgot password?* → enter username → the reset link appears on screen (local instance sends no email) → open it → new password (confirm) → every session is signed out → login shows "Password updated".
+4. **Sign out:** account menu → Log out (this device) or Log out everywhere → `/login`.
+5. **Roles:** a `member` hitting Settings / Danger zone / Users sees a 403 "not allowed" page; Users is owner-only; prospects owned by another member are invisible to them (list scoped, direct URL → 404-style denial).
+
 ## Flow 1 — Discover prospects automatically (default path)
 
 1. Open Prospects list → **Run discovery**.

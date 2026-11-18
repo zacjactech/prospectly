@@ -2480,6 +2480,22 @@ kbd {
 }
 
 /* Brand lockup above the sign-in form (8px accent dot + wordmark) */
+/* Secondary links under the auth form (login / signup / reset). */
+.auth-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--fs-sm);
+}
+
+.auth-links a {
+  color: var(--color-link, var(--color-text-muted));
+}
+
 .auth-brand {
   display: flex;
   width: fit-content;

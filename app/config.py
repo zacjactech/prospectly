@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     bind_port: int = 8000
     app_access_token: str | None = None
 
+    # --- Accounts (SECURITY §3, full accounts + roles 2026-11-18) ---
+    # Open self-registration (first account always comes from /setup as owner).
+    allow_signup: bool = False
+    # Cookie Secure flag: False for loopback HTTP; set True behind TLS/LAN
+    # (documented deployment requirement — closes the SECURITY §3 known gap).
+    cookie_secure: bool = False
+
     # --- Phone normalization (E.164 storage, D9) ---
     # ISO-3166 alpha-2 (e.g. US, GB) used when a number has no country code;
     # None = numbers must be in international format (+... / 00...).

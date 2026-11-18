@@ -18,19 +18,28 @@ Scope: a local-first, single-operator tool that stores personal contact data (na
 - **CSP:** `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'`. HTMX/vanilla JS served as static files from our origin (no CDNs).
 - AI output is text — rendered escaped like any user content.
 
-## 3. CSRF & session
+## 3. CSRF & session (accounts + roles, amended 2026-11-18)
 
-- Session cookie: `HttpOnly`, `SameSite=Strict`, `Secure` off only for pure-localhost HTTP (documented), path `/`.
+- Session cookie: `HttpOnly`, `SameSite=Strict`, path `/`, `Secure` from `settings.cookie_secure` (`False` for loopback HTTP; set `COOKIE_SECURE=true` behind TLS — closes the old hardcoded-off gap).
 - Every state-changing request (forms and JSON) requires a per-session CSRF token (double-submit cookie pattern); enforced by middleware for `POST/PATCH/PUT/DELETE`.
-- **Access model:** default bind `127.0.0.1` (no auth needed for loopback). Optional `APP_ACCESS_TOKEN` env: if set, a login gate (`GET/POST /login`) issues a stateless signed session cookie `{expiry_unix}.{HMAC-SHA256(expiry)}` keyed by the token (`HttpOnly; SameSite=Strict; Path=/`, `Secure` currently hardcoded off — see the note below). Every request except `/login`, `/healthz` and `/static/*` requires a valid session — including `/api/docs`, `/api/redoc`, `/api/openapi.json`. Unauthenticated API/JSON requests get `401 {"detail": …}`; HTML gets `302 /login?next=<local path>` (`next` accepts local paths only). The login POST stays CSRF-protected and deletes the `csrf_token` cookie so a fresh token is minted. `POST /logout` clears the session. Startup still refuses a non-loopback bind without a token.
-- Session expiry: 12h **sliding** idle timeout (cookie re-issued as `now+12h` on every authenticated response; no `Max-Age`, so it also dies with the browser). Rotating `APP_ACCESS_TOKEN` invalidates every outstanding session. No rate limiting on `/login` and no server-side revocation list — LAN exposure should sit behind TLS (reverse proxy); plain-HTTP LAN sends the token POST in clear text.
-- **Cookie `Secure` flag (known gap for non-loopback deployments):** `app/auth.py` and `app/csrf.py` pass `secure=False`, which is correct for loopback HTTP but wrong behind TLS. Any LAN/public deployment must terminate TLS **and** flip those flags (a code change — there is no config switch yet) before it should be called secure.
+
+**Access model.** Default bind `127.0.0.1`. `APP_ACCESS_TOKEN` is now only the **gate switch** (plus the non-loopback startup guard): unset ⇒ no auth at all (loopback MVP, unchanged); set ⇒ credentials live in the `users` table.
+
+- **Accounts:** `username` + password hashed with stdlib `hashlib.scrypt` (`n=2**14, r=8, p=1`, 16-byte salt, 32-byte key; self-describing `scrypt$…` store string — no new dependency). Unknown-user logins verify against a dummy hash so timing does not reveal whether a username exists. Password policy: ≥8 chars, not the username, not blank. Usernames: `^[a-z0-9][a-z0-9_.-]{2,39}$`, lowercased, unique.
+- **Roles (fail-closed, `app/services/authz.py`):** `owner` (everything, incl. user management) > `admin` (settings + danger zone, no users) > `member` (operational canvas only). Restricted surfaces: `settings`/`danger` → owner+admin, `users` → owner. Prospect visibility: rows with `owner_id` set are visible to their owner (and to admins/owners); `NULL` = shared. Gate off ⇒ checks pass through (no identity exists).
+- **Sessions:** opaque cookie value (`secrets.token_urlsafe(32)`, no claims) → `user_sessions` row. Server-side revocation: logout, logout-all, disable-user and password reset all delete rows. 12h **sliding** idle expiry, re-extended on authenticated requests when <1h remains (extended *before* the handler runs — SQLite is single-writer, a post-handler UPDATE deadlocks against the handler's own uncommitted write). Values are never logged.
+- **Routes:** `GET/POST /setup` (first run creates the owner while `users` is empty; middleware funnels everything there), `GET/POST /login`, `GET/POST /signup` (env-gated by `ALLOW_SIGNUP`, default off; creates a `member`), `GET/POST /forgot-password` + `GET/POST /reset-password`, `POST /logout`, `POST /logout-all`. Allowlist (no session needed): those pages, `/healthz`, `/static/*`. Unauthenticated API/JSON → `401 {"detail": …}`; HTML → `302 /login?next=<local path>` (`next` accepts local paths only). Permission denials → `403` (HTML error page for browsers, `{"detail": …}` for JSON).
+- **Rate limiting (closes the old "no rate limiting" gap):** 5 attempts / 60s per client-IP + subject, in-memory, on login, setup, signup, forgot and reset. Successful login clears the bucket.
+- **Forgot-password tradeoff (local-first):** there is no email service, so the reset link is **shown on screen** after submitting a username. This makes usernames enumerable on that page (the response differs only by the link) — mitigated by the rate limit above; single-use SHA-256-hashed token, 30-minute TTL, consumed atomically; a successful reset revokes every session.
+- **First run:** with the gate on and an empty `users` table, every path redirects to `/setup`; API callers get JSON `401` (never an HTML page). `POST /logout` clears the cookie **and** deletes the row.
+- LAN/public exposure must sit behind TLS with `COOKIE_SECURE=true` (plain-HTTP LAN sends credentials in clear text).
+
 
 ## 4. Secure local configuration & secret handling
 
 - `.env` gitignored; `.env.example` contains placeholder names only. `.gitignore` also excludes `data/*.db*`, `logs/`, `backups/`, `uploads/`.
 - Secrets read via pydantic-settings; never logged (redaction filter masks `*_KEY`, `*TOKEN*`, `*SECRET*` patterns), never rendered in HTML (provider page shows "configured" booleans only), never placed in URLs/query strings.
-- Startup refuses weak states: LAN bind without a token (the app has no `DEBUG` mode — the guard lives in the `lifespan` hook in `app/main.py`); `.env` file-permissions guidance on Windows (file ACL note in README).
+- Startup refuses weak states: LAN bind without `APP_ACCESS_TOKEN` (the token is also the gate on/off switch; the guard lives in the `lifespan` hook in `app/main.py`); `.env` file-permissions guidance on Windows (file ACL note in README). New account env vars: `ALLOW_SIGNUP` (default false), `COOKIE_SECURE` (default false, loopback HTTP).
 - No third-party telemetry/analytics of any kind.
 
 ## 5. Safe URL fetching (SSRF & abuse) — `SafeFetcher`

@@ -17,10 +17,13 @@
         <span class="brand-text">{{ app_name }}</span>
       </div>
       <h1>Sign in</h1>
-      <p class="muted">This instance is protected by an access token.</p>
+      <p class="muted">Sign in with your Prospectly account.</p>
 
       {% if error %}
       <div class="flash error" role="alert">{{ error }}</div>
+      {% endif %}
+      {% if notice %}
+      <div class="flash success" role="status">{{ notice }}</div>
       {% endif %}
 
       <form method="post" action="/login">
@@ -28,15 +31,25 @@
         <input type="hidden" name="next" value="{{ next or '/' }}">
         <div class="form-section full-width">
           <div class="field full">
-            <label for="access_token">Access token</label>
-            <input type="password" id="access_token" name="access_token"
-                   autocomplete="current-password" autofocus required>
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username"
+                   autocomplete="username" autofocus required>
+          </div>
+          <div class="field full">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password"
+                   autocomplete="current-password" required>
           </div>
         </div>
         <div class="action-group">
           <button class="btn primary" type="submit">Sign in</button>
         </div>
       </form>
+
+      <div class="auth-links">
+        <a href="/forgot-password">Forgot password?</a>
+        {% if allow_signup %}<a href="/signup">Create an account</a>{% endif %}
+      </div>
     </div>
   </main>
 </body>

@@ -189,7 +189,7 @@ provider key required for live data) · `not implemented` = spec gap.
 | No duplicates | pass (partial unique indexes) |
 | Illegal stage / message transitions | 409 |
 | `sent_confirmed` terminal | pass — edits rejected 409 |
-| Access gate (when `APP_ACCESS_TOKEN` set) | pass — 401 JSON / 302 to `/login`, allowlist `/login` + `/healthz` + `/static/*` only; CSRF on login; 12h sliding session (`tests/test_auth.py`, 36 tests) |
+| Access gate (when `APP_ACCESS_TOKEN` set) | pass — 401 JSON / 302 to `/login`, allowlist = auth pages + `/healthz` + `/static/*`; accounts (scrypt) + roles + revocable DB sessions; CSRF + rate limiting on credential POSTs; 12h sliding session (`tests/test_auth.py`, 47 tests) |
 
 ---
 
@@ -221,7 +221,7 @@ Coverage by area (newest first):
   reply form + API (D4), merge identical-findings (N1), merge suppression
   propagation (N3), worker claim resilience (N2), **no inline event
   handlers in any template** (CSP — found by the browser pass)
-- `test_auth.py` — 36: login gate, session cookie, redirects, rotation
+- `test_auth.py` — 47: gate on/off, first-run `/setup`, login success/failure/rate-limit/disabled, CSRF + rotation, session revocation (logout / logout-all / disable / reset), sliding expiry, tampered/expired/garbage cookies, allowlist, `next` open-redirect guard, signup gating, forgot/reset flow, users + authz services
 - `test_discovery_and_views.py` — 11: discovery trigger + worker e2e,
   saved views save/apply/whitelist, follow-up idempotency both surfaces
 - `test_suppression_and_stages.py` — 12: suppression round trips both
@@ -249,7 +249,7 @@ Coverage by area (newest first):
 | Saved Views | Save current list filters; Apply from Settings (whitelisted filters) | ✅ Implemented + tested (2026-11-10) |
 | Fuzzy Merge UI | Prefiltered duplicate review + merge (findings collision-safe, suppression propagated) | ✅ Implemented + tested (2026-11-10) |
 | Retention Sweep | Clamp 1..120 months, truthful `skipped`, clear flag | ✅ Implemented + tested (2026-11-10) |
-| Access gate | `APP_ACCESS_TOKEN` login gate with signed sliding sessions | ✅ Implemented + tested (2026-11-10) |
+| Access gate | `APP_ACCESS_TOKEN` gate switch → accounts (scrypt), roles (owner/admin/member), revocable DB sessions | ✅ Implemented + tested (2026-11-18) |
 
 ## Manual QA walkthrough — 2026-11-10 (post-fix re-verification)
 

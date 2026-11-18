@@ -154,8 +154,12 @@ Moved under Settings because CSV is not the default discovery path. 3-step wizar
 - **General:** category vocabulary editor, default follow-up days, daily caps with **used-today and a "cap reached — calls blocked" badge**, backup button + last-backup timestamp.
 - **Import (CSV):** secondary utility — Upload → Preview → Commit. Not the default discovery path.
 
-### 2.8 Login (only when `APP_ACCESS_TOKEN` is set)
-- Standalone page (does not extend the app chrome — nothing to leak behind a gate): one password-style token field + Sign in, `next` carried as a hidden local path. Wrong token re-renders with an inline error (401); success sets the session, rotates the CSRF cookie and redirects to `next`. Every other page/API redirects here (HTML) or returns 401 (JSON) until signed in. `POST /logout` (CSRF-protected) ends the session.
+### 2.8 Auth pages (only when `APP_ACCESS_TOKEN` is set; amended 2026-11-18)
+- All auth pages are standalone (`.auth-shell` — centered `.auth-card` with brand lockup, no app chrome; nothing to leak behind a gate) and share one layout: `Sign in`, `Set up` (first run), `Create account`, `Reset password`, `Choose a new password`.
+- **Sign in:** username + password fields, `next` carried as a hidden local path; failures re-render with inline error copy (401 invalid credentials — same copy for unknown user and wrong password; 403 disabled; 429 rate-limited); success sets the session cookie, rotates the CSRF cookie and redirects to `next`. Secondary links under a divider (`.auth-links`): *Forgot password?* and — when `ALLOW_SIGNUP=true` — *Create an account*.
+- **Set up (first run):** while the `users` table is empty every path funnels here; creates the **owner** account (username + password + confirm), then signs in. Once any account exists it redirects to `/login`.
+- **Forgot password (local-first):** submits a username; the single-use reset link (30-min TTL) is rendered on the page — no email service exists. **Reset password:** new + confirm password, then every session is revoked and the login page shows a success notice (`?reason=reset`).
+- Session expiry and disabled-account states return to Sign in with `?reason=expired` / `?reason=disabled` notice copy. `POST /logout` / `POST /logout-all` (CSRF-protected) end one/all sessions.
 
 ## 3. Main user journeys (screen-level)
 

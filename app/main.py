@@ -10,7 +10,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -133,6 +133,30 @@ def create_app() -> FastAPI:
     pages.templates.env.globals["csrf_field"] = csrf_field
     # Activity payloads render as readable text (never raw JSON) in the panels.
     pages.templates.env.filters["describe_payload"] = describe_payload
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException) -> Response:
+        """HTML requests get the error page; JSON/API keeps {detail} shape.
+
+        Permission denials (403 from require_permission) and FastAPI's own
+        404s otherwise land in the browser as raw JSON.
+        """
+        accept = request.headers.get("accept", "")
+        is_json = request.url.path.startswith("/api/") or "application/json" in accept
+        if is_json or "text/html" not in accept:
+            return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+        titles = {403: "Not allowed", 404: "Not found", 401: "Sign in required"}
+        return pages.templates.TemplateResponse(
+            request=request,
+            name="error.html",
+            context={
+                "app_name": settings.app_name,
+                "title": titles.get(exc.status_code, "Something went wrong"),
+                "message": str(exc.detail),
+                "detail": None,
+            },
+            status_code=exc.status_code,
+        )
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next: RequestResponseEndpoint) -> Response:

@@ -5,7 +5,7 @@ Two surfaces over one service layer (D3):
 1. **Pages** (`/`) — one server-rendered **Pipeline Canvas** (`docs/design/pipeline-canvas.md` §V2) + HTMX partials for the human UI.
 2. **JSON API** (`/api/v1`) — programmatic contract for tests, automation, and any future UI.
 
-Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamps ISO-8601 UTC; errors as `{ "error": { "code", "message", "details?" } }` (FastAPI `HTTPException` paths — including the access gate's `401 {"detail": …}` — return bare `{"detail": …}`); list endpoints support `?page=&page_size=&sort=&filter...`; **all state-changing JSON endpoints require header `X-CSRF-Token`** (from cookie) — session auth is cookie-based: when `APP_ACCESS_TOKEN` is set, a login gate at `GET/POST /login` issues the session (see `SECURITY_AND_PRIVACY.md` §3).
+Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamps ISO-8601 UTC; errors as `{ "error": { "code", "message", "details?" } }` (FastAPI `HTTPException` paths — including the access gate's `401 {"detail": …}` — return bare `{"detail": …}`); list endpoints support `?page=&page_size=&sort=&filter...`; **all state-changing JSON endpoints require header `X-CSRF-Token`** (from cookie) — session auth is cookie-based: when `APP_ACCESS_TOKEN` is set (the gate switch), `GET/POST /login` authenticates a `users` account and issues a revocable DB-backed session (see `SECURITY_AND_PRIVACY.md` §3).
 
 ---
 
@@ -58,6 +58,22 @@ moved. Retired page templates are gone; `login.html` keeps its own chrome.
 | GET | `/prospects/views/{id}/apply` | Redirect to `/prospects?` with the view's filters |
 | GET | `/outreach` | Canvas framed on the outreach region (messages in flight); `HX-Request` → outreach region fragment only |
 | GET | `/healthz` | Liveness (no auth, no data) |
+
+**Auth pages** (own router, standalone dark chrome, all CSRF-protected POSTs;
+reachable without a session — the allowlist):
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET/POST | `/setup` | First run (empty `users`): create the **owner** account, then sign in. GET redirects to `/login` once any account exists; the gate funnels every path here while none do |
+| GET/POST | `/login` | Sign in (username + password) → issues the session cookie; `?next=<local path>` honoured after login, `?reason=expired\|disabled\|reset` renders the matching copy; already-signed-in GET → `303 /` |
+| GET/POST | `/signup` | Open registration → creates a `member` (only when `ALLOW_SIGNUP=true`, else `303 /login`) |
+| GET/POST | `/forgot-password` | Request a reset link — local-first: the single-use link is rendered on the page (rate limited; enumeration tradeoff documented in SECURITY §3) |
+| GET/POST | `/reset-password` | Consume `?token=`, set a new password, revoke every session → `303 /login?reason=reset` |
+| POST | `/logout` | Revoke this session row + clear the cookie → `303 /login` |
+| POST | `/logout-all` | Revoke every session of the signed-in user → `303 /login` (Account page) |
+
+Errors on these pages re-render the form with `error` copy (200/401/403/429);
+credential endpoints are rate limited (5 attempts / 60s per IP+subject).
 
 HTMX partials return HTML fragments (`HX-Request` header honored); full page
 loads return either the canvas shell (canvas routes + action panels) or the
@@ -191,13 +207,13 @@ AI structured-output schemas reuse the same Pydantic models (`GeneratedDraft`, `
 |---|---|
 | 200/201/202/204 | success / created / accepted (async job) / no content |
 | 400 | malformed request (bad CSV, bad URL) |
-| 401 | missing/invalid access token **or session cookie** (only when `APP_ACCESS_TOKEN` is set); body `{"detail": …}`. Non-API HTML requests get `302 → /login?next=…` instead |
-| 403 | suppressed prospect action; CSRF failure |
+| 401 | no/invalid session cookie or wrong credentials (only when `APP_ACCESS_TOKEN` is set); body `{"detail": …}` for API, login form for HTML. Non-API HTML requests get `302 → /login?next=…` instead |
+| 403 | suppressed prospect action; CSRF failure; role denial (`require_permission` — HTML error page for browsers, `{"detail": …}` for JSON); disabled account; login/setup password-policy violations render the form with 401/403 |
 | 404 | unknown resource |
 | 409 | duplicate prospect; invalid state transition; active-message conflict |
 | 413 | upload too large |
 | 422 | schema validation (FastAPI default, normalized to error envelope) |
-| 429 | provider rate limit surfaced to client (rare; jobs absorb these) |
+| 429 | provider rate limit surfaced to client (rare; jobs absorb these); credential-endpoint rate limit (login/setup/signup/forgot/reset, 5/60s per IP+subject) |
 | 500/502 | unexpected / provider failure — request ID included, no internals leaked |
 
 ## 5. Versioning & stability

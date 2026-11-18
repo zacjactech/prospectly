@@ -27,6 +27,8 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.responses import JSONResponse
 from starlette.types import Message
 
+from app.config import settings
+
 # Methods that mutate state and therefore require a CSRF token.
 _MUTATING_METHODS = frozenset({"POST", "PATCH", "PUT", "DELETE"})
 
@@ -181,6 +183,6 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                 httponly=True,
                 samesite="strict",
                 path="/",
-                secure=False,  # localhost-only in MVP; set True behind TLS/LAN
+                secure=settings.cookie_secure,  # False for loopback; True behind TLS
             )
         return response

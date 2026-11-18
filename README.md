@@ -112,7 +112,9 @@ All keys are documented in `.env.example`. Highlights:
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | defaults to local SQLite file |
-| `BIND_HOST` / `APP_ACCESS_TOKEN` | loopback by default; token **required** if bound beyond loopback. When set, a login gate (`/login`) protects every page and API route except `/healthz` and `/static/*` (12h sliding session) |
+| `BIND_HOST` / `APP_ACCESS_TOKEN` | loopback by default; token **required** if bound beyond loopback. When set, the gate turns on: accounts with scrypt-hashed passwords (`/setup` on first run → owner account, then `/login`) protect every page and API route except `/healthz` and `/static/*` (revocable DB-backed sessions, 12h sliding idle) |
+| `ALLOW_SIGNUP` | `true` opens `/signup` (creates `member` accounts); default `false` — the first account always comes from `/setup` as owner |
+| `COOKIE_SECURE` | `true` sets the `Secure` flag on session + CSRF cookies — required behind TLS/LAN HTTPS; default `false` for loopback HTTP |
 | `TAVILY_API_KEY` / `SERPER_API_KEY` / … | optional search providers (feature-flagged by presence) |
 | `AI_PROVIDER` | `gemini` \| `groq` \| `openrouter` \| `ollama` \| `template` (default floor: `template`) |
 | `*_DAILY_CAP` | enforced daily caps per provider (checked before each call; `0` blocks every call) |
