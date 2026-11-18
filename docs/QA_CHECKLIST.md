@@ -878,3 +878,28 @@ Gate: **400 tests**, ruff/format/mypy clean; 0 console errors on 6 routes.
 | ""Not suppressed" in front not above Reason (optional)" | Badge moved onto the label row: `Reason (optional) [Not suppressed]` (head exists only while suppressed) | Exact-string assert; live panel |
 | "rmove this Overview Research Outreach Activity" | `.detail-tabs` nav removed from the template and its CSS rules deleted; sections reached by scrolling | `assert "detail-tabs" not in html`; live panel |
 | Gate after pass | 401 tests, ruff/format/mypy clean, assets `?v=61` | full suite |
+
+
+## Critique run 2 fixes (impeccable pass) — 2026-11-18
+
+Source: `.impeccable/critique/2026-11-18T05-13-18Z__127-0-0-1-prospects.md`
+(dual-agent, 30/40; trend 32 → 30; detector 4 warnings, all adjudicated false
+positives/defensible). Owner pre-authorized: "proceed wit th fix" — all five
+priority issues in order, no question round.
+
+| Priority issue | Fix | Verified |
+|---|---|---|
+| P1 · `.pending-chip` rendered as a raw UA button (run-1 regression: markup without CSS) | Token styles in canvas.css (field fill, radius-md, control-h-md, mono label, 7px warn dot, accent focus-visible) | CDP computed style: mono 11px, field bg, radius 8, dot 7×7 warn; contract test |
+| P1 · one zoom-out click stripped every safety badge (0.93/1.25 = 0.744 < floor) | `density-compact` hides only `.pc-meta`; the status foot (badges + due text) stays; compensating name-row dot rule removed; spec §2.5 amended | CDP at 74%: foot display=flex, "check failed" badge visible, meta none; `test_compact_density_never_hides_status_foot` |
+| P1 · default framing sliced the pending card at the edge / cut regions with no affordance | `.world-edges` overlay: 64px gradient to bg on each overflowing edge, classes from the content union (world box is 0×0 — absolute children) | CDP: `has-edge-t/r/b` set, `l` correctly off; pixel-probed right edge 31,35,42 → 9,10,12 over exactly 64px; `test_world_edge_fades_mark_cuts` |
+| P2 · documented `/` shortcut dead on the canvas | Falls through to clicking `.filter-open`, then focuses `#panel-root input[name=q]` when the HTMX body lands (poll ≤2s); help row now says "opens Filters" | CDP: keydown `/` → panel open, activeElement=`fp-q`, Escape closes; `test_slash_shortcut_opens_filters_panel` |
+| P2 · chip count stale after approval (outside both swap targets) | Chip always rendered (`hidden` at 0) + `syncPendingChip()` on every outreach swap recounts zone cards, updates text/aria/hidden | CDP real flow: approve pending message → PlBoard.refresh → chip hidden, count 0, zone 0; `test_pending_chip_is_token_styled_and_live` |
+| Heuristic-3 · Arrange discarded manual layouts with no confirm | `data-confirm` on the tidy button + capture-phase click handler for non-form controls (forms keep submit confirm; in-form controls skipped — no double prompts) | Contract test; existing confirms audited (all in-form, unaffected) |
+| Heuristic-10 · gestures absent from help | Help table gains Wheel (zoom / Ctrl+wheel pans) and Drag background rows | `test_help_table_documents_gestures_and_search` |
+| Minors | `.canvas-screen` gets `role="region" aria-label="Pipeline canvas"` (spec §6.3); dead `<g data-system-wires>` + 8 `data-wire-target` attrs + "wired to the region it feeds" comments removed; h1 CSS comment rewritten to match the sans rule; zone-title spec drift recorded in §3.2 | Contract tests |
+
+Corrected during adjudication: A's "`Generate draft` has no stated reason"
+— verified live, `title="Validate at least one opportunity first"` is
+present (tooltip, hover-only). Not a defect.
+
+Gate: full suite + ruff/format/mypy; detector re-run over changed templates.

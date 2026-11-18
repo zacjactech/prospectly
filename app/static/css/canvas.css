@@ -229,8 +229,10 @@
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
-/* The h1 IS the page heading (spec §1.2): mono uppercase micro-label —
-   a deliberate departure from the display-size h1 elsewhere. */
+/* The h1 IS the page heading (spec §1.2): 22px semibold sans — a deliberate
+   departure from the display-size h1 elsewhere. The old "mono uppercase
+   micro-label" treatment left with Phase 6.37 (zone titles too); this comment
+   matched the code again on 2026-11-18, critique run 2. */
 .canvas-toolbar h1 {
   margin: 0 var(--space-1) 0 0;
   font-family: var(--font-sans);
@@ -273,6 +275,50 @@
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
+}
+
+/* Pending-review chip (critique P1, run 2): a real chip in the token system,
+   paired with Filters — the approval queue's entry point must not render as a
+   raw UA button (it computed Arial/gray/outset before this rule existed).
+   Mono = status readout; the warn dot is decoration, the word carries state. */
+.pending-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--color-field);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease;
+}
+
+.pending-chip:hover {
+  background: var(--color-surface-raised);
+}
+
+.pending-chip[hidden] {
+  display: none; /* author display beats the UA [hidden] rule */
+}
+
+.pending-chip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.pending-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--color-warn);
 }
 
 .canvas-viewport {
@@ -768,23 +814,51 @@
 }
 
 /* ===== Density (spec §2.5) =====
-   ≥0.75 = full cards; <0.75 = 40px name + stage tag + dot (meta/foot
-   hidden). The name-row dot is the compact copy so the hot signal survives
-   when the footer is hidden. */
+   ≥0.75 = full cards; <0.75 = compact: meta row hidden, status foot kept
+   (badges + due text never vanish — critique P1 run 2). */
 .canvas-screen.density-compact .prospect-card {
   min-height: 40px;
   --card-pad: var(--space-3);
   padding: var(--card-pad);
 }
 
-.canvas-screen.density-compact .pc-meta,
-.canvas-screen.density-compact .pc-foot {
+/* Meta hides at compact; the status foot NEVER does (critique P1, run 2 +
+   owner 2026-11-18): Suppressed / no website found / due text are safety
+   status (P5/P6) — zooming out to scan is exactly when they must stay
+   readable, and the name-row dot alone was aria-hidden colour. Spec §2.5. */
+.canvas-screen.density-compact .pc-meta {
   display: none;
 }
 
-.canvas-screen.density-compact .pc-dot-compact {
-  display: block;
+/* ===== World overflow fades (critique P1 run 2, owner 2026-11-18) =====
+   The world is always larger than the viewport at the readable floor, so an
+   edge cuts something (setup above, terminal below, the messages region
+   right). A 64px fade to bg turns that cut into a "more this way"
+   affordance instead of a card sliced in half reading as a bug. Four
+   gradients on one overlay; per-edge classes come from the content union
+   in canvas.js (pointer-events: none — pan/drag pass straight through). */
+.world-edges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  --fade-t: transparent;
+  --fade-r: transparent;
+  --fade-b: transparent;
+  --fade-l: transparent;
+  background-image:
+    linear-gradient(to bottom, var(--fade-t), transparent),
+    linear-gradient(to left, var(--fade-r), transparent),
+    linear-gradient(to top, var(--fade-b), transparent),
+    linear-gradient(to right, var(--fade-l), transparent);
+  background-repeat: no-repeat;
+  background-size: 100% 64px, 64px 100%, 100% 64px, 64px 100%;
+  background-position: top, right, bottom, left;
 }
+
+.canvas-viewport.has-edge-t .world-edges { --fade-t: var(--color-bg); }
+.canvas-viewport.has-edge-r .world-edges { --fade-r: var(--color-bg); }
+.canvas-viewport.has-edge-b .world-edges { --fade-b: var(--color-bg); }
+.canvas-viewport.has-edge-l .world-edges { --fade-l: var(--color-bg); }
 
 /* ===== Zoom control cluster (spec §2.2) ===== */
 .canvas-controls {

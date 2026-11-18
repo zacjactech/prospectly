@@ -114,6 +114,24 @@
     true
   );
 
+  /* Same confirm for controls that are NOT form submits (the canvas Arrange
+     button — critique heuristic-3: one misclick discarded a hand-arranged
+     canvas with no undo). Capture phase, so a cancel stops the delegated
+     canvas handler before it runs. Controls inside forms are skipped: their
+     form already confirms at submit, and confirming twice is its own bug. */
+  document.addEventListener(
+    "click",
+    function (e) {
+      var el = e.target.closest && e.target.closest("[data-confirm]");
+      if (!el || el.closest("form")) return;
+      if (!window.confirm(el.getAttribute("data-confirm"))) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    },
+    true
+  );
+
   /* ----- Whole-row navigation: <tr data-href="/prospects/1"> ----- */
   document.querySelectorAll("tr[data-href]").forEach(function (row) {
     row.addEventListener("click", function (e) {
@@ -224,12 +242,35 @@
       return;
     }
 
-    // '/' focuses the first search input on the page.
+    // '/' focuses the first search input on the page. The canvas has none
+    // until the Filters panel opens, so fall through to opening it and focus
+    // its search when the body lands (spec §6.2 — documented and dead until
+    // now, critique P2 run 2).
     if (e.key === "/") {
       if (panelIsOpen()) return;
       e.preventDefault();
       var search = document.querySelector('input[name="q"], input[type="search"]');
-      if (search) search.focus();
+      if (search) {
+        search.focus();
+        return;
+      }
+      var filterOpener = document.querySelector(".filter-open[data-panel-href]");
+      if (filterOpener) {
+        filterOpener.click();
+        var tries = 0;
+        var focusFilterSearch = function () {
+          var field = document.querySelector(
+            "#panel-root input[name='q'], #panel-root input[type='search']"
+          );
+          if (field) {
+            field.focus();
+            if (field.select) field.select();
+            return;
+          }
+          if (++tries < 40) setTimeout(focusFilterSearch, 50); // ~2s for HTMX
+        };
+        setTimeout(focusFilterSearch, 50);
+      }
       return;
     }
 

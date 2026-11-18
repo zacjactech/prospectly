@@ -108,12 +108,18 @@ Ownership: title group (h1 22px semibold + Filters) left; view/action group (Sav
 2. Filters button (opens the 360px panel) with a neutral count badge when filters are active.
 3. Saved views native <select> behind an uppercase "SAVED VIEW" micro-label (existing apply endpoint; "Manage" → /settings/saved-views). Hidden <1280px, where the Filters panel owns saved views.
 4. Add prospect .btn.primary.
-5. Pending-review chip (critique P1, 2026-11-17): when ≥1 message sits in
-   `pending_review`, the toolbar shows a `Pending review · N` button (warn dot,
-   `data-canvas-view="outreach"`) between the spacer and the primary action.
-   Clicking it activates the Messages view (`.active` + `aria-current` + h1 +
-   `replaceState`), so the queue — which sits off the default fit — is always
-   one click away. Hidden when N = 0.
+5. Pending-review chip (critique P1, 2026-11-17; restyled + made live
+   2026-11-18, run 2): a token-styled sibling of Filters — `--color-field`
+   fill, `--radius-md`, `--control-h-md`, mono `--fs-xs` label, 7px
+   `--color-warn` dot (decoration; the word carries state), accent
+   `focus-visible`. **Always rendered** (the `hidden` attribute at N = 0,
+   which the author `display` must beat) because the chip lives outside both
+   swap targets: after every outreach-region swap `syncPendingChip()`
+   recounts `.msg-card` in the `pending_review` zone, updates the number and
+   aria-label, and shows/hides — so approving the last message can never
+   leave a stale "Pending review · 1" (critique P2 run 2). Clicking it
+   activates the Messages view (`.active` + `aria-current` + h1 +
+   `replaceState`).
 6. Active filters render as a full-width band under the row: --color-bg, 1px top hairline, 12px vertical padding, uppercase ACTIVE label, 32px removable chips with 13px text and 8px gaps, then a hairline-separated Clear all / Show all zones text action. Nothing when unfiltered. Below 1024px the band's separators drop when the clears wrap.
 
 ### 1.3 Mobile shell (<768px)
@@ -135,6 +141,22 @@ New: app/static/js/canvas.js, app/static/css/canvas.css (tokens only; constants 
 | wheel | zoom at cursor |
 | Ctrl/Cmd+wheel | pan deltaX/deltaY (trackpad pinch also arrives as ctrl+wheel) |
 | touch two-finger | disabled <1024 (no transform layer); ≥1024 tablets same synthetic path |
+
+Overflow fades (critique P1 run 2, 2026-11-18): the world is always larger
+than the viewport at the readable floor, so an edge cuts something (setup
+above, terminal below, messages right). A `.world-edges` overlay paints a
+64px gradient to `--color-bg` on each overflowing edge — `.has-edge-t/r/b/l`
+on the viewport, computed from the **content union** (the world shrink-wraps
+to 0×0; every child is absolutely positioned, so its offset box cannot be
+used for overflow math). `pointer-events: none`, so pan/drag pass through.
+The cut then reads as "more this way" instead of a card sliced in half.
+
+Arrange (`data-canvas="tidy"`) confirms before running (2026-11-18): it
+re-frames the world and forgets every manual zone position — one misclick
+with no undo was a heuristic-3 failure. Non-form `data-confirm` controls are
+honoured by a capture-phase click handler in app.js (form controls keep their
+submit-time confirm; controls inside a form are skipped so nothing confirms
+twice).
 | keyboard | +/= in, − out, 0 reset 100%, f fit; step ×/÷1.25 |
 - Zoom clamp 0.5–2.0. Anchor = cursor (wheel) or viewport center (keys/buttons).
 - Control cluster bottom-right fixed: vertical pill, --color-surface-raised, hairline, --shadow-1, --radius-lg: [−] [zoom% button = reset] [+] [⤢ Fit]; real buttons, aria-labels, mono --fs-xs tabular readout.
@@ -157,7 +179,7 @@ New: app/static/js/canvas.js, app/static/css/canvas.css (tokens only; constants 
 
 ### 2.5 Density (zoom-linked)
 - density-full (zoom ≥0.75): 84px cards (name/meta/flags).
-- density-compact (<0.75): 40px (name + dots); meta row hidden. Board fit lands 0.75–1.0 on laptops (full cards); whole-world fit and narrow canvases switch to compact.
+- density-compact (<0.75): meta row hidden, **status foot kept** — badges (`Suppressed`, `no website found`, `ai`, …) and due/overdue text never vanish at any zoom (owner 2026-11-18 + critique P1 run 2: one `−` click from the 0.93 fit computes 0.744 and used to strip every safety badge exactly when scanning wider; P5/P6 status must survive density, and the compact name-row dot alone was aria-hidden colour). Board fit lands 0.75–1.0 on laptops (full cards); whole-world fit and narrow canvases switch to compact.
 
 ### 2.6 localStorage
 Key pl.canvas.v1, one JSON blob, version in-band:
@@ -184,6 +206,10 @@ Interactions: click/Enter → detail panel; drag → stage transition; m (or car
 
 ### 3.2 Zone header (36px)
 Phase chip (on band, not every zone) · stage label mono uppercase --fs-xs tracking-label text · count mono tabular muted right (0 → subtle). Hot count dots warn/accent.
+> **Drift recorded 2026-11-18 (critique run 2):** the implementation renders
+> zone titles as 17px semibold sans sentence-case (Phase 6.37 override — the
+> code comment explains why; this line kept the pre-6.37 description). The
+> shipped code is authoritative; amend here rather than silently reverting UI.
 
 ### 3.3 Flow-step nodes
 Dashboard: existing 01→02→03 flow cards + "→ Open pipeline" per phase linking /prospects. Board: chips in band headers; wires carry arrows (aria-hidden; numbers/order carry meaning). Outreach: 01 PENDING REVIEW → 02 APPROVED → 03 OPENED IN WHATSAPP.

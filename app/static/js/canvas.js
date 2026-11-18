@@ -116,6 +116,36 @@
     if (!world) return;
     world.style.transform =
       "translate(" + panX + "px, " + panY + "px) scale(" + zoom + ")";
+    updateEdgeFades();
+  }
+
+  /* Which viewport edges cut content? Measured from the content union
+     (every world child is absolutely positioned — the world itself shrink-
+     wraps to 0x0, so its offset box is useless here). Toggles .has-edge-*,
+     which light the matching gradient on the .world-edges overlay. */
+  function updateEdgeFades() {
+    if (!vp || !world) return;
+    var r = vp.getBoundingClientRect();
+    var minX = Infinity;
+    var minY = Infinity;
+    var maxX = -Infinity;
+    var maxY = -Infinity;
+    var nodes = world.querySelectorAll(
+      ".canvas-zone, .setup-cluster, .region-label, .band-label, .msg-zone"
+    );
+    for (var i = 0; i < nodes.length; i++) {
+      var b = nodes[i].getBoundingClientRect();
+      if (b.width < 1 && b.height < 1) continue;
+      if (b.left < minX) minX = b.left;
+      if (b.top < minY) minY = b.top;
+      if (b.right > maxX) maxX = b.right;
+      if (b.bottom > maxY) maxY = b.bottom;
+    }
+    if (minX === Infinity) return;
+    vp.classList.toggle("has-edge-t", minY < r.top - 8);
+    vp.classList.toggle("has-edge-r", maxX > r.right + 8);
+    vp.classList.toggle("has-edge-b", maxY > r.bottom + 8);
+    vp.classList.toggle("has-edge-l", minX < r.left - 8);
   }
 
   var densityMode = null;
@@ -358,6 +388,25 @@
     applyDefaultLayout();
     applyStoredZones();
     scheduleWires();
+    updateEdgeFades();
+  }
+
+  /* The pending chip lives in the toolbar, outside both swap targets, so it
+     went stale after approvals (critique P2: "Pending review · 1" survived
+     approving the last message). Recount it from the fresh outreach DOM on
+     every region swap; hidden at zero (the markup is always rendered). */
+  function syncPendingChip() {
+    var chip = document.querySelector("[data-pending-chip]");
+    if (!chip) return;
+    var zone = document.querySelector('#outreach-root [data-msg-zone="pending_review"]');
+    var n = zone ? zone.querySelectorAll(".msg-card").length : 0;
+    var count = chip.querySelector(".pending-count");
+    if (count) count.textContent = String(n);
+    chip.hidden = n === 0;
+    chip.setAttribute(
+      "aria-label",
+      "Pending review · " + n + ": " + n + " awaiting approval, show the messages region"
+    );
   }
 
   function tidy() {
@@ -814,6 +863,7 @@
     vp.addEventListener("wheel", onWheel, { passive: false });
 
     scheduleWires();
+    updateEdgeFades();
   }
 
   /* Controls cluster (real buttons, spec §2.2) + rail view actions (§V2.4). */
@@ -858,7 +908,10 @@
     var t = e.detail.target;
     if (!t) return;
     if (t.id === "board-root") init(); // fresh zones → rebind + relayout
-    else if (t.id === "outreach-root") relayout(); // fresh region → reposition
+    else if (t.id === "outreach-root") {
+      relayout(); // fresh region → reposition
+      syncPendingChip(); // and the toolbar count is now fresh too
+    }
   });
 
   document.addEventListener("focusin", function (e) {
@@ -907,6 +960,7 @@
       resizeFrame = 0;
       if (!vp || !world) return;
       var mode = window.innerWidth < 1024 ? "stacked" : "wide";
+      updateEdgeFades(); // viewport rect changed even when the mode did not
       if (mode !== lastLayoutMode) {
         lastLayoutMode = mode;
         patchBoard(function (b) {

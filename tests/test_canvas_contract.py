@@ -902,7 +902,10 @@ def test_toolbar_surfaces_the_approval_queue(db_client) -> None:
     carries its count and pans to it."""
     db, client = db_client
     plain = client.get("/prospects").text
-    assert "pending-chip" not in plain
+    # always rendered (client recounts it on every outreach swap) but hidden at 0
+    chip = re.search(r"<button[^>]*data-pending-chip[^>]*>", plain)
+    assert chip, "chip must always render"
+    assert "hidden" in chip.group(0), "hidden while nothing is pending"
 
     prospect = Prospect(business_name="Queue Watch Ltd", stage="outreach_ready")
     db.add(prospect)
@@ -918,8 +921,11 @@ def test_toolbar_surfaces_the_approval_queue(db_client) -> None:
     db.commit()
 
     html = client.get("/prospects").text
+    chip = re.search(r"<button[^>]*data-pending-chip[^>]*>", html)
+    assert chip and "hidden" not in chip.group(0), "visible while pending"
     assert 'class="pending-chip"' in html
-    assert "Pending review · 1" in html
+    assert "Pending review · " in html
+    assert '<span class="pending-count">1</span>' in html
     assert 'data-canvas-view="outreach"' in html
     # accessible name must contain the visible label verbatim
     # (Lighthouse: label-content-name-mismatch)
@@ -956,3 +962,125 @@ def test_card_drag_positions_in_world_space() -> None:
 
     canvas = (_ROOT / "app/static/js/canvas.js").read_text(encoding="utf-8")
     assert "world: function ()" in canvas  # the accessor board.js needs
+
+
+def test_pending_chip_is_token_styled_and_live() -> None:
+    """Critique P1 run 2: the chip rendered as a raw UA button (no rule in the
+    repo), and P2: its count went stale because it lives outside both swap
+    targets. Both are pinned here."""
+    css = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
+    chip = css.split(".pending-chip {", 1)[1].split("}", 1)[0]
+    assert "var(--color-field)" in chip  # token fill, not UA gray
+    assert "var(--radius-md)" in chip
+    assert "font-family: var(--font-mono)" in chip
+    assert "cursor: pointer" in chip
+    dot = css.split(".pending-dot {", 1)[1].split("}", 1)[0]
+    assert "width: 7px" in dot and "var(--color-warn)" in dot  # dot actually paints
+    assert ".pending-chip[hidden]" in css  # author display beats UA [hidden]
+    assert ".pending-chip:focus-visible" in css
+
+    js = (_ROOT / "app/static/js/canvas.js").read_text(encoding="utf-8")
+    sync = js.split("function syncPendingChip()", 1)[1].split("function tidy()", 1)[0]
+    assert '[data-msg-zone="pending_review"]' in sync
+    assert ".msg-card" in sync
+    assert "chip.hidden = n === 0" in sync
+    after = js.split('t.id === "outreach-root"', 1)[1][:220]
+    assert "syncPendingChip()" in after
+
+
+def test_compact_density_never_hides_status_foot() -> None:
+    """Critique P1 run 2: one zoom-out click (0.93/1.25=0.744 < floor) used to
+    strip Suppressed / no website found / due text from every card — safety
+    status (P5/P6) must survive every density. The meta row still hides (the
+    density trade spec §2.5 keeps)."""
+    css = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
+    for m in re.finditer(r"\.canvas-screen\.density-compact[^{]*\{[^}]*\}", css):
+        block = m.group(0)
+        if ".pc-foot" in block:
+            assert "display: none" not in block, f"foot hidden at compact: {block}"
+    assert re.search(r"\.canvas-screen\.density-compact \.pc-meta \{\s*display: none;", css), (
+        "meta row must still hide at compact"
+    )
+
+
+def test_world_edge_fades_mark_cuts() -> None:
+    """Critique P1 run 2 (framing): the default view slices the pending card
+    at the right edge and cuts the setup cluster above — an overlay marks every
+    overflowing edge as "more this way" instead of a rendering bug.
+
+    The fades are driven from the content union (the world shrink-wraps to
+    0x0 — every child is absolutely positioned — so its offset box cannot be
+    used for overflow math).
+    """
+    shell = (_ROOT / "app/templates/canvas/shell.html").read_text(encoding="utf-8")
+    assert '<div class="world-edges" aria-hidden="true"></div>' in shell
+    assert (
+        shell.index("data-canvas-world")
+        < shell.index("world-edges")
+        < shell.index("canvas-controls")
+    ), "overlay sits above the world, below the controls"
+
+    css = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
+    assert ".world-edges" in css and "pointer-events: none" in css.split(".world-edges {", 1)[1]
+    for edge in "trbl":
+        assert f".canvas-viewport.has-edge-{edge} .world-edges" in css
+
+    js = (_ROOT / "app/static/js/canvas.js").read_text(encoding="utf-8")
+    fades = js.split("function updateEdgeFades()", 1)[1].split("var densityMode", 1)[0]
+    assert ".canvas-zone, .setup-cluster, .region-label, .band-label, .msg-zone" in fades
+    assert 'classList.toggle("has-edge-r"' in fades
+    assert (
+        "updateEdgeFades();"
+        in js.split("function applyTransform()", 1)[1].split("function updateEdgeFades()", 1)[0]
+    )
+
+
+def test_help_table_documents_gestures_and_search() -> None:
+    """Critique heuristic-10 gap: the gestures that define a canvas appeared
+    nowhere in help, and `/` was documented without saying it opens Filters."""
+    html = (_ROOT / "app/templates/base.html").read_text(encoding="utf-8")
+    assert "Focus search (opens Filters)" in html
+    assert "Wheel" in html and "Ctrl+wheel pans" in html
+    assert "Drag background" in html and "drag a zone to rearrange" in html
+
+
+def test_slash_shortcut_opens_filters_panel() -> None:
+    """Critique P2 run 2: `/` was documented and dead on the canvas (no
+    search input exists there). It now falls through to the Filters panel and
+    focuses its search when the HTMX body lands."""
+    js = (_ROOT / "app/static/js/app.js").read_text(encoding="utf-8")
+    seg = js.split('if (e.key === "/")', 1)[1].split("// j/k", 1)[0]
+    assert ".filter-open[data-panel-href]" in seg
+    assert "#panel-root input[name='q']" in seg
+    assert "focusFilterSearch" in seg and "setTimeout" in seg
+
+
+def test_canvas_landmark_and_dead_wire_contract_removed() -> None:
+    """Spec §6.3 promises a named canvas region; the run-2 review found the
+    promise unmet and the wire contract dead (0 system-wire paths render,
+    no JS reads the attributes)."""
+    shell = (_ROOT / "app/templates/canvas/shell.html").read_text(encoding="utf-8")
+    assert 'role="region" aria-label="Pipeline canvas"' in shell
+    assert "data-system-wires" not in shell  # dead group, no JS reference
+    assert "read-only wire layer" not in shell  # comment claimed setup connectors
+
+    setup = (_ROOT / "app/templates/partials/canvas_setup_cluster.html").read_text(encoding="utf-8")
+    assert "data-wire-target" not in setup  # 8 attrs, zero readers
+    assert "wired to the region it feeds" not in setup
+
+
+def test_arrange_confirms_and_nonform_confirms_are_wired() -> None:
+    """Heuristic-3: Arrange silently discarded a hand-arranged canvas. The
+    tidy button now carries data-confirm, and app.js honours data-confirm on
+    controls OUTSIDE forms (capture phase, before the delegated canvas
+    handler) while skipping in-form controls so nothing confirms twice."""
+    shell = (_ROOT / "app/templates/canvas/shell.html").read_text(encoding="utf-8")
+    m = re.search(r'<button[^>]*data-canvas="tidy"[^>]*>', shell, re.S)
+    assert m, "tidy button missing"
+    assert 'data-confirm="Arrange resets every manually placed zone' in m.group(0)
+
+    js = (_ROOT / "app/static/js/app.js").read_text(encoding="utf-8")
+    seg = js.split("Same confirm for controls", 1)[1].split("Whole-row navigation", 1)[0]
+    assert 'closest("[data-confirm]")' in seg
+    assert 'el.closest("form")' in seg  # in-form controls skip (no double confirm)
+    assert "stopImmediatePropagation" in seg
