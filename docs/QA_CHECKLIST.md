@@ -958,3 +958,12 @@ USER_FLOWS wording, canvas-implementation-tasks amendment.
   verified gone in their own tab (compactOverflow []), each of the6 tabs shows
   exactly its own panel at 390/760, strip hidden + all6 groups visible at
   1440, 0 console errors. Test: test_phase_tabs_group_the_stacked_board.
+
+- **Card click → side panel on desktop (2026-11-18):** owner "when i click on
+  card on canvas it opening the panel in full screen for desktop instead of
+  the side panel". board.js now opens the detail as the 560px slide-over when
+  `innerWidth >= 768` (with the card panned into view via focusCard) and only
+  navigates to the full-screen detail page on the phone. Verified by CDP:
+  1431px → panel w560 sideSheet (canvas intact, URL unchanged), 768px → same,
+  390px → PlPanel.open NOT called (navigate branch). Deep links still land on
+  the detail tab page at any width.

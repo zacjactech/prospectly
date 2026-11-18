@@ -1193,13 +1193,16 @@ def test_canvas_links_navigate_instead_of_opening_panels() -> None:
     assert panel_hrefs <= {"/prospects/filters", "/prospects/new", "{{ filters_href }}"}
 
     board = (_ROOT / "app/static/js/board.js").read_text(encoding="utf-8")
-    click = (
-        board.split("Card click →", 1)[1]
-        .split("document.addEventListener", 1)[1]
-        .split("});", 1)[0]
-    )
-    assert 'window.location.href = "/prospects/"' in click
-    assert "PlPanel.open" not in click
+    # a fixed window: the handler contains inner `});` (rAF) that would
+    # truncate a split-based extraction before the navigation line
+    click = board.split("Card click →", 1)[1][:1500]
+    # owner 2026-11-18: desktop/tablet (>=768) gets the side panel back;
+    # only the phone navigates to the full-screen detail page
+    assert "window.innerWidth >= 768" in click
+    assert "PlPanel.open" in click and "width: 560" in click
+    assert 'var href = "/prospects/"' in click
+    assert "window.location.href = href" in click
+    assert "focusCard" in click
 
     appjs = (_ROOT / "app/static/js/app.js").read_text(encoding="utf-8")
     gs = appjs.split('target === "s"', 1)[1].split("}", 1)[0]

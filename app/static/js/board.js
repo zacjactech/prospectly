@@ -510,10 +510,12 @@
     startCardDrag(e, card);
   });
 
-  /* Card click → the standalone detail page (owner 2026-11-18: retired views
-     are tab-based pages, no canvas behind them — the panel opener is gone).
-     Drags and inner controls are excluded: a real drag suppresses the
-     trailing click. */
+  /* Card click → the detail. Desktop/tablet (>=768): the side panel slides in
+     over the canvas (owner 2026-11-18: "opening the panel in full screen for
+     desktop instead of the side panel" — full-screen is the phone's
+     treatment). Phone: navigate to the standalone detail tab page (full
+     screen, browser back works). Drags and inner controls are excluded: a
+     real drag suppresses the trailing click. */
   document.addEventListener("click", function (e) {
     if (Date.now() - lastDragEnd < CLICK_SUPPRESS_MS) return;
     var card = e.target.closest && e.target.closest(".prospect-card");
@@ -522,7 +524,19 @@
     if (selectedCard && selectedCard !== card) selectedCard.classList.remove("selected");
     selectedCard = card;
     card.classList.add("selected");
-    window.location.href = "/prospects/" + encodeURIComponent(card.getAttribute("data-id"));
+    var href = "/prospects/" + encodeURIComponent(card.getAttribute("data-id"));
+    if (window.innerWidth >= 768 && window.PlPanel) {
+      window.PlPanel.open(href, { width: 560, invoker: card });
+      /* Pan (never zoom) so the selected card stays visible beside the
+         drawer (spec §1.2). */
+      if (window.PlCanvas && window.PlCanvas.focusCard) {
+        requestAnimationFrame(function () {
+          window.PlCanvas.focusCard(card);
+        });
+      }
+      return;
+    }
+    window.location.href = href; // phone → full-screen detail page
   });
 
   document.addEventListener("pl:panel-closed", function () {
