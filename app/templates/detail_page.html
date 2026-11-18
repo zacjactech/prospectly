@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{# Prospect detail as a standalone tab-based page (owner 2026-11-18): no
+   canvas behind it; the tab strip jumps to the four sections of the shared
+   partial (active state follows the hash). The partial's own detail-head is
+   still in the DOM for fragment parity — CSS hides it here because the page
+   head owns the name, badges and Edit action. #}
+{% block content %}
+<div class="standalone-page detail-page">
+  <div class="page-head">
+    <div class="grow">
+      <h1>{{ prospect.business_name }}</h1>
+      <div class="badge-row">
+        <span class="badge stage-{{ prospect.stage|replace('_','-') }}">{{ prospect.stage|replace('_',' ') }}</span>
+        {% if prospect.archived_at %}<span class="badge muted">Archived</span>{% endif %}
+        {% if prospect.category %}<span class="badge">{{ prospect.category }}</span>{% endif %}
+        {% for t in prospect.tags %}<span class="badge tag">{{ t.name }}</span>{% endfor %}
+      </div>
+    </div>
+    <a href="/prospects/{{ prospect.id }}/edit" class="btn">Edit details</a>
+  </div>
+  <nav class="tab-strip" aria-label="Prospect sections">
+    <a href="#detail-overview" class="active" aria-current="true">Overview</a>
+    <a href="#detail-research">Research</a>
+    {% if not prospect.do_not_contact %}<a href="#detail-outreach">Outreach</a>{% endif %}
+    <a href="#detail-activity">Activity</a>
+  </nav>
+  <div class="page-section">{% include "partials/panel_detail.html" %}</div>
+</div>
+{% endblock %}

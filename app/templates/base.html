@@ -19,8 +19,8 @@
   <meta name="theme-color" content="#0b0c0e">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/static/css/app.css?v=62">
-  <link rel="stylesheet" href="/static/css/canvas.css?v=62">
+  <link rel="stylesheet" href="/static/css/app.css?v=64">
+  <link rel="stylesheet" href="/static/css/canvas.css?v=64">
   {# htmx settles class/width/height across element-replacing swaps. It also
      settles `style` by default, which is a style-attribute write that our
      hash-only style-src CSP blocks (it surfaced as a console violation after
@@ -28,10 +28,10 @@
      style attribute is excluded here rather than whitelisting the hash. #}
   <meta name="htmx-config" content='{"attributesToSettle":["class","width","height"]}'>
   <script src="/static/js/htmx.min.js" defer></script>
-  <script src="/static/js/app.js?v=62" defer></script>
-  <script src="/static/js/panel.js?v=62" defer></script>
-  <script src="/static/js/canvas.js?v=62" defer></script>
-  <script src="/static/js/board.js?v=62" defer></script>
+  <script src="/static/js/app.js?v=64" defer></script>
+  <script src="/static/js/panel.js?v=64" defer></script>
+  <script src="/static/js/canvas.js?v=64" defer></script>
+  <script src="/static/js/board.js?v=64" defer></script>
 </head>
 {# Slim mobile header title, derived from the path so no content template
    needs a new block (spec §1 amendment 2026-11-11). #}
@@ -69,6 +69,14 @@
       </button>
       <a href="/" class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2.5"></circle><circle cx="19" cy="6" r="2.5"></circle><circle cx="19" cy="18" r="2.5"></circle><path d="M7.4 11 16.6 6.9M7.4 13 16.6 17.1"></path></svg></span><span class="brand-text">{{ app_name }}</span></a>
       <span class="app-header-title">{{ page_title() }}</span>
+      {# The one accent action on phone lives in the header (owner 2026-11-18):
+         the toolbar's full-width Add prospect competed with everything; hidden
+         >=768 where the toolbar owns it. #}
+      <a href="/prospects/new" class="btn primary header-add"
+         data-panel-href="/prospects/new" data-panel-width="560" data-panel-dirty="1"
+         aria-label="Add prospect" title="Add prospect">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      </a>
     </header>
 
     <!-- App navigation (Pipeline Canvas spec §1.1): 56px icon rail >=768px
@@ -106,7 +114,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>
             <span class="nav-text">Messages</span>
           </button>
-          <a href="/status" class="nav-link{% if request.url.path == '/status' %} active{% endif %}" data-panel-href="/status" data-panel-width="560" title="Status" aria-label="Open the status card" data-tip="Status">
+          <a href="/status" class="nav-link{% if request.url.path == '/status' %} active{% endif %}" title="Status" aria-label="Open the status card" data-tip="Status">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
             <span class="nav-text">Status</span>
           </a>

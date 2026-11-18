@@ -336,6 +336,12 @@ textarea:focus-visible {
   border-bottom: 1px solid var(--color-border);
 }
 
+/* Phone's one accent action rides the header (owner 2026-11-18); hidden on
+   desktop where the toolbar owns Add prospect. */
+.header-add {
+  display: none;
+}
+
 .app-header-title {
   margin-left: auto;
   min-width: 0;
@@ -2482,4 +2488,185 @@ kbd {
 .zone-title,
 .msg-zone-title {
   line-height: 1.25;
+}
+
+/* ===== Standalone pages (owner 2026-11-18: retired views are real pages) =====
+   Settings/status/merge/research/detail/message-edit render here instead of
+   the canvas shell with a pre-opened panel. One layout, one rhythm: page head
+   → tab strip → content cards. */
+.standalone-page {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4) var(--space-6);
+}
+
+.standalone-page .page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.standalone-page .page-head h1 {
+  margin: 0;
+  font-size: 1.375rem; /* matches the canvas toolbar h1 — one heading voice */
+  font-weight: var(--fw-semibold);
+  line-height: 1.25;
+}
+
+.standalone-page .page-head .muted {
+  margin: var(--space-1) 0 0;
+}
+
+/* The included partials keep their panel heading in the DOM for HTMX
+   fragment parity (tests + panel reuse); the page h1 owns the visible title. */
+.standalone-page .panel-heading,
+.standalone-page .prospect-name,
+.detail-page .detail-head {
+  display: none;
+}
+
+/* Content rhythm: cards stack with one gap, first card flush to the head. */
+.page-section > .card + .card {
+  margin-top: var(--space-4);
+}
+
+/* ----- Tab strip (settings sections + prospect sections) -----
+   Borderless system: active = accent underline + text step, no pills.
+   Horizontally scrollable on phones; sticky under the mobile header. */
+.tab-strip {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--color-bg);
+}
+
+.tab-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-strip a {
+  flex: none;
+  padding: 10px 14px;
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px; /* underline sits on the strip's hairline */
+}
+
+.tab-strip a:hover {
+  color: var(--color-text);
+}
+
+.tab-strip a.active {
+  color: var(--color-text);
+  border-bottom-color: var(--color-accent);
+}
+
+.tab-strip a:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+/* Detail reads at a comfortable measure; settings uses the full page. */
+.detail-page {
+  max-width: 54rem;
+}
+
+@media (max-width: 767px) {
+  .standalone-page {
+    padding: var(--space-4) var(--space-3) var(--space-6);
+  }
+
+  /* Sticky under the mobile app header (52px). */
+  .tab-strip {
+    top: var(--topbar-h);
+    margin-left: calc(-1 * var(--space-3));
+    margin-right: calc(-1 * var(--space-3));
+    padding: 0 var(--space-3);
+  }
+
+  .standalone-page .page-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+
+/* ===== Touch floor (adapt: detect input method, not screen size) =====
+   Every control reaches 44px on coarse pointers and phone widths; mouse
+   desktops keep the dense 36px layout. Owner2026-11-18 (mobile audit:
+   buttons were 36px, dashboard list links 20px). */
+@media (pointer: coarse), (max-width: 767px) {
+  .btn,
+  .pending-chip,
+  .filter-open,
+  .icon-btn,
+  .pc-icon-btn,
+  .mobile-menu-toggle,
+  .nav-close,
+  .panel-close,
+  .nav-link,
+  .tab-strip a,
+  .filter-pill,
+  summary,
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    min-height: 44px;
+  }
+
+  .icon-btn,
+  .pc-icon-btn,
+  .mobile-menu-toggle,
+  .nav-close,
+  .panel-close {
+    min-width: 44px;
+  }
+
+  /* Status/attention rows: the whole row is the target, and the classless
+     links inside panel lists (attention queue, onboarding steps) stretch to
+     the row instead of sitting at their 20px text height. */
+  .mini-list li {
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .mini-list a,
+  .panel-body li > a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .header-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+
+  .header-add svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* The header title duplicated the page h1 (and mislabelled canvas pages
+     behind panels); the h1 and panel headings own the title on phone. */
+  .app-header-title {
+    display: none;
+  }
 }

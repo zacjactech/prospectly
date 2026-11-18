@@ -123,7 +123,23 @@ Ownership: title group (h1 22px semibold + Filters) left; view/action group (Sav
 6. Active filters render as a full-width band under the row: --color-bg, 1px top hairline, 12px vertical padding, uppercase ACTIVE label, 32px removable chips with 13px text and 8px gaps, then a hairline-separated Clear all / Show all zones text action. Nothing when unfiltered. Below 1024px the band's separators drop when the clears wrap.
 
 ### 1.3 Mobile shell (<768px)
-Unchanged: 52px header + hamburger off-canvas drawer (existing app.js logic); drawer keeps text labels.
+52px header + hamburger off-canvas drawer (existing app.js logic); drawer keeps text labels.
+**Phone layout system (owner 2026-11-18 audit — "no consistencies, poor
+hierarchy, everything competing"):**
+- **One accent action per region:** Add prospect moves into the header as a
+  44px icon button (`.header-add`); the toolbar's full-width orange bar is
+  hidden — toolbar = two rows (h1 · Filters + Pending chip).
+- **Title dedup:** `.app-header-title` hidden — the h1 (canvas) or page
+  heading (standalone pages) owns the title.
+- **Work first:** `canvas.js applyStackOrder()` moves the setup cluster after
+  pipeline + messages in stacked mode (DOM follows visual order for a11y) and
+  restores setup → board → messages ≥1024; first pipeline zone starts at ~33%
+  of the viewport instead of below a screenful of setup cards.
+- **Touch floor:** `@media (pointer: coarse), (max-width: 767px)` raises
+  buttons/chips/nav/tab-strip/fields/summary/list-rows to 44px (was 36px;
+  dashboard links were 20px). Inline prose links keep the WCAG exception.
+- **Spacing rhythm:** 16px viewport gutters, 12px between stacked zones, phase
+  bands open their group; sticky zone heads ride their cards.
 
 ## 2. Canvas engine
 New: app/static/js/canvas.js, app/static/css/canvas.css (tokens only; constants ZONE_W=264, ZONE_GAP=48, ZONE_HEAD=36, CARD_H=72, CARD_GAP=12, ZONE_PAD=8, GRID=8 mirrored in CSS).
@@ -222,7 +238,12 @@ Only: phase chips; selected/focus rings; requires-review dots + ai badges; Add p
 
 ## 4. Panel system
 New app/static/js/panel.js; <div id="panel-root"> in base.html. Panels = modal dialogs all breakpoints (role=dialog aria-modal=true aria-labelledby).
-- Widths: Filters 360 · Detail 480 · Create/Edit 420 · Message 560; width min(Wpx, 100vw−72px).
+> **Scope narrowed 2026-11-18:** panels are now ACTION surfaces only over the
+> canvas — Filters (360) and Add prospect (560). Detail, message editor,
+> research, status, settings and merge became standalone pages (see §V2.2);
+> the old Detail 480 / Message 560 panel widths and the two-level stacking
+> are retired with them (nothing stacks: a page cannot sit under a panel).
+- Widths: Filters 360 · Add prospect 560; width min(Wpx, 100vw−72px).
 - Right slide-over, full height, surface bg, left hairline, shadow-2; slide translateX(24→0)+fade --dur-base 150ms; reduced-motion static.
 - Backdrop rgba(0,0,0,.2) (canvas legible behind); canvas container gets inert while open; backdrop click closes topmost.
 - Header 48px sticky: title, badge row, contextual action, X (44px hit). Content scroll below.
@@ -238,15 +259,15 @@ New app/static/js/panel.js; <div id="panel-root"> in base.html. Panels = modal d
 | / dashboard | conventional page (kept; phase cards link into board) |
 | /prospects | CANVAS stage board (replaces table) |
 | /prospects?filters… | canvas filtered; stage= = lens (matching lane highlighted, other lanes dimmed + "Show all zones" chip); saved views unchanged |
-| /prospects/{id} direct GET | conventional page fallback (restructured detail kept) |
-| /prospects/{id} card click | panel 480 |
-| /prospects/new, /{id}/edit | panel 420 |
-| /prospects/{id}/research (+status partial) | panel (polling partial unchanged) |
+| /prospects/{id} direct GET | standalone **detail tab page** (page head: name/badges/Edit; `#detail-*` anchor tabs, sticky strip) |
+| /prospects/{id} card click | navigates to the detail tab page (no panel) |
+| /prospects/new | action panel 560 · /{id}/edit | standalone edit page |
+| /prospects/{id}/research (+status partial) | standalone page (polling partial unchanged) |
 | /outreach | CANVAS outreach board (3 status zones); Outreach joins rail |
-| /messages/{id}/edit | panel 560 (page fallback direct GET) |
+| /messages/{id}/edit | standalone message page |
 | /messages/{id}/open + confirm/not-sent POSTs | unchanged flows, re-skinned entry points |
 | follow-ups (not built) | reserved conventional page + rail item when built |
-| /merge, /settings×7, /login | conventional pages inside rail shell |
+| /settings×7 + /merge/duplicates | one settings **tab page** (8 tabs, deep link = active tab) · /status standalone page · /login conventional |
 | /healthz, /api/v1/* | unchanged |
 No new endpoints; only content-negotiation branches on existing GETs.
 
@@ -255,10 +276,11 @@ No new endpoints; only content-negotiation branches on existing GETs.
 | Region | ≥1024 | 768–1023 | <768 |
 |---|---|---|---|
 | Shell | 56px rail | 56px rail | header + drawer (existing) |
-| Canvas | full board, density-full ≥0.75, fit on load | stacked flow: canonical zones, sticky headers, density-full always, no transform/zoom cluster | same stacked flow |
-| Panels | widths; stacking ≥1400 | widths clamped, no stack | full-screen sheets |
-| Cards | hover quick-actions | same | actions always visible, 44px targets |
-| Tables (conventional) | all columns | existing expand | existing stacked rows |
+| Canvas | full board, density-full ≥0.75, fit on load | stacked flow + **2-column zone grid** (rail kept), sticky zone heads, density-full, no transform/zoom cluster | stacked flow, **work-first order** (setup cluster moves last, DOM follows visual), sticky zone heads, 16px gutters, zones 12px apart |
+| Panels (Filters/Add only) | widths; stacking ≥1400 | widths clamped, no stack | full-screen sheets |
+| Standalone pages | max-w 960 (detail 864), tab strip sticky | same | tab strip sticky under the 52px header, horizontally scrollable, 16px gutters |
+| Cards | hover quick-actions | same | actions always visible; **touch floor 44px** (`pointer: coarse` or <768) |
+| Tables (conventional) | all columns | existing expand | stacked rows **with `data-label` headers** (attrs added 2026-11-18 — the transform existed but no table carried labels) |
 
 ### 6.2 Keyboard map
 ? help (content updated) · / opens Filters panel focused search on canvas screens · j/k move highlight in DOM order (zones canonical) · Enter open panel · m Move-to menu · +/−/0/f canvas zoom · g d / g p / g o / g s (→ /settings/profile) go-to via sequence buffer · Escape: panel → move menu → help → drawer (each layer stops propagation). Ignored while typing (existing guard). Every shortcut has a pointer equivalent.
@@ -316,7 +338,7 @@ Wires recompute rAF-throttled with zone/card drags. Wires are decoration-for-exp
 
 ## V2.2 Old pages removed from the experience (routes kept)
 - The canvas is the only navigable screen. `base.html` rail loses the settings tree (§V2.4).
-- **Plain GET** of any retired page route (`/`, `/settings/*`, `/merge/duplicates`, `/outreach`, `/prospects`, `/prospects/{id}`, `/prospects/new`, `/prospects/{id}/edit`, `/messages/{id}/edit`, `/prospects/{id}/research`) returns the **canvas shell with that card pre-opened** (server-rendered `open_card` context + panel content embedded open). Same paths, same 200s, deep links land on the canvas with the right card open.
+- **Plain GET** (amended 2026-11-18, owner: "views without the canvas become tab-based pages"): the routes split in two. **Canvas routes** (`/`, `/prospects`, `/prospects?filters…`, `/outreach`, plus the action panels `/prospects/filters` and `/prospects/new`) return the canvas shell — `/` still lands with the Status card open, the action routes fetch as HX fragments. **Retired views render as standalone pages with no canvas behind them**: `/settings/*` + `/merge/duplicates` = one settings **tab page** (tab strip = navigation, deep link = active tab), `/prospects/{id}` = detail **tab page** (page head owns name/badges/Edit; `#detail-*` anchor tabs), and `/status`, `/prospects/{id}/edit`, `/prospects/{id}/research`, `/messages/{id}/edit` = generic standalone pages. `HX-Request` still returns the panel-body fragment for every one of them (fragment parity: the card heading stays in the page DOM, CSS-hidden where the page h1 owns the title).
 - **HX-Request** on the same routes → the panel fragment only (base §4 branch, unchanged).
 - **Login stays standalone** (security gate, no chrome). `/api/*`, `/healthz`, static unchanged.
 - Old page templates are retired *as pages*: their inner content moves into card-panel partials (dual-render rule applies: one partial source, page-wrapper markup like `page-bar` headers deleted). Tests asserting retired structure are updated to the new contract — every test change reported with justification.
@@ -355,7 +377,7 @@ No transform layer (base rule). Screen = setup cards as a vertical list (tap →
 - Test-impact rule: 331 baseline must be restored green each phase; test edits only where the approved contract changed (§V2.2), each justified in the commit.
 
 ## V2.8 QA additions (extends base §8.3)
-- Direct-URL landing: every retired route returns canvas + correct card pre-opened (test per route).
+- Direct-URL landing (2026-11-18): retired routes land on their standalone page with the right section active (settings tab / detail tab / heading); canvas routes land on the canvas (test per route).
 - Wire layer: recomputes on region/card drag; annotations removed (wires only, aria-hidden).
 - Card loop: click → panel → content matches old page's content (dual-render grep test).
 - No settings links anywhere in the rail/canvas chrome (grep).

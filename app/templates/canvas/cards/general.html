@@ -42,18 +42,18 @@
       ] %}
       {% set u = usage[key] %}
       <tr>
-        <td>{{ label }}</td>
-        <td>
+        <td data-label="Provider">{{ label }}</td>
+        <td data-label="Used today">
           <span class="badge {% if u.reached %}stage-failed{% elif u.used %}stage-succeeded{% else %}muted{% endif %}">{{ u.used }} / {{ u.cap }}</span>
           {% if u.reached %}<span class="badge stage-failed">cap reached · blocked</span>{% endif %}
         </td>
-        <td><span class="badge {% if configured %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if configured else 'no' }}</span></td>
+        <td data-label="Configured"><span class="badge {% if configured %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if configured else 'no' }}</span></td>
       </tr>
       {% endfor %}
       <tr>
-        <td>Brave</td>
-        <td><span class="badge muted">unmetered</span></td>
-        <td><span class="badge {% if settings.brave_api_key %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if settings.brave_api_key else 'no' }}</span></td>
+        <td data-label="Provider">Brave</td>
+        <td data-label="Used today"><span class="badge muted">unmetered</span></td>
+        <td data-label="Configured"><span class="badge {% if settings.brave_api_key %}stage-succeeded{% else %}muted{% endif %}">{{ 'yes' if settings.brave_api_key else 'no' }}</span></td>
       </tr>
     </tbody>
   </table>

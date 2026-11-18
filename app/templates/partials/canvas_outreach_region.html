@@ -21,8 +21,7 @@
     <div class="msg-zone-body">
       {% for m in outreach_groups[status] %}
       <article class="msg-card" data-msg-id="{{ m.id }}">
-        <a class="msg-card-main" href="/messages/{{ m.id }}/edit"
-           data-panel-href="/messages/{{ m.id }}/edit" data-panel-width="560" data-panel-dirty="1">
+        <a class="msg-card-main" href="/messages/{{ m.id }}/edit">
           <span class="msg-card-name"><svg class="msg-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>{{ m.prospect.business_name }}</span>
           <span class="msg-card-text">{{ m.current_text|truncate(72) }}</span>
         </a>

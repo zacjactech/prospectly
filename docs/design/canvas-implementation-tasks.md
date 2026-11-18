@@ -36,7 +36,9 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done · `[!]` blocked.
 - [x] **A2. Canvas contract tests (§V2.2 / §V2.8).** New
   `tests/test_canvas_contract.py`:
   - every retired route on a plain GET returns the canvas shell with the
-    correct card pre-opened (`data-panel-open="…"`), never a standalone page;
+    correct card pre-opened (`data-panel-open="…"`), never a standalone page
+    (**amended 2026-11-18**: retired views became standalone tab pages — see
+    §V2.2 in pipeline-canvas.md; Home and the action panels keep this rule);
   - the same routes with `HX-Request: true` return the panel fragment only
     (no `<html>`, no canvas chrome);
   - a representative card body is byte-identical in both renderings

@@ -54,7 +54,7 @@ Single-user tool; every flow is designed for one operator moving prospects throu
 2. **[system]** `MessageGenerator` (AI or template) produces text with grounding IDs; draft opens in editor.
 3. Operator edits freely (goal: their voice, accurate specifics; edits logged).
 4. ⚠ **Submit for review** → `pending_review` (editable, returns to `draft` on edit).
-5. ⚠ **Approve** → `approved`. Confirmation (both panels, verbatim): *"Approve this draft? Opening WhatsApp is a separate step; you press Send."* Blocked if: suppressed prospect, empty text, or missing grounding without the "I accept ungrounded content" acknowledgement — which renders **only when the draft has no grounding**, so a grounded draft never asks for a blind attestation.
+5. ⚠ **Approve** → `approved`. Confirmation (both surfaces — detail tab page and message page, verbatim): *"Approve this draft? Opening WhatsApp is a separate step; you press Send."* Blocked if: suppressed prospect, empty text, or missing grounding without the "I accept ungrounded content" acknowledgement — which renders **only when the draft has no grounding**, so a grounded draft never asks for a blind attestation.
 6. **Open in WhatsApp** → browser opens `wa.me` with prefilled message → status `opened_in_whatsapp`. *(Status does not imply sending.)*
 7. Operator sends manually in WhatsApp.
 8. ⚠ Back in app: **I have sent this message** → `sent_confirmed` + activity + `last_contacted_at` + stage `contacted` + prompt to schedule follow-up (default: +3 days).
@@ -69,7 +69,7 @@ Single-user tool; every flow is designed for one operator moving prospects throu
 ## Flow 7 — Follow-up
 
 1. **Follow-ups** page shows due/overdue (sorted overdue-first).
-2. For each: open prospect → context panel (last message, reply, findings) → **Complete** with note, or **Snooze** (new due date), or transition per Flow 6.
+2. For each: open the prospect detail page → context (last message, reply, findings) → **Complete** with note, or **Snooze** (new due date), or transition per Flow 6.
 3. ⚠ Starting *new* outreach on a prospect already `sent_confirmed` requires explicit "start new outreach" and is blocked for `do_not_contact`.
 
 ## Flow 8 — Opt-out / do not contact

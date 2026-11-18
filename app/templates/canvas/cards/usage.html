@@ -26,12 +26,12 @@
             {% for provider, rows in providers.items() %}
             {% for row in rows %}
             <tr>
-              <td>{{ provider }}</td>
-              <td>{{ row.kind }}</td>
-              <td>{{ row.period }}</td>
-              <td>{{ row.calls }}</td>
-              <td>{{ row.errors }}</td>
-              <td>{{ row.rate_limited }}</td>
+              <td data-label="Provider">{{ provider }}</td>
+              <td data-label="Kind">{{ row.kind }}</td>
+              <td data-label="Period">{{ row.period }}</td>
+              <td data-label="Calls">{{ row.calls }}</td>
+              <td data-label="Errors">{{ row.errors }}</td>
+              <td data-label="Rate limited">{{ row.rate_limited }}</td>
             </tr>
             {% endfor %}
             {% endfor %}
@@ -62,14 +62,14 @@
             {% for key, rows in ai.items() %}
             {% for row in rows %}
             <tr>
-              <td>{{ key }}</td>
-              <td>{{ row.task }}</td>
-              <td>{{ row.period }}</td>
-              <td>{{ row.calls }}</td>
-              <td>{{ row.ok_calls }}</td>
-              <td>{{ row.failed_calls }}</td>
-              <td>{{ row.prompt_tokens }}</td>
-              <td>{{ row.completion_tokens }}</td>
+              <td data-label="Provider / model">{{ key }}</td>
+              <td data-label="Task">{{ row.task }}</td>
+              <td data-label="Period">{{ row.period }}</td>
+              <td data-label="Calls">{{ row.calls }}</td>
+              <td data-label="OK">{{ row.ok_calls }}</td>
+              <td data-label="Failed">{{ row.failed_calls }}</td>
+              <td data-label="Prompt tokens">{{ row.prompt_tokens }}</td>
+              <td data-label="Completion tokens">{{ row.completion_tokens }}</td>
             </tr>
             {% endfor %}
             {% endfor %}

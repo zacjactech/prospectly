@@ -45,10 +45,16 @@ forms/fields/tables* as the retired page — nothing was simplified, only
 re-framed. Panels are modal at every breakpoint (focus trap, Escape, backdrop,
 dirty-form confirm, 2-level stacking ≥1400px).
 
-**Deep links (§V2.2):** a plain `GET` of any retired page route returns the
-canvas with that card's panel already open; closing it `history.replaceState`s
-to `/prospects`. So `/settings/profile`, `/merge/duplicates`, `/`, `/status`
-all keep working — they just land on the canvas. Login stays standalone.
+**Deep links (§V2.2, amended 2026-11-18):** retired views no longer open as
+panels over the canvas — they are standalone pages (owner: "views without the
+canvas become tab-based"): `/settings/*` + `/merge/duplicates` share one
+settings **tab page** (tab strip = navigation, deep link = active tab),
+`/prospects/{id}` is a detail **tab page** (`#detail-*` anchor tabs under a
+sticky strip), and `/status`, edit, research and message routes are generic
+standalone pages. `HX-Request` still returns the same body fragment (panel
+parity). Canvas routes (`/`, `/prospects`, `/outreach`) keep the shell; `/`
+still lands with the Status card open, and the canvas Filters + Add-prospect
+action panels still open over it.
 
 **Mobile (<768px, §V2.6):** no transform layer — the world stacks vertically
 in canonical order (setup cards → board bands/zones → outreach zones); wires
@@ -65,7 +71,7 @@ and zoom controls are hidden.
 Prospectly
 ├── Dashboard            (pipeline strip + "needs attention" queue)
 ├── Prospects            (list = home base; filters, saved views)
-│     └── Prospect detail (sections: Overview · Research · Opportunities · Outreach · Activity — no tab row; scroll)
+│     └── Prospect detail → standalone tab page (Overview · Research · Outreach · Activity tabs; sections scroll within)
 ├── Follow-ups           (due / overdue / upcoming)
 ├── Outreach             (message queue by status: pending_review → approved → opened_in_whatsapp)
 ├── Settings
@@ -112,7 +118,14 @@ Prospectly
 - Bulk selection limited to safe ops: add tag, archive, change source. **No bulk outreach actions exist anywhere** (P1).
 - Empty state: "No prospects yet — configure your Profile, run automated Discovery, or Add manually" + two buttons.
 
-### 2.3 Prospect detail
+### 2.3 Prospect detail (standalone tab page, 2026-11-18)
+Rendered as its own page (no canvas behind): page head = name + stage/category
+tags + Edit details; a sticky tab strip (Overview · Research · Outreach ·
+Activity) jumps to the shared sections (active state follows the hash; the
+Outreach tab hides while suppressed). The shared partial keeps its panel head
+in the DOM for fragment parity — page CSS hides it so the name renders once.
+
+### 2.3.1 Sections
 - **Header:** name, stage badge, key facts (phone with copy, email, website with "open" + status chip), suppression warning banner if `do_not_contact`.
 - **Stage card:** allowed-next-transitions select only (canonical steps + `not_interested` from post-contact stages); anything else is rejected server-side with 409.
 - **Suppression block (Danger zone):** no sub-heading (the Danger zone frame + status badge carry it). When not suppressed — "Block outreach" button with an optional reason input, and the explanation ("Blocks drafts, approvals and WhatsApp actions. Clearing requires a reason.") rendered **above the button** (confirm dialog names the prospect); when suppressed — reason + last-suppression context and a "Clear suppression" form with a **required** reason (Flow 8: clearing is explicit and audit-logged).
@@ -250,11 +263,15 @@ Typography: two families, strict role split — system sans for body/table/form 
 
 | Breakpoint | Behavior |
 |---|---|
-| ≥1200px | Sidebar + wide tables (all columns) |
-| 768–1199px | Sidebar collapses to icons; tables drop low-priority columns into row expand |
-| <768px | Top hamburger nav; tables → stacked cards *of rows* (still dense, not decorative); primary actions become sticky bottom bar |
+| ≥1024px | Full canvas (transform layer); rail + wide tables (all columns) |
+| 768–1023px | Rail + stacked flow as a **2-column zone grid** (mini-kanban); sticky zone heads; tables stack with `data-label` headers |
+| <768px | Header + drawer; canvas in stacked **work-first order** (setup cluster last, DOM follows visual); toolbar = two rows with Add prospect as a 44px header icon; standalone pages get a sticky scrollable tab strip; tables → stacked rows *with data-label headers* (dense, not decorative) |
 
-Touch targets ≥40px on mobile. The mobile experience is **review/light-triage quality** (approve, confirm, follow-up); heavy CSV work is desktop-oriented but not blocked.
+Touch targets **44px** on `pointer: coarse` and <768px (raised from 40: buttons
+were 36px, dashboard list links 20px; inline prose links keep the WCAG inline
+exception). Spacing rhythm on phone: 16px gutters, 12px between stacked zones,
+24px between sections. The mobile experience is **review/light-triage quality**
+(approve, confirm, follow-up); heavy CSV work is desktop-oriented but not blocked.
 
 ## 8. Accessibility
 

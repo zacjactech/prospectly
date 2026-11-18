@@ -509,28 +509,19 @@
     startCardDrag(e, card);
   });
 
-  /* Card click → detail panel (spec §3.1). Drags and inner controls are
-     excluded: a real drag suppresses the trailing click. */
+  /* Card click → the standalone detail page (owner 2026-11-18: retired views
+     are tab-based pages, no canvas behind them — the panel opener is gone).
+     Drags and inner controls are excluded: a real drag suppresses the
+     trailing click. */
   document.addEventListener("click", function (e) {
     if (Date.now() - lastDragEnd < CLICK_SUPPRESS_MS) return;
     var card = e.target.closest && e.target.closest(".prospect-card");
     if (!card) return;
     if (e.target.closest("button, a, form, input, select, textarea, label")) return;
-    if (!window.PlPanel) return;
     if (selectedCard && selectedCard !== card) selectedCard.classList.remove("selected");
     selectedCard = card;
     card.classList.add("selected");
-    window.PlPanel.open("/prospects/" + encodeURIComponent(card.getAttribute("data-id")), {
-      width: 560,
-      invoker: card,
-    });
-    /* Phase 1.2 — pan (never zoom) so the selected card stays fully visible
-       beside the drawer. */
-    if (window.PlCanvas && window.PlCanvas.focusCard) {
-      requestAnimationFrame(function () {
-        window.PlCanvas.focusCard(card);
-      });
-    }
+    window.location.href = "/prospects/" + encodeURIComponent(card.getAttribute("data-id"));
   });
 
   document.addEventListener("pl:panel-closed", function () {

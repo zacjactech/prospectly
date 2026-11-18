@@ -903,3 +903,23 @@ Corrected during adjudication: A's "`Generate draft` has no stated reason"
 present (tooltip, hover-only). Not a defect.
 
 Gate: full suite + ruff/format/mypy; detector re-run over changed templates.
+
+
+## Responsive layout system (adapt pass) — 2026-11-18
+
+Owner brief: "no UI consistencies, not proper spacing, hierarchy is poor,
+everything competing for attention… make it tab-based on the views that have
+no canvas as default view." Built in three phases, all shipped together.
+
+| Phase | Change | Verified |
+|---|---|---|
+| 1 · Retired views → tab pages | `/settings/*` + `/merge/duplicates` = one settings tab page (8 tabs, deep link = active); `/prospects/{id}` = detail tab page (page head owns name/badges/Edit, `#detail-*` anchor tabs, Outreach tab hides when suppressed); `/status`, edit, research, message = generic standalone pages. Home stays canvas + Status card; Filters + Add prospect stay canvas action panels. Card click / `g s` / rail Status navigate; view buttons navigate when no canvas; HX fragments kept for parity | Contract tests (`test_retired_routes_render_standalone_pages`, settings/detail tab tests, nav-source pins); live: card click → `/prospects/12` with tabs, rail Status → `/status`, Board button → canvas, Filters panel opens, 0 console errors |
+| 2 · Phone triage mode | Work-first order (`applyStackOrder`, DOM follows visual, wide restores); Add prospect → 44px header icon, toolbar two rows, header title deduped; touch floor 44px (`pointer:coarse` or <768) incl. panel list rows + nav-close/panel-close; 16px gutters, zone gaps 12px, sticky zone heads; every panel table carries `data-label` (the <640 transform existed but no table had labels) | CDP 390: first zone y **813 → 281** (work at 33% of viewport), setup last, toolbar 2 rows, header-add 44×44, **0 under-44 targets on /prospects**, 1 remaining = inline prose link (WCAG exception), no h-scroll |
+| 3 · Tablet grid | 768–1023: rail + board as 2-column zone grid, bands span both columns, grid gap owns spacing | CDP 768: zone tops pair (2 cols), rail visible, toolbar keeps Add, no h-scroll |
+
+Geometry/ASCII verified at 390 / 768 / 1440 (wide order restored: setup →
+board → messages). Detector: same 4 adjudicated warnings, none new.
+Gate: 413 tests, ruff/format/mypy/node --check clean, assets `?v=64`.
+Docs: pipeline-canvas (§V2.2 contract, §4 panels, §5 mapping, §6.1, §1.3),
+API_DESIGN (two route families), UI spec (deep links, tree, §2.3, §7),
+USER_FLOWS wording, canvas-implementation-tasks amendment.

@@ -78,13 +78,13 @@
                   <input type="checkbox" name="row_indices" value="{{ row.index }}" checked>
                   {% endif %}
                 </td>
-                <td><strong>{{ row.business_name }}</strong></td>
-                <td>{{ row.category }}</td>
-                <td>{{ row.location_city }}</td>
-                <td>{{ row.phone_e164 or row.phone_raw }}</td>
-                <td>{{ row.email }}</td>
-                <td>{{ row.website_url }}</td>
-                <td>
+                <td data-label="Business name"><strong>{{ row.business_name }}</strong></td>
+                <td data-label="Category">{{ row.category }}</td>
+                <td data-label="City">{{ row.location_city }}</td>
+                <td data-label="Phone">{{ row.phone_e164 or row.phone_raw }}</td>
+                <td data-label="Email">{{ row.email }}</td>
+                <td data-label="Website">{{ row.website_url }}</td>
+                <td data-label="Status">
                   {% if row.status == 'valid' and row.fuzzy %}
                   <span class="badge stage-warn">possible duplicate</span>
                   {% elif row.status == 'valid' %}
@@ -95,7 +95,7 @@
                   <span class="badge stage-muted">error</span>
                   {% endif %}
                 </td>
-                <td class="muted small">{{ row.reason or row.matched_prospect_name }}</td>
+                <td class="muted small" data-label="Reason">{{ row.reason or row.matched_prospect_name }}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -133,11 +133,11 @@
             <tr><th>Metric</th><th>Count</th></tr>
           </thead>
           <tbody>
-            <tr><td>Rows in file</td><td>{{ total_rows }}</td></tr>
-            <tr><td class="text-ok">Created</td><td class="text-ok">{{ result.created }}</td></tr>
-            <tr><td class="text-muted">Skipped (duplicates)</td><td>{{ result.skipped_duplicates }}</td></tr>
-            <tr><td class="text-warn">Flagged for review</td><td>{{ result.flagged_for_review }}</td></tr>
-            <tr><td class="text-danger">Errors</td><td>{{ result.errors }}</td></tr>
+            <tr><td data-label="Metric">Rows in file</td><td data-label="Count">{{ total_rows }}</td></tr>
+            <tr><td class="text-ok" data-label="Metric">Created</td><td class="text-ok" data-label="Count">{{ result.created }}</td></tr>
+            <tr><td class="text-muted" data-label="Metric">Skipped (duplicates)</td><td data-label="Count">{{ result.skipped_duplicates }}</td></tr>
+            <tr><td class="text-warn" data-label="Metric">Flagged for review</td><td data-label="Count">{{ result.flagged_for_review }}</td></tr>
+            <tr><td class="text-danger" data-label="Metric">Errors</td><td data-label="Count">{{ result.errors }}</td></tr>
           </tbody>
         </table>
 

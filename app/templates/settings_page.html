@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{# Settings as one tab-based page (owner 2026-11-18): the tab strip IS the
+   navigation for the settings family — these routes had no rail entries, only
+   canvas setup cards. Deep link lands on the active tab. #}
+{% block content %}
+<div class="standalone-page settings-page">
+  <div class="page-head">
+    <div class="grow">
+      <h1>Settings</h1>
+      {% if lede %}<p class="muted">{{ lede }}</p>{% endif %}
+    </div>
+  </div>
+  <nav class="tab-strip" aria-label="Settings sections">
+    {% for key, label, href in settings_tabs %}
+    <a href="{{ href }}"{% if key == active_tab %} class="active" aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  <div class="page-section">{% include tab_tpl %}</div>
+</div>
+{% endblock %}

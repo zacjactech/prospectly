@@ -24,19 +24,31 @@ from app.db import Base, get_db
 from app.main import app
 from app.models import Activity, Finding, OutreachMessage, Prospect, SavedView
 
-# Retired route → the card that must be pre-opened on a plain GET.
-CARD_ROUTES = [
-    ("/", "status"),
-    ("/status", "status"),
-    ("/settings/profile", "profile"),
-    ("/settings/providers", "providers"),
-    ("/settings/usage", "usage"),
-    ("/settings/general", "general"),
-    ("/settings/import", "import"),
-    ("/settings/saved-views", "saved_views"),
-    ("/settings/retention", "retention"),
-    ("/merge/duplicates", "merge"),
+# Retired views render as standalone pages now (owner 2026-11-18: "views
+# without the canvas" become tab-based pages — no canvas behind them).
+# Home is the deliberate exception: canvas with the Status card open.
+RETIRED_ROUTES = [
+    "/status",
+    "/settings/profile",
+    "/settings/providers",
+    "/settings/usage",
+    "/settings/general",
+    "/settings/import",
+    "/settings/saved-views",
+    "/settings/retention",
+    "/merge/duplicates",
 ]
+RETIRED_CARDS = {
+    "/status": "status",
+    "/settings/profile": "profile",
+    "/settings/providers": "providers",
+    "/settings/usage": "usage",
+    "/settings/general": "general",
+    "/settings/import": "import",
+    "/settings/saved-views": "saved_views",
+    "/settings/retention": "retention",
+    "/merge/duplicates": "merge",
+}
 
 
 @pytest.fixture()
@@ -78,22 +90,36 @@ def _chip_href(html: str, label: str) -> str | None:
     return None
 
 
-@pytest.mark.parametrize(("url", "card"), CARD_ROUTES)
-def test_retired_routes_open_the_right_card(db_client, url: str, card: str) -> None:
-    """Plain GET → canvas shell + that card's panel, never a standalone page."""
+@pytest.mark.parametrize("url", RETIRED_ROUTES)
+def test_retired_routes_render_standalone_pages(db_client, url: str) -> None:
+    """Plain GET → a real page: no canvas shell, no pre-opened panel.
+
+    Owner 2026-11-18: these views become standalone tab-based pages; the
+    canvas only backs the working surfaces (/ , /prospects, /outreach).
+    """
     _, client = db_client
     r = client.get(url)
     assert r.status_code == 200
     assert "<!DOCTYPE html>" in r.text
-    assert 'id="canvas-screen"' in r.text
-    assert f'data-panel-open="{card}"' in r.text
+    assert 'id="canvas-screen"' not in r.text
+    assert "data-panel-open" not in r.text
+    assert 'class="standalone-page' in r.text
+    # The card body still renders its own heading (fragment parity source).
     assert "data-panel-title" in r.text
-    # The retired standalone chrome must not come back.
     assert 'class="page-bar"' not in r.text
 
 
-@pytest.mark.parametrize(("url", "card"), CARD_ROUTES)
-def test_same_routes_return_fragment_for_htmx(db_client, url: str, card: str) -> None:
+def test_home_still_opens_status_on_the_canvas(db_client) -> None:
+    """Home is the deliberate exception: canvas + Status card open."""
+    _, client = db_client
+    r = client.get("/")
+    assert r.status_code == 200
+    assert 'id="canvas-screen"' in r.text
+    assert 'data-panel-open="status"' in r.text
+
+
+@pytest.mark.parametrize("url", RETIRED_ROUTES)
+def test_same_routes_return_fragment_for_htmx(db_client, url: str) -> None:
     """HX-Request → panel body only (no document, no canvas chrome)."""
     _, client = db_client
     r = client.get(url, headers={"HX-Request": "true"})
@@ -103,9 +129,9 @@ def test_same_routes_return_fragment_for_htmx(db_client, url: str, card: str) ->
     assert "data-panel-title" in r.text
 
 
-@pytest.mark.parametrize(("url", "card"), CARD_ROUTES)
-def test_dual_render_parity(db_client, url: str, card: str) -> None:
-    """The deep link and the HTMX panel render the same card body (one source)."""
+@pytest.mark.parametrize("url", RETIRED_ROUTES)
+def test_dual_render_parity(db_client, url: str) -> None:
+    """The deep link and the HTMX fragment render the same card body (one source)."""
     _, client = db_client
     plain = client.get(url)
     fragment = client.get(url, headers={"HX-Request": "true"})
@@ -196,23 +222,31 @@ def test_detail_routes_open_their_panels(db_client) -> None:
     db.commit()
     db.refresh(message)
 
-    cases = [
-        ("/prospects/new", "prospect-new", "Add prospect"),
-        (f"/prospects/{prospect.id}", f"prospect-{prospect.id}", "Canvas Contract Hotel"),
-        (
-            f"/prospects/{prospect.id}/edit",
-            f"prospect-{prospect.id}-edit",
-            "Canvas Contract Hotel",
-        ),
-        (f"/prospects/{prospect.id}/research", f"research-{prospect.id}", "Canvas Contract Hotel"),
-        (f"/messages/{message.id}/edit", f"message-{message.id}", "Hello there"),
+    # /prospects/new is an ACTION panel over the canvas and keeps its opener;
+    # the view routes (detail, edit, research, message) are standalone pages.
+    panel_cases = [("/prospects/new", "prospect-new", "Add prospect")]
+    page_cases = [
+        (f"/prospects/{prospect.id}", "Canvas Contract Hotel"),
+        (f"/prospects/{prospect.id}/edit", "Canvas Contract Hotel"),
+        (f"/prospects/{prospect.id}/research", "Canvas Contract Hotel"),
+        (f"/messages/{message.id}/edit", "Hello there"),
     ]
-    for url, card, marker in cases:
+    for url, card, marker in panel_cases:
         plain = client.get(url)
         assert plain.status_code == 200, url
         assert f'data-panel-open="{card}"' in plain.text, url
         assert marker in plain.text, url
 
+    for url, marker in page_cases:
+        plain = client.get(url)
+        assert plain.status_code == 200, url
+        assert 'id="canvas-screen"' not in plain.text, url
+        assert "data-panel-open" not in plain.text, url
+        assert 'class="standalone-page' in plain.text, url
+        assert marker in plain.text, url
+
+    fragment_markers = {c[0]: c[2] for c in panel_cases} | {c[0]: c[1] for c in page_cases}
+    for url, marker in fragment_markers.items():
         fragment = client.get(url, headers={"HX-Request": "true"})
         assert fragment.status_code == 200, url
         assert "<!DOCTYPE html>" not in fragment.text, url
@@ -1084,3 +1118,166 @@ def test_arrange_confirms_and_nonform_confirms_are_wired() -> None:
     assert 'closest("[data-confirm]")' in seg
     assert 'el.closest("form")' in seg  # in-form controls skip (no double confirm)
     assert "stopImmediatePropagation" in seg
+
+
+def test_settings_page_is_tab_based(db_client) -> None:
+    """Owner 2026-11-18: settings renders as one tab-based page — the strip is
+    its navigation (these routes never had rail entries), and the deep-linked
+    section is the active tab."""
+    _, client = db_client
+    r = client.get("/settings/providers")
+    html = r.text
+    assert r.status_code == 200
+    assert 'id="canvas-screen"' not in html
+    m = re.search(r'<nav class="tab-strip" aria-label="Settings sections">(.*?)</nav>', html, re.S)
+    assert m, "settings tab strip missing"
+    tabs = re.findall(r'<a href="([^"]+)"', m.group(1))
+    assert tabs == [
+        "/settings/general",
+        "/settings/profile",
+        "/settings/providers",
+        "/settings/import",
+        "/settings/saved-views",
+        "/settings/retention",
+        "/settings/usage",
+        "/merge/duplicates",
+    ]
+    assert (
+        '<a href="/settings/providers" class="active" aria-current="page">Providers</a>'
+        in m.group(1)
+    )
+    assert m.group(1).count('aria-current="page"') == 1
+    # h1 owns the page title; the card body renders beneath it
+    assert "<h1>Settings</h1>" in html
+
+
+def test_detail_page_is_tab_based(db_client) -> None:
+    """Owner 2026-11-18: prospect detail is a standalone page with section
+    tabs (no canvas behind), page head owns the name + badges + Edit action."""
+    db, client = db_client
+    prospect = Prospect(business_name="Tab Page Clinic", stage="replied")
+    db.add(prospect)
+    db.commit()
+    html = client.get(f"/prospects/{prospect.id}").text
+    assert 'id="canvas-screen"' not in html
+    assert 'class="standalone-page detail-page"' in html
+    assert "<h1>Tab Page Clinic</h1>" in html
+    m = re.search(r'<nav class="tab-strip" aria-label="Prospect sections">(.*?)</nav>', html, re.S)
+    assert m, "detail tab strip missing"
+    assert m.group(1).count("<a ") == 4
+    assert 'href="#detail-overview" class="active" aria-current="true"' in m.group(1)
+    # the shared partial's own head stays in the DOM (fragment parity) but the
+    # page CSS hides it so the name is not rendered twice
+    assert '<h2 class="prospect-name" data-panel-title>Tab Page Clinic</h2>' in html
+
+
+def test_canvas_links_navigate_instead_of_opening_panels() -> None:
+    """Retired views became pages, so every link into them must be a plain
+    link — only Filters and Add prospect may still open as canvas panels."""
+    setup = (_ROOT / "app/templates/partials/canvas_setup_cluster.html").read_text(encoding="utf-8")
+    assert "data-panel-href" not in setup
+
+    region = (_ROOT / "app/templates/partials/canvas_outreach_region.html").read_text(
+        encoding="utf-8"
+    )
+    assert 'class="msg-card-main" href="/messages/{{ m.id }}/edit">' in region
+    assert "data-panel-href" not in region
+
+    base = (_ROOT / "app/templates/base.html").read_text(encoding="utf-8")
+    status_link = re.search(r'<a href="/status"[^>]*>', base).group(0)
+    assert "data-panel-href" not in status_link
+
+    shell = (_ROOT / "app/templates/canvas/shell.html").read_text(encoding="utf-8")
+    panel_hrefs = set(re.findall(r'data-panel-href="([^"]+)"', shell))
+    # the Filters button interpolates its href from the route context
+    assert panel_hrefs <= {"/prospects/filters", "/prospects/new", "{{ filters_href }}"}
+
+    board = (_ROOT / "app/static/js/board.js").read_text(encoding="utf-8")
+    click = (
+        board.split("Card click →", 1)[1]
+        .split("document.addEventListener", 1)[1]
+        .split("});", 1)[0]
+    )
+    assert 'window.location.href = "/prospects/"' in click
+    assert "PlPanel.open" not in click
+
+    appjs = (_ROOT / "app/static/js/app.js").read_text(encoding="utf-8")
+    gs = appjs.split('target === "s"', 1)[1].split("}", 1)[0]
+    assert 'window.location.href = "/status"' in gs
+    assert "PlPanel.open" not in gs
+
+    canvas = (_ROOT / "app/static/js/canvas.js").read_text(encoding="utf-8")
+    fallback = canvas.split("viewBtn && !vp", 1)[1].split("if (viewBtn && vp)", 1)[0]
+    assert '"/prospects"' in fallback and '"/outreach"' in fallback
+
+
+def test_detail_tab_strip_follows_the_hash() -> None:
+    """The detail strip is in-page navigation: active state follows the hash
+    (settings strip is server-rendered and needs no JS)."""
+    js = (_ROOT / "app/static/js/app.js").read_text(encoding="utf-8")
+    seg = js.split("function syncDetailTabs()", 1)[1].split("Chip previews", 1)[0]
+    assert "location.hash" in seg
+    assert 'classList.toggle("active", on)' in seg
+    assert "hashchange" in js
+
+
+def test_phone_layout_system() -> None:
+    """Owner 2026-11-18 mobile audit: work first, one accent action in the
+    header, two-row toolbar, 44px touch floor, labeled stacked tables."""
+    base = (_ROOT / "app/templates/base.html").read_text(encoding="utf-8")
+    assert 'class="btn primary header-add"' in base
+    assert 'data-panel-href="/prospects/new"' in base  # header action opens the add panel
+
+    appcss = (_ROOT / "app/static/css/app.css").read_text(encoding="utf-8")
+    touch = appcss.split("@media (pointer: coarse), (max-width: 767px)", 1)[1]
+    for sel in (".btn", ".pending-chip", ".nav-link", ".tab-strip a", "select", "textarea"):
+        assert sel in touch, f"{sel} missing from the touch floor"
+    assert "min-height: 44px" in touch
+    assert ".header-add" in touch and "margin-left: auto" in touch
+    assert ".app-header-title" in touch  # title deduped on phone (h1 owns it)
+
+    css = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
+    toolbar = css.split("/* <768: the toolbar drops Add prospect", 1)[1].split("/* <1024:", 1)[0]
+    assert "display: none" in toolbar  # toolbar accent action hidden on phone
+    stacked = css.split("@media (max-width: 1023px)", 1)[1]
+    assert ".canvas-zone + .canvas-zone" in stacked and "margin-top: var(--space-3)" in stacked
+    assert "padding: var(--space-4)" in stacked  # 16px gutters
+
+
+def test_work_first_order_on_small_screens() -> None:
+    """Owner: setup's nine cards sat above the work (first zone at y=813 of
+    844). Stacked mode moves setup after the pipeline + messages — DOM order
+    follows the visual order so tab/SR match what you see; wide restores the
+    canonical order. Idempotent across re-inits and mode crossings."""
+    js = (_ROOT / "app/static/js/canvas.js").read_text(encoding="utf-8")
+    fn = js.split("function applyStackOrder()", 1)[1].split("function init()", 1)[0]
+    assert "world.querySelector('[data-region-label=\"setup\"]')" in fn
+    assert "world.appendChild(setupLabel)" in fn
+    assert "world.appendChild(setup)" in fn
+    assert "insertBefore(setupLabel, boardLabel)" in fn  # wide restore
+    assert "window.innerWidth < 1024" in fn
+    # called on init (covers HTMX re-inits) and on layout-mode crossings
+    init = js.split("function init()", 1)[1].split("function tidy()", 1)[0]
+    assert "applyStackOrder();" in init.split("applyDefaultLayout()")[0]
+    resize = (
+        js.split("var lastLayoutMode", 1)[1].split("window.addEventListener", 1)[0]
+        + js.split('window.addEventListener("resize"', 1)[1].split("});", 1)[0]
+    )
+    assert "applyStackOrder();" in resize
+
+
+def test_panel_tables_carry_stacked_labels() -> None:
+    """The responsive table transform stacks cells with `td::before` from
+    data-label; without the attrs headers vanish and values float unlabeled."""
+    cards = _ROOT / "app/templates/canvas/cards"
+    expectations = {
+        "general.html": ["Provider", "Used today", "Configured"],
+        "usage.html": ["Provider", "Kind", "Period", "Rate limited", "Prompt tokens"],
+        "merge.html": ["Merge", "Source", "Target", "Score", "Reason"],
+        "import.html": ["Business name", "Category", "City", "Status", "Metric", "Count"],
+        "retention.html": ["Prospect", "Stage", "Last activity", "Actions"],
+    }
+    for name, labels in expectations.items():
+        html = (cards / name).read_text(encoding="utf-8")
+        for label in labels:
+            assert f'data-label="{label}"' in html, f"{name}: missing {label}"

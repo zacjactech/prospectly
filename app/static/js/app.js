@@ -333,11 +333,38 @@
         if (window.PlCanvas) window.PlCanvas.fitOutreach();
       } else if (target === "s") {
         e.preventDefault();
-        if (window.PlPanel) window.PlPanel.open("/status", { width: 560 });
-        else window.location.href = "/status";
+        /* Status is a standalone page now (owner 2026-11-18). */
+        window.location.href = "/status";
       }
     }
   });
+  /* Standalone detail page: the anchor tab strip follows the hash (the
+     settings strip is server-rendered; this one is in-page navigation). */
+  function syncDetailTabs() {
+    var links = document.querySelectorAll('.tab-strip a[href^="#"]');
+    if (!links.length) return;
+    var active = null;
+    var i;
+    for (i = 0; i < links.length; i++) {
+      if (links[i].getAttribute("href") === location.hash) {
+        active = links[i];
+        break;
+      }
+    }
+    if (!active) {
+      if (location.hash) return; // hash outside the strip (e.g. #danger-zone)
+      active = links[0];
+    }
+    for (i = 0; i < links.length; i++) {
+      var on = links[i] === active;
+      links[i].classList.toggle("active", on);
+      if (on) links[i].setAttribute("aria-current", "true");
+      else links[i].removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("hashchange", syncDetailTabs);
+  syncDetailTabs();
+
   /* Chip previews for comma-separated list fields (profile + vocabulary).
      The underlying input still submits the same comma-separated value, so
      the backend contract is unchanged. */

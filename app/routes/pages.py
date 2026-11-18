@@ -528,6 +528,21 @@ def _render_canvas(
     )
 
 
+# Settings family as one tab-based page (owner 2026-11-18: "views without
+# the canvas" become standalone tab pages — the tab strip is their navigation;
+# these routes never had rail entries, only canvas setup cards).
+SETTINGS_TABS: list[tuple[str, str, str]] = [
+    ("general", "General", "/settings/general"),
+    ("profile", "Profile", "/settings/profile"),
+    ("providers", "Providers", "/settings/providers"),
+    ("import", "Import", "/settings/import"),
+    ("saved_views", "Saved views", "/settings/saved-views"),
+    ("retention", "Retention", "/settings/retention"),
+    ("usage", "Usage", "/settings/usage"),
+    ("merge", "Duplicates", "/merge/duplicates"),
+]
+
+
 def _card_page(
     request: Request,
     db: Session,
@@ -536,17 +551,42 @@ def _card_page(
     body: str,
     context: dict[str, object],
     status_code: int = 200,
+    page: str | None = None,
+    heading: str | None = None,
+    lede: str | None = None,
 ) -> HTMLResponse:
-    """Render a card surface (setup or detail) on the canvas (§V2.2).
+    """Render a card surface as its own page (or as an HX fragment).
 
-    HX-Request → the panel body fragment (no canvas chrome).
-    Plain GET  → the canvas shell with that card's panel already open.
+    HX-Request → the panel body fragment (no chrome) — what the canvas
+    Filters/Add panels still fetch.
+    Plain GET  → `page="settings"` renders the settings tab page,
+    `page="standalone"` the generic standalone page; without `page` the
+    legacy canvas shell with the card pre-opened (Home keeps this on purpose).
     """
     if _hx(request):
         return templates.TemplateResponse(
             request=request,
             name=body,
             context={**context, "panel_mode": True},
+            status_code=status_code,
+        )
+    if page == "settings":
+        return templates.TemplateResponse(
+            request=request,
+            name="settings_page.html",
+            context={
+                **context,
+                "settings_tabs": SETTINGS_TABS,
+                "active_tab": card,
+                "tab_tpl": body,
+            },
+            status_code=status_code,
+        )
+    if page == "standalone":
+        return templates.TemplateResponse(
+            request=request,
+            name="standalone.html",
+            context={**context, "heading": heading, "lede": lede, "body": body},
             status_code=status_code,
         )
     return _render_canvas(
@@ -592,7 +632,13 @@ def index(request: Request, db: DbSession) -> HTMLResponse:
 def status_card(request: Request, db: DbSession) -> HTMLResponse:
     """Status card as its own address (rail item + `g s`)."""
     return _card_page(
-        request, db, card="status", body="canvas/cards/status.html", context=_status_context(db)
+        request,
+        db,
+        card="status",
+        body="canvas/cards/status.html",
+        context=_status_context(db),
+        page="standalone",
+        heading="Status",
     )
 
 
@@ -882,12 +928,10 @@ def prospect_detail(
             name="partials/panel_detail.html",
             context={**context, "panel_mode": True},
         )
-    return _render_canvas(
-        request,
-        db,
-        open_card=f"prospect-{prospect_id}",
-        panel_body_template="partials/panel_detail.html",
-        panel_context=context,
+    return templates.TemplateResponse(
+        request=request,
+        name="detail_page.html",
+        context=context,
     )
 
 
@@ -903,6 +947,9 @@ def prospect_edit_form(
     return _card_page(
         request,
         db,
+        page="standalone",
+        heading="Edit details",
+        lede=prospect.business_name if prospect else None,
         card=f"prospect-{prospect_id}-edit",
         body="partials/panel_prospect_form.html",
         context={
@@ -949,6 +996,9 @@ def prospect_update(
         return _card_page(
             request,
             db,
+            page="standalone",
+            heading="Edit details",
+            lede=business_name,
             card=f"prospect-{prospect_id}-edit",
             body="partials/panel_prospect_form.html",
             context={
@@ -995,6 +1045,9 @@ def prospect_update(
         return _card_page(
             request,
             db,
+            page="standalone",
+            heading="Edit details",
+            lede=prospect.business_name if prospect else None,
             card=f"prospect-{prospect_id}-edit",
             body="partials/panel_prospect_form.html",
             context={
@@ -1133,6 +1186,7 @@ def profile_form(request: Request, db: DbSession) -> HTMLResponse:
     return _card_page(
         request,
         db,
+        page="settings",
         card="profile",
         body="canvas/cards/profile.html",
         context={
@@ -1217,6 +1271,7 @@ def usage_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     return _card_page(
         request,
         db,
+        page="settings",
         card="usage",
         body="canvas/cards/usage.html",
         context={
@@ -1237,6 +1292,7 @@ def providers_settings_form(request: Request, db: Session = Depends(get_db)) -> 
     return _card_page(
         request,
         db,
+        page="settings",
         card="providers",
         body="canvas/cards/providers.html",
         context={
@@ -1253,6 +1309,7 @@ def general_settings_form(request: Request, db: Session = Depends(get_db)) -> HT
     return _card_page(
         request,
         db,
+        page="settings",
         card="general",
         body="canvas/cards/general.html",
         context={
@@ -1278,6 +1335,7 @@ def general_settings_update(
             return _card_page(
                 request,
                 db,
+                page="settings",
                 card="general",
                 body="canvas/cards/general.html",
                 context={
@@ -1300,6 +1358,7 @@ def general_settings_update(
             return _card_page(
                 request,
                 db,
+                page="settings",
                 card="general",
                 body="canvas/cards/general.html",
                 context={
@@ -1339,6 +1398,7 @@ def import_form(request: Request, db: DbSession) -> HTMLResponse:
     return _card_page(
         request,
         db,
+        page="settings",
         card="import",
         body="canvas/cards/import.html",
         context={
@@ -1375,6 +1435,7 @@ def import_preview_page(
             return _card_page(
                 request,
                 db,
+                page="settings",
                 card="import",
                 body="canvas/cards/import.html",
                 context={
@@ -1390,6 +1451,7 @@ def import_preview_page(
         return _card_page(
             request,
             db,
+            page="settings",
             card="import",
             body="canvas/cards/import.html",
             context={
@@ -1435,6 +1497,7 @@ def import_preview_page(
     return _card_page(
         request,
         db,
+        page="settings",
         card="import",
         body="canvas/cards/import.html",
         context={
@@ -1465,6 +1528,7 @@ def import_commit_page(
         return _card_page(
             request,
             db,
+            page="settings",
             card="import",
             body="canvas/cards/import.html",
             context={
@@ -1488,6 +1552,7 @@ def import_commit_page(
     return _card_page(
         request,
         db,
+        page="settings",
         card="import",
         body="canvas/cards/import.html",
         context={
@@ -1512,6 +1577,7 @@ def saved_views_list(
     return _card_page(
         request,
         db,
+        page="settings",
         card="saved_views",
         body="canvas/cards/saved_views.html",
         context={
@@ -1637,6 +1703,7 @@ def merge_duplicates_list(
     return _card_page(
         request,
         db,
+        page="settings",
         card="merge",
         body="canvas/cards/merge.html",
         context={
@@ -1680,6 +1747,7 @@ def retention_sweep_page(
     return _card_page(
         request,
         db,
+        page="settings",
         card="retention",
         body="canvas/cards/retention.html",
         context={
@@ -1756,6 +1824,8 @@ def prospect_research(
     return _card_page(
         request,
         db,
+        page="standalone",
+        heading=f"{prospect.business_name} · research",
         card=f"research-{prospect_id}",
         body="partials/panel_research.html",
         context={
@@ -2144,12 +2214,15 @@ def message_edit_form(
             name="partials/panel_message.html",
             context={**context, "panel_mode": True},
         )
-    return _render_canvas(
-        request,
-        db,
-        open_card=f"message-{message_id}",
-        panel_body_template="partials/panel_message.html",
-        panel_context=context,
+    return templates.TemplateResponse(
+        request=request,
+        name="standalone.html",
+        context={
+            **context,
+            "heading": "Edit message",
+            "lede": prospect.business_name,
+            "body": "partials/panel_message.html",
+        },
     )
 
 
@@ -2197,6 +2270,9 @@ def message_edit(
         return _card_page(
             request,
             db,
+            page="standalone",
+            heading="Edit message",
+            lede=prospect.business_name if prospect else None,
             card=f"message-{message_id}",
             body="partials/panel_message.html",
             context=context,
@@ -2257,6 +2333,9 @@ def message_submit(
         return _card_page(
             request,
             db,
+            page="standalone",
+            heading="Edit message",
+            lede=prospect.business_name if prospect else None,
             card=f"message-{message_id}",
             body="partials/panel_message.html",
             context=context,
@@ -2332,6 +2411,9 @@ def message_open(
     return _card_page(
         request,
         db,
+        page="standalone",
+        heading="Edit message",
+        lede=prospect.business_name if prospect else None,
         card=f"message-{message_id}-open",
         body="partials/panel_message_open.html",
         context={

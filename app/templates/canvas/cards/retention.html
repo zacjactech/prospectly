@@ -38,10 +38,10 @@
     <tbody>
       {% for p in flagged %}
       <tr>
-        <td><strong>{{ p.business_name }}</strong></td>
-        <td><span class="badge stage-{{ p.stage }}">{{ p.stage }}</span></td>
-        <td class="muted small">{{ p.updated_at }}</td>
-        <td class="text-right small">
+        <td data-label="Prospect"><strong>{{ p.business_name }}</strong></td>
+        <td data-label="Stage"><span class="badge stage-{{ p.stage }}">{{ p.stage }}</span></td>
+        <td class="muted small" data-label="Last activity">{{ p.updated_at }}</td>
+        <td class="text-right small" data-label="Actions">
           <form method="post" action="/retention/{{ p.id }}/clear" class="form-inline">
             {{ csrf_field() }}
             <button class="btn ghost small" type="submit">Clear flag</button>

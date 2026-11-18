@@ -1796,7 +1796,7 @@
     overflow: visible;
     touch-action: auto;
     cursor: default;
-    padding: var(--space-3);
+    padding: var(--space-4);
   }
 
   .canvas-world {
@@ -1844,6 +1844,25 @@
     width: auto;
   }
 
+  /* Stacked zones were edge-to-edge (gap 0): one rhythm — zones 12px apart,
+     phase bands open their group (owner2026-11-18: "not proper spacing"). */
+  .canvas-zone + .canvas-zone {
+    margin-top: var(--space-3);
+  }
+
+  /* Header rides with its cards while scrolling a long stage list. */
+  .canvas-zone > .zone-head {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--color-surface);
+  }
+
+  .band-label {
+    margin-top: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
   /* Stacked flow is never density-compact (spec §V2.6): cards keep their
      meta + status rows even though the transform-layer zoom is clamped. */
   .canvas-screen.density-compact .prospect-card {
@@ -1869,11 +1888,40 @@
   }
 }
 
+/* Tablet / narrow desktop (768–1023): hybrid layout — rail + a 2-column
+   zone grid instead of one 4000px column (adapt: two-column, not a shrink of
+   the phone list). Phase bands span both columns; the grid gap owns spacing. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  #board-root {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  #board-root .band-label {
+    grid-column: 1 / -1;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  #board-root .canvas-zone + .canvas-zone {
+    margin-top: 0; /* grid gap already separates */
+  }
+}
+
 /* The Filters panel owns saved views; hide the toolbar picker until there
    is room for it beside the chips and the primary action. */
 @media (max-width: 1279px) {
   .canvas-toolbar .views-picker,
   .canvas-toolbar .views-manage {
+    display: none;
+  }
+}
+
+/* <768: the toolbar drops Add prospect — the header owns the one accent
+   action (owner2026-11-18: a full-width orange bar competed with the work). */
+@media (max-width: 767px) {
+  .canvas-toolbar > .btn.primary {
     display: none;
   }
 }

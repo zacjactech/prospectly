@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{# Retired view as a real page (owner 2026-11-18: "views without the canvas"
+   become standalone tab-based pages — no canvas behind them). The included
+   partial keeps its own data-panel-title heading in the DOM for fragment
+   parity; CSS hides it here because the page h1 owns the title. #}
+{% block content %}
+<div class="standalone-page">
+  <div class="page-head">
+    <div class="grow">
+      <h1>{{ heading }}</h1>
+      {% if lede %}<p class="muted">{{ lede }}</p>{% endif %}
+    </div>
+  </div>
+  <div class="page-section">{% include body %}</div>
+</div>
+{% endblock %}

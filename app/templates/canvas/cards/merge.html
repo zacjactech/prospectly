@@ -42,7 +42,7 @@
     <tbody>
       {% for pair in pairs %}
       <tr>
-        <td>
+        <td data-label="Merge">
           <form method="post" action="/merge" data-confirm='Merge "{{ pair.source_name }}" into "{{ pair.target_name }}"? This cannot be undone.'>
             {{ csrf_field() }}
             <input type="hidden" name="source_id" value="{{ pair.source_id }}">
@@ -50,20 +50,20 @@
             <button class="btn danger-outline small" type="submit">Merge</button>
           </form>
         </td>
-        <td>
+        <td data-label="Source">
           <strong>{{ pair.source_name }}</strong><br>
           <span class="muted small">ID {{ pair.source_id }}</span>
         </td>
-        <td>
+        <td data-label="Target">
           <strong>{{ pair.target_name }}</strong><br>
           <span class="muted small">ID {{ pair.target_id }}</span>
         </td>
-        <td class="text-right">
+        <td class="text-right" data-label="Score">
           <span class="badge {% if pair.score >= 0.9 %}stage-danger{% elif pair.score >= 0.85 %}stage-warn{% else %}stage-muted{% endif %}">
             {{ "%.2f"|format(pair.score) }}
           </span>
         </td>
-        <td class="muted small">{{ pair.reason }}</td>
+        <td class="muted small" data-label="Reason">{{ pair.reason }}</td>
       </tr>
       {% endfor %}
     </tbody>

@@ -820,10 +820,33 @@
 
   /* ----- init / (re)bind ----- */
 
+  /* Work first on small screens (owner 2026-11-18): in the stacked flow the
+     setup cluster moves AFTER the pipeline + messages so the first screenful
+     is work, not configuration. DOM order follows the visual order (a11y:
+     tab/SR sequence matches what you see); wide mode restores the canonical
+     setup → board → messages order. Idempotent — safe on every re-init. */
+  function applyStackOrder() {
+    if (!world) return;
+    var setupLabel = world.querySelector('[data-region-label="setup"]');
+    var setup = world.querySelector(".setup-cluster");
+    var boardLabel = world.querySelector('[data-region-label="board"]');
+    if (!setupLabel || !setup || !boardLabel) return;
+    if (window.innerWidth < 1024) {
+      if (setupLabel.nextElementSibling === setup && setup === world.lastElementChild) return;
+      world.appendChild(setupLabel);
+      world.appendChild(setup);
+    } else {
+      if (setupLabel.nextElementSibling === setup && setup.nextElementSibling === boardLabel) return;
+      boardLabel.parentNode.insertBefore(setupLabel, boardLabel);
+      boardLabel.parentNode.insertBefore(setup, boardLabel);
+    }
+  }
+
   function init() {
     vp = document.querySelector("[data-canvas-viewport]");
     if (!vp) return;
     world = vp.querySelector("[data-canvas-world]");
+    applyStackOrder(); // visual order first — layout reads the DOM
     wireGroup = world ? world.querySelector("[data-wire-lines]") : null;
     zones = world ? Array.prototype.slice.call(world.querySelectorAll(".canvas-zone")) : [];
     labels = world ? Array.prototype.slice.call(world.querySelectorAll(".band-label")) : [];
@@ -869,6 +892,13 @@
   /* Controls cluster (real buttons, spec §2.2) + rail view actions (§V2.4). */
   document.addEventListener("click", function (e) {
     var viewBtn = e.target.closest && e.target.closest("[data-canvas-view]");
+    if (viewBtn && !vp) {
+      /* Standalone pages have no canvas: the rail's view buttons navigate. */
+      var v = viewBtn.getAttribute("data-canvas-view");
+      window.location.href =
+        v === "world" ? "/" : v === "board" ? "/prospects" : "/outreach";
+      return;
+    }
     if (viewBtn && vp) {
       var what = viewBtn.getAttribute("data-canvas-view");
       if (what === "world") fit();
@@ -963,6 +993,7 @@
       updateEdgeFades(); // viewport rect changed even when the mode did not
       if (mode !== lastLayoutMode) {
         lastLayoutMode = mode;
+        applyStackOrder(); // visual order must match the mode we just entered
         patchBoard(function (b) {
           b.zones = {};
         });

@@ -11,15 +11,16 @@ Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamp
 
 ## 1. Pages (HTML)
 
-**Canvas-only contract (spec §V2).** Every page route renders the same
-`canvas/shell.html` world — setup-card cluster, stage board, outreach region,
-read-only wires — never a separate page layout. Two renderings per route:
+**Two families of routes (spec §V2.2, amended 2026-11-18).** Canvas routes
+(`/`, `/prospects`, `/outreach`) render the `canvas/shell.html` world —
+setup cluster, stage board, outreach region; retired views render standalone
+tab-based pages (settings tab page, detail tab page, generic standalone) with
+no canvas behind them. Every route still has two renderings:
 
-- **Plain GET** → the shell with that card's panel already open (`#panel-root`
-  pre-rendered). Closing the panel `history.replaceState`s to `/prospects`, so
-  a reload does not reopen it. No-JS users still read the content.
-- **`HX-Request: true`** → the panel body fragment only (what the panel loads
-  over HTMX).
+- **Plain GET** → the full document: canvas shell (canvas routes, `/` with the
+  Status card open) or the standalone page (retired views).
+- **`HX-Request: true`** → the body fragment only (what the canvas Filters/Add
+  panels load over HTMX; also kept for fragment parity on page routes).
 
 The nine setup cards (`/status`, `/settings/profile`, `/settings/providers`,
 `/settings/usage`, `/settings/general`, `/settings/import`,
@@ -59,8 +60,9 @@ moved. Retired page templates are gone; `login.html` keeps its own chrome.
 | GET | `/healthz` | Liveness (no auth, no data) |
 
 HTMX partials return HTML fragments (`HX-Request` header honored); full page
-loads return the canvas shell with the card panel pre-opened. Flash/toast
-messages via `HX-Trigger` headers.
+loads return either the canvas shell (canvas routes + action panels) or the
+standalone page (retired views). Flash/toast messages via `HX-Trigger`
+headers.
 
 ---
 
