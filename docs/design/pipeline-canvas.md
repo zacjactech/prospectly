@@ -194,9 +194,25 @@ twice).
 - Loading: 3 static skeleton cards per zone (--color-surface-hover, radius-md, no shimmer); hx-indicator unchanged.
 - Error: page-level flash banner with request ID; last-known board stays.
 
+### 2.4.1 Phase tabs (stacked only, 2026-11-18)
+Owner: "instead of displaying all the content at once can you make it into
+tab… only show the content of that tab and add more gap between tab."
+- A `role="tablist"` strip (`.phase-tabs`, sticky, 12px gap, 44px targets)
+  renders **six tabs**: Qualify · Outreach · Convert · Terminal · Messages ·
+  Setup. Below 1024 exactly one panel is visible (server-rendered first board
+  group active — no flash; `sessionStorage["pl.phase"]` remembers the choice;
+  a `?stage=` lens auto-selects its own phase); ≥1024 the strip is hidden and
+  every group shows — the media query scopes both the strip and the hiding,
+  so the wide canvas is untouched.
+- The Messages and Setup regions are `.phase-group` wrappers (panels M/S)
+  outside `#board-root`; `applyStackOrder` moves the Setup wrapper (work
+  first: board → messages → setup) and restores it before `#board-root` ≥1024.
+  Wrappers are static, so their absolute children stay world-positioned
+  (verified: setup/msg rects identical to pre-wrapper baseline at 1440).
+
 ### 2.5 Density (zoom-linked)
 - density-full (zoom ≥0.75): 84px cards (name/meta/flags).
-- density-compact (<0.75): meta row hidden, **status foot kept** — badges (`Suppressed`, `no website found`, `ai`, …) and due/overdue text never vanish at any zoom (owner 2026-11-18 + critique P1 run 2: one `−` click from the 0.93 fit computes 0.744 and used to strip every safety badge exactly when scanning wider; P5/P6 status must survive density, and the compact name-row dot alone was aria-hidden colour). Board fit lands 0.75–1.0 on laptops (full cards); whole-world fit and narrow canvases switch to compact.
+- density-compact (<0.75): meta row hidden, **status foot kept**; in the stacked flow the card is **content-driven** (`min-height`, never a fixed `height` — a fixed 84px pushed the badge row out of the card at a stored low zoom, owner 2026-11-18) — badges (`Suppressed`, `no website found`, `ai`, …) and due/overdue text never vanish at any zoom (owner 2026-11-18 + critique P1 run 2: one `−` click from the 0.93 fit computes 0.744 and used to strip every safety badge exactly when scanning wider; P5/P6 status must survive density, and the compact name-row dot alone was aria-hidden colour). Board fit lands 0.75–1.0 on laptops (full cards); whole-world fit and narrow canvases switch to compact.
 
 ### 2.6 localStorage
 Key pl.canvas.v1, one JSON blob, version in-band:

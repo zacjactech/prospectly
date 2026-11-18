@@ -1940,7 +1940,10 @@
     --card-pad: var(--space-4); /* density is inert in stacked: full-size
        cards at every zoom (the compact rule's 12px pad made cards visibly
        expand/collapse on zoom) */
-    height: var(--card-h);
+    min-height: var(--card-h);
+    height: auto; /* content-driven: stacked forces meta + foot visible, so a
+       fixed 84px height pushed the badge row 9px out of the card (owner
+       2026-11-18, at a stored 50% zoom) */
     padding: var(--card-pad);
   }
 
@@ -1973,7 +1976,7 @@
 @media (max-width: 1023px) {
   .phase-tabs {
     display: flex;
-    gap: var(--space-1);
+    gap: var(--space-3); /* owner: "add more gap between tab" */
     position: sticky;
     top: 0;
     z-index: 4;

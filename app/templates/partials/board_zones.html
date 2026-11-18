@@ -15,6 +15,10 @@
           aria-controls="phase-{{ band.key }}" data-phase="{{ band.key }}"
           {% if loop.first %}aria-selected="true"{% endif %}>{{ band.label }}</button>
   {% endfor %}
+  <button type="button" role="tab" id="phase-tab-M"
+          aria-controls="phase-M" data-phase="M">Messages</button>
+  <button type="button" role="tab" id="phase-tab-S"
+          aria-controls="phase-S" data-phase="S">Setup</button>
 </nav>
 
 {% for band in bands %}

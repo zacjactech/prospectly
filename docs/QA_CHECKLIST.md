@@ -948,3 +948,13 @@ USER_FLOWS wording, canvas-implementation-tasks amendment.
   Sign out pinned to the nav bottom (foot bottom + 16px padding == nav bottom
   at 1440/760/390) · phase tabs: 4 tabs, 1 visible group at 390, all 4 at 1440.
   Test: test_panel_directive_batch_2026_11_18.
+
+- **Phase-tabs round 2 (2026-11-18):** Messages + Setup joined the strip as
+  tabs M/S (wrappers outside #board-root; media-scoped hiding keeps the wide
+  canvas identical — setup/msg rects match the pre-wrapper baseline at 1440),
+  tab gap 4→12px, and the stacked compact card became content-driven
+  (`height: auto` + `min-height`): the fixed 84px height pushed the
+  `check failed` badge 9px out of the card at the owner's stored 50% zoom —
+  verified gone in their own tab (compactOverflow []), each of the6 tabs shows
+  exactly its own panel at 390/760, strip hidden + all6 groups visible at
+  1440, 0 console errors. Test: test_phase_tabs_group_the_stacked_board.

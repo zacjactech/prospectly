@@ -89,13 +89,22 @@
         <g data-wire-lines></g>
       </svg>
 
-      {% include "partials/canvas_setup_cluster.html" %}
+      {# Setup and Messages join the phase tabs below 1024 (owner: "only show
+         the content of that tab"); the wrappers are inert on the wide canvas
+         (media-scoped hiding) and keep absolute children world-positioned. #}
+      <div class="phase-group" data-phase="S" id="phase-S"
+           role="tabpanel" aria-labelledby="phase-tab-S">
+        {% include "partials/canvas_setup_cluster.html" %}
+      </div>
 
       <div id="board-root" data-board-root data-region="board">
         {% include "partials/board_zones.html" %}
       </div>
 
-      {% include "partials/canvas_outreach_region.html" %}
+      <div class="phase-group" data-phase="M" id="phase-M"
+           role="tabpanel" aria-labelledby="phase-tab-M">
+        {% include "partials/canvas_outreach_region.html" %}
+      </div>
     </div>
 
     {# Overflow fades (critique P1 run 2): the world is bigger than the

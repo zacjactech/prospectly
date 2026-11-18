@@ -1251,11 +1251,12 @@ def test_work_first_order_on_small_screens() -> None:
     canonical order. Idempotent across re-inits and mode crossings."""
     js = (_ROOT / "app/static/js/canvas.js").read_text(encoding="utf-8")
     fn = js.split("function applyStackOrder()", 1)[1].split("function init()", 1)[0]
-    assert "world.querySelector('[data-region-label=\"setup\"]')" in fn
-    assert "world.appendChild(setupLabel)" in fn
-    assert "world.appendChild(setup)" in fn
+    assert "world.querySelector('.phase-group[data-phase=\"S\"]')" in fn  # Setup wrapper
+    assert "world.appendChild(setupWrap)" in fn
     assert 'world.querySelector("#board-root")' in fn  # anchor (board label removed)
-    assert "insertBefore(setupLabel, boardRoot)" in fn  # wide restore
+    assert "world.querySelector('.phase-group[data-phase=\"S\"]')" in fn  # Setup wrapper
+    assert "world.appendChild(setupWrap)" in fn  # work first: board → messages → setup
+    assert "insertBefore(setupWrap, boardRoot)" in fn  # wide restore
     assert "window.innerWidth < 1024" in fn
     # called on init (covers HTMX re-inits) and on layout-mode crossings
     init = js.split("function init()", 1)[1].split("function tidy()", 1)[0]
@@ -1317,6 +1318,10 @@ def test_stacked_view_scrolls_instead_of_zooming() -> None:
     css = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
     stacked = css.split("/* Stacked flow is never density-compact", 1)[1].split("}", 1)[0]
     assert "--card-pad: var(--space-4)" in stacked  # density inert in stacked
+    assert "min-height: var(--card-h)" in stacked and "height: auto" in stacked, (
+        "stacked compact must be content-driven: fixed height pushed the badge "
+        "row out of the card at a stored low zoom"
+    )
 
 
 def test_phase_tabs_group_the_stacked_board(db_client) -> None:
@@ -1335,20 +1340,28 @@ def test_phase_tabs_group_the_stacked_board(db_client) -> None:
     i_band = zones_tpl.index('<div class="band-label"')
     assert i_nav < i_band
 
-    # rendered: four tabs, one selected, four groups (first active) — no flash
+    # rendered: six tabs (4 phases + Messages + Setup), one selected, board
+    # groups + both region wrappers as panels — no flash (first board group
+    # active server-side)
     _, client = db_client
     html = client.get("/prospects").text
     nav = re.search(r'<nav class="phase-tabs".*?</nav>', html, re.S)
     assert nav, "phase strip missing from the rendered board"
-    assert nav.group(0).count('role="tab"') == 4
+    assert nav.group(0).count('role="tab"') == 6
     assert nav.group(0).count('aria-selected="true"') == 1
-    assert html.count('class="phase-group') == 4
+    assert 'data-phase="M">Messages</button>' in nav.group(0)
+    assert 'data-phase="S">Setup</button>' in nav.group(0)
+    assert html.count('class="phase-group') == 6  # 4 board + Messages + Setup
     assert html.count("phase-active") >= 1
+    # region wrappers live outside #board-root but carry panel semantics
+    assert '<div class="phase-group" data-phase="S" id="phase-S"' in html
+    assert '<div class="phase-group" data-phase="M" id="phase-M"' in html
 
     css = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
     assert css.split(".phase-tabs {", 1)[1].split("}", 1)[0].strip().startswith("display: none")
     stacked = css.split("@media (max-width: 1023px) {", 1)[1]
     assert ".phase-tabs" in stacked and "position: sticky" in stacked
+    assert 'gap: var(--space-3); /* owner: "add more gap between tab" */' in css
     assert ".phase-group:not(.phase-active)" in stacked
     tablet = css.split("@media (min-width: 768px) and (max-width: 1023px) {", 1)[1].split("\n}", 1)[
         0
@@ -1363,6 +1376,10 @@ def test_phase_tabs_group_the_stacked_board(db_client) -> None:
     assert 'sessionStorage.getItem("pl.phase")' in phase
     assert ".lens-match" in phase  # lens auto-selects its phase
     assert 'classList.toggle("phase-active"' in phase
+    # document-wide: the Setup/Messages wrappers sit outside #board-root, and
+    # the server-rendered active group beats DOM order (Setup is first)
+    assert 'document.querySelectorAll(".phase-group")' in phase
+    assert ".phase-group.phase-active" in phase
     assert "applyPhase();" in js.split("function init()", 1)[1].split("function tidy()", 1)[0]
     delegation = js.split("Phase tab strip", 1)[1].split("Controls cluster", 1)[0]
     assert ".phase-tabs [data-phase]" in delegation and "ArrowRight" in delegation

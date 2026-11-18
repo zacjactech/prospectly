@@ -840,20 +840,16 @@
      setup → board → messages order. Idempotent — safe on every re-init. */
   function applyStackOrder() {
     if (!world) return;
-    var setupLabel = world.querySelector('[data-region-label="setup"]');
-    var setup = world.querySelector(".setup-cluster");
-    /* The board region label was removed (owner 2026-11-18): #board-root is
-       the restore anchor now. */
+    /* Setup lives inside its phase wrapper now (tab panel S). */
+    var setupWrap = world.querySelector('.phase-group[data-phase="S"]');
     var boardRoot = world.querySelector("#board-root");
-    if (!setupLabel || !setup || !boardRoot) return;
+    if (!setupWrap || !boardRoot) return;
     if (window.innerWidth < 1024) {
-      if (setupLabel.nextElementSibling === setup && setup === world.lastElementChild) return;
-      world.appendChild(setupLabel);
-      world.appendChild(setup);
+      if (world.lastElementChild === setupWrap) return;
+      world.appendChild(setupWrap); // work first: board → messages → setup
     } else {
-      if (setupLabel.nextElementSibling === setup && setup.nextElementSibling === boardRoot) return;
-      boardRoot.parentNode.insertBefore(setupLabel, boardRoot);
-      boardRoot.parentNode.insertBefore(setup, boardRoot);
+      if (setupWrap.nextElementSibling === boardRoot) return;
+      boardRoot.parentNode.insertBefore(setupWrap, boardRoot); // canonical order
     }
   }
 
@@ -865,7 +861,9 @@
   function applyPhase() {
     var board = document.getElementById("board-root");
     if (!board) return;
-    var groups = board.querySelectorAll(".phase-group");
+    /* Document-wide: the Setup and Messages wrappers live outside
+       #board-root (owner: "only show the content of that tab"). */
+    var groups = document.querySelectorAll(".phase-group");
     if (!groups.length) return;
     var keys = Array.prototype.map.call(groups, function (g) {
       return g.getAttribute("data-phase");
@@ -876,6 +874,12 @@
       } catch (err) {
         activePhase = null; // private mode: session-only
       }
+    }
+    if (activePhase === null) {
+      /* Server-rendered default (first board group) beats DOM order — the
+         Setup wrapper is the first .phase-group in the document. */
+      var serverActive = document.querySelector(".phase-group.phase-active");
+      activePhase = serverActive ? serverActive.getAttribute("data-phase") : null;
     }
     if (activePhase === null || keys.indexOf(activePhase) < 0) activePhase = keys[0];
     /* A stage lens must show its own phase — otherwise the active tab could
