@@ -931,3 +931,20 @@ USER_FLOWS wording, canvas-implementation-tasks amendment.
   93%→58% density flip); stacked card drag still moves stages (new → replied
   at 390, seed restored); mode-crossing fit runs wide-only so stacked entry
   can't overwrite the stored wide view. Test: test_stacked_view_scrolls_instead_of_zooming.
+
+- **Element-comment batch (2026-11-18):** Stage override heading moved into
+  the control row (heading + Move to… + Move on one line) · Filters panel URL
+  explainer removed · board PIPE region label (chip + hint) removed and
+  applyStackOrder re-anchored to #board-root (work-first verified: setup last
+  at 390, canonical order at 1440) · detail outreach groups get 16px vertical
+  gaps (measured 38/35px between group starts) · reply helper copy sits after
+  its label (LABEL>P>TEXTAREA) · danger heading rides the block head in both
+  states (in front of the status/label text, #danger-zone id kept) · Block
+  outreach right-aligned (btnRight == formRight) · terminal sub-stage badges
+  became a "Filter stage" dropdown linking the three stage lenses · message
+  approve checkbox + button on one line (scoped `.action-inline`; blanket
+  `.action-group form` rule collided with the existing `display: inline` —
+  repaired the corrupted `.empty .action-group` selector in the same pass) ·
+  Sign out pinned to the nav bottom (foot bottom + 16px padding == nav bottom
+  at 1440/760/390) · phase tabs: 4 tabs, 1 visible group at 390, all 4 at 1440.
+  Test: test_panel_directive_batch_2026_11_18.

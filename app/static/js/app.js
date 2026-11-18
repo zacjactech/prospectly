@@ -279,7 +279,12 @@
     if (e.key === "j" || e.key === "k") {
       if (panelIsOpen()) return;
       e.preventDefault();
-      var rows = document.querySelectorAll("tbody tr, .prospect-card");
+      var rows = Array.prototype.filter.call(
+        document.querySelectorAll("tbody tr, .prospect-card"),
+        function (el) {
+          return el.offsetParent !== null; // skip cards in a hidden phase tab
+        }
+      );
       var current = document.querySelector("tbody tr.highlight, .prospect-card.highlight");
       var idx = rows.length ? Array.prototype.indexOf.call(rows, current) : -1;
       var next = idx;
@@ -305,6 +310,7 @@
       }
       if (active === document.body) {
         var highlighted = document.querySelector(".prospect-card.highlight");
+      if (highlighted && highlighted.offsetParent === null) highlighted = null;
         if (highlighted) {
           e.preventDefault();
           highlighted.click();

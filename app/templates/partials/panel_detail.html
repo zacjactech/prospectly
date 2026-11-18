@@ -192,6 +192,8 @@
 {% endif %}
 
 {% if not prospect.do_not_contact %}
+{# Groups (status · preview · actions) breathe: owner "TOO tight add gap
+   btween the 3 group vertically" (2026-11-18). #}
 <section class="card" id="detail-outreach">
   {% if is_terminal %}
   <p class="muted">Terminal stage: outreach is closed.</p>
@@ -212,7 +214,7 @@
       <button class="btn primary" type="submit">Submit for review</button>
     </form>
     {% elif active_message.status == "pending_review" %}
-    <form method="post" action="/messages/{{ active_message.id }}/approve" {% if panel_mode %}hx-post="/messages/{{ active_message.id }}/approve"{% endif %} data-confirm="Approve this draft? Opening WhatsApp is a separate step; you press Send." {{ hxpost_refresh|safe }}>
+    <form method="post" action="/messages/{{ active_message.id }}/approve" class="action-inline" {% if panel_mode %}hx-post="/messages/{{ active_message.id }}/approve"{% endif %} data-confirm="Approve this draft? Opening WhatsApp is a separate step; you press Send." {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       {% if not grounded_findings %}
       <label class="checkbox-line">
@@ -263,11 +265,13 @@
 
 {% if not prospect.do_not_contact and not is_terminal and has_sent %}
 <section class="card">
-  <p class="muted small">Paste or summarize what they sent on WhatsApp. Records the reply and moves the stage to <strong>replied</strong> unless the prospect is already later in the pipeline or in a terminal stage.</p>
   <form method="post" action="/prospects/{{ prospect.id }}/reply" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/reply"{% endif %} {{ hxpost_refresh|safe }}>
     {{ csrf_field() }}
     <div class="field full">
       <label>Reply text</label>
+      {# Helper copy sits after the label, before the field (owner: "after the
+         label text", 2026-11-18). #}
+      <p class="muted small">Paste or summarize what they sent on WhatsApp. Records the reply and moves the stage to <strong>replied</strong> unless the prospect is already later in the pipeline or in a terminal stage.</p>
       <textarea name="text" rows="3" required placeholder="e.g. Yes, send me a quote"></textarea>
     </div>
     <div class="field full">
@@ -362,11 +366,13 @@
 {% endif %}
 
 <section class="card danger-zone">
-  <h3 id="danger-zone">Danger zone</h3>
-
   <div class="danger-block">
+    {# The heading rides the block head, in front of the status/label text
+       (owner 2026-11-18: "move to the other side in front of the next
+       text"); #danger-zone keeps its id for the banner anchor. #}
     {% if prospect.do_not_contact %}
     <div class="danger-block-head">
+      <h3 id="danger-zone">Danger zone</h3>
       <span class="badge stage-do-not-contact">Suppressed</span>
       {% if prospect.do_not_contact_reason %}<span class="muted small">{{ prospect.do_not_contact_reason }}</span>{% endif %}
     </div>
@@ -382,8 +388,11 @@
     <form method="post" action="/prospects/{{ prospect.id }}/do-not-contact" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/do-not-contact"{% endif %} {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       <div class="field full">
-        {# Status rides the label row (owner: "in front not above"). #}
-        <label for="dnc-reason">Reason (optional) <span class="badge muted">Not suppressed</span></label>
+        {# Heading + status on one row, in front of the label (owner). #}
+        <div class="danger-block-head">
+          <h3 id="danger-zone">Danger zone</h3>
+          <label for="dnc-reason">Reason (optional) <span class="badge muted">Not suppressed</span></label>
+        </div>
         <input id="dnc-reason" type="text" name="reason" maxlength="500" placeholder="e.g. opt-out received on WhatsApp">
       </div>
       <p class="muted small">Blocks drafts, approvals and WhatsApp actions. Clearing requires a reason.</p>
@@ -413,15 +422,13 @@
   </div>
 
   <div class="danger-block">
-    <div class="danger-block-head">
-      <h4>Stage override</h4>
-    </div>
     {% if next_stages %}
     <form method="post" action="/prospects/{{ prospect.id }}/stage" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/stage"{% endif %} class="stage-form" {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       <div class="field full">
         <label class="sr-only" for="stage-override">Move to stage</label>
         <div class="stage-override-row">
+          <h4>Stage override</h4>
           <select id="stage-override" name="stage" data-stage-select required>
             <option value="" selected disabled>Move to...</option>
             {% for t in next_stages %}

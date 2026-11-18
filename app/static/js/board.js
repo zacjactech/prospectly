@@ -301,6 +301,7 @@
   function zoneAt(clientX, clientY) {
     for (var i = 0; i < zones.length; i++) {
       var r = zones[i].getBoundingClientRect();
+      if (!r.width || !r.height) continue; // hidden phase tab (display:none)
       if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
         return zones[i];
       }

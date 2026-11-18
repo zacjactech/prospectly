@@ -91,11 +91,6 @@
 
       {% include "partials/canvas_setup_cluster.html" %}
 
-      <div class="region-label" data-region-label="board">
-        <span class="region-chip" aria-hidden="true">PIPE</span>
-        <span class="region-hint">{{ prospects|length }} on the board</span>
-      </div>
-
       <div id="board-root" data-board-root data-region="board">
         {% include "partials/board_zones.html" %}
       </div>

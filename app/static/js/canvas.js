@@ -842,17 +842,60 @@
     if (!world) return;
     var setupLabel = world.querySelector('[data-region-label="setup"]');
     var setup = world.querySelector(".setup-cluster");
-    var boardLabel = world.querySelector('[data-region-label="board"]');
-    if (!setupLabel || !setup || !boardLabel) return;
+    /* The board region label was removed (owner 2026-11-18): #board-root is
+       the restore anchor now. */
+    var boardRoot = world.querySelector("#board-root");
+    if (!setupLabel || !setup || !boardRoot) return;
     if (window.innerWidth < 1024) {
       if (setupLabel.nextElementSibling === setup && setup === world.lastElementChild) return;
       world.appendChild(setupLabel);
       world.appendChild(setup);
     } else {
-      if (setupLabel.nextElementSibling === setup && setup.nextElementSibling === boardLabel) return;
-      boardLabel.parentNode.insertBefore(setupLabel, boardLabel);
-      boardLabel.parentNode.insertBefore(setup, boardLabel);
+      if (setupLabel.nextElementSibling === setup && setup.nextElementSibling === boardRoot) return;
+      boardRoot.parentNode.insertBefore(setupLabel, boardRoot);
+      boardRoot.parentNode.insertBefore(setup, boardRoot);
     }
+  }
+
+  /* Phase tabs (owner 2026-11-18): stacked flow shows one phase at a time.
+     State lives here + sessionStorage; the CSS media query makes it all inert
+     on the wide canvas (every group shows, strip hidden). */
+  var activePhase = null;
+
+  function applyPhase() {
+    var board = document.getElementById("board-root");
+    if (!board) return;
+    var groups = board.querySelectorAll(".phase-group");
+    if (!groups.length) return;
+    var keys = Array.prototype.map.call(groups, function (g) {
+      return g.getAttribute("data-phase");
+    });
+    if (activePhase === null) {
+      try {
+        activePhase = sessionStorage.getItem("pl.phase");
+      } catch (err) {
+        activePhase = null; // private mode: session-only
+      }
+    }
+    if (activePhase === null || keys.indexOf(activePhase) < 0) activePhase = keys[0];
+    /* A stage lens must show its own phase — otherwise the active tab could
+       hide the only zone the user asked to see. */
+    var lens = board.querySelector(".lens-match");
+    if (lens) {
+      var lensGroup = lens.closest(".phase-group");
+      if (lensGroup && lensGroup.getAttribute("data-phase") !== activePhase) {
+        activePhase = lensGroup.getAttribute("data-phase");
+      }
+    }
+    Array.prototype.forEach.call(groups, function (g) {
+      g.classList.toggle("phase-active", g.getAttribute("data-phase") === activePhase);
+    });
+    Array.prototype.forEach.call(board.querySelectorAll(".phase-tabs [data-phase]"), function (b) {
+      var on = b.getAttribute("data-phase") === activePhase;
+      b.classList.toggle("active", on);
+      if (on) b.setAttribute("aria-selected", "true");
+      else b.removeAttribute("aria-selected");
+    });
   }
 
   function init() {
@@ -860,6 +903,7 @@
     if (!vp) return;
     world = vp.querySelector("[data-canvas-world]");
     applyStackOrder(); // visual order first — layout reads the DOM
+    applyPhase(); // one visible phase in stacked (idempotent on every re-init)
     wireGroup = world ? world.querySelector("[data-wire-lines]") : null;
     zones = world ? Array.prototype.slice.call(world.querySelectorAll(".canvas-zone")) : [];
     labels = world ? Array.prototype.slice.call(world.querySelectorAll(".band-label")) : [];
@@ -901,6 +945,32 @@
     scheduleWires();
     updateEdgeFades();
   }
+
+  /* Phase tab strip: click or arrow keys switch the visible phase. */
+  document.addEventListener("click", function (e) {
+    var tab = e.target.closest && e.target.closest(".phase-tabs [data-phase]");
+    if (!tab) return;
+    activePhase = tab.getAttribute("data-phase");
+    try {
+      sessionStorage.setItem("pl.phase", activePhase);
+    } catch (err) {
+      /* private mode: the choice lives for this page load only */
+    }
+    applyPhase();
+  });
+
+  document.addEventListener("keydown", function (e) {
+    var tab = e.target.closest && e.target.closest(".phase-tabs [data-phase]");
+    if (!tab) return;
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    var tabs = Array.prototype.slice.call(document.querySelectorAll(".phase-tabs [data-phase]"));
+    var i = tabs.indexOf(tab);
+    if (i < 0) return;
+    e.preventDefault();
+    var next = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+    next.focus();
+    next.click();
+  });
 
   /* Controls cluster (real buttons, spec §2.2) + rail view actions (§V2.4). */
   document.addEventListener("click", function (e) {

@@ -22,12 +22,13 @@ what feeds what:
 
 ```
 Pipeline Canvas (GET /prospects — the default surface)
-├── SETUP region — 9 cards, 3 × 3 (each opens its own mini-pipeline panel)
+├── SETUP region — 9 cards, 3 × 3 (each links to its standalone settings/status page; 2026-11-18)
 │     Status · Profile · Providers · Import · Saved views · Retention
 │     Merge · Usage · General
-│     wires → board (discovery, drafts, research, adds candidates, filters,
-│                flags inactive, dedupes); Usage → Providers, General → Profile
-├── PIPE region — the stage board (phase bands + zones + cards)
+│     (the old setup→board wires were removed with the 2026-11-16 amendment —
+│      cards link straight to their pages; Usage → Providers etc. is data
+│      dependency, not a drawn connector)
+├── Board region — the stage board (phase bands + zones + cards; the PIPE chip label + hint removed 2026-11-18)
 │     zones are the real stages from SYSTEM_ARCHITECTURE §3.2; drag = a
 │     server-validated stage transition only (409 on illegal, P1-safe)
 └── MSG region — the outreach region (pending_review → approved → opened)

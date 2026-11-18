@@ -1254,7 +1254,8 @@ def test_work_first_order_on_small_screens() -> None:
     assert "world.querySelector('[data-region-label=\"setup\"]')" in fn
     assert "world.appendChild(setupLabel)" in fn
     assert "world.appendChild(setup)" in fn
-    assert "insertBefore(setupLabel, boardLabel)" in fn  # wide restore
+    assert 'world.querySelector("#board-root")' in fn  # anchor (board label removed)
+    assert "insertBefore(setupLabel, boardRoot)" in fn  # wide restore
     assert "window.innerWidth < 1024" in fn
     # called on init (covers HTMX re-inits) and on layout-mode crossings
     init = js.split("function init()", 1)[1].split("function tidy()", 1)[0]
@@ -1316,3 +1317,145 @@ def test_stacked_view_scrolls_instead_of_zooming() -> None:
     css = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
     stacked = css.split("/* Stacked flow is never density-compact", 1)[1].split("}", 1)[0]
     assert "--card-pad: var(--space-4)" in stacked  # density inert in stacked
+
+
+def test_phase_tabs_group_the_stacked_board(db_client) -> None:
+    """Owner: "instead of displaying all the content at once can you make it
+    into tab." Stacked flow (<1024) shows one phase at a time via a tablist;
+    the media-scoped CSS keeps the wide canvas spatial (strip hidden, every
+    group shown). Server marks the first group active (no flash); JS restores
+    the session choice and auto-selects a lens's own phase."""
+    zones_tpl = (_ROOT / "app/templates/partials/board_zones.html").read_text(encoding="utf-8")
+    assert '<nav class="phase-tabs" role="tablist" aria-label="Pipeline phases">' in zones_tpl
+    assert 'aria-controls="phase-' in zones_tpl
+    assert 'aria-selected="true"' in zones_tpl  # first tab marked server-side
+    assert 'role="tabpanel"' in zones_tpl
+    # bands + zones live inside the wrapper (strip renders before them)
+    i_nav = zones_tpl.index("</nav>")
+    i_band = zones_tpl.index('<div class="band-label"')
+    assert i_nav < i_band
+
+    # rendered: four tabs, one selected, four groups (first active) — no flash
+    _, client = db_client
+    html = client.get("/prospects").text
+    nav = re.search(r'<nav class="phase-tabs".*?</nav>', html, re.S)
+    assert nav, "phase strip missing from the rendered board"
+    assert nav.group(0).count('role="tab"') == 4
+    assert nav.group(0).count('aria-selected="true"') == 1
+    assert html.count('class="phase-group') == 4
+    assert html.count("phase-active") >= 1
+
+    css = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
+    assert css.split(".phase-tabs {", 1)[1].split("}", 1)[0].strip().startswith("display: none")
+    stacked = css.split("@media (max-width: 1023px) {", 1)[1]
+    assert ".phase-tabs" in stacked and "position: sticky" in stacked
+    assert ".phase-group:not(.phase-active)" in stacked
+    tablet = css.split("@media (min-width: 768px) and (max-width: 1023px) {", 1)[1].split("\n}", 1)[
+        0
+    ]
+    assert (
+        ".phase-group {" in tablet and "grid-template-columns" in tablet
+    )  # grid retargeted to the wrapper
+    assert "#board-root {" not in tablet
+
+    js = (_ROOT / "app/static/js/canvas.js").read_text(encoding="utf-8")
+    phase = js.split("function applyPhase()", 1)[1].split("function init()", 1)[0]
+    assert 'sessionStorage.getItem("pl.phase")' in phase
+    assert ".lens-match" in phase  # lens auto-selects its phase
+    assert 'classList.toggle("phase-active"' in phase
+    assert "applyPhase();" in js.split("function init()", 1)[1].split("function tidy()", 1)[0]
+    delegation = js.split("Phase tab strip", 1)[1].split("Controls cluster", 1)[0]
+    assert ".phase-tabs [data-phase]" in delegation and "ArrowRight" in delegation
+
+    board = (_ROOT / "app/static/js/board.js").read_text(encoding="utf-8")
+    zat = board.split("function zoneAt(", 1)[1].split("function ", 1)[0]
+    assert "!r.width || !r.height" in zat  # hidden groups must not claim drops
+
+    appjs = (_ROOT / "app/static/js/app.js").read_text(encoding="utf-8")
+    jk = appjs.split('e.key === "j"', 1)[1][:600]  # the whole j/k branch
+    assert "offsetParent !== null" in jk  # j/k never highlights an invisible card
+
+
+def test_panel_directive_batch_2026_11_18(db_client) -> None:
+    """Owner element comments (2026-11-18): Stage override on one line, Filters
+    explainer gone, PIPE region label removed, detail group gaps, reply hint
+    after its label, danger heading in front of the status text, Block
+    outreach right, terminal sub-badges as a filter dropdown, message approve
+    controls on one line, Sign out pinned to the nav bottom."""
+    db, client = db_client
+    prospect = Prospect(
+        business_name="Directive Batch Ltd",
+        stage="replied",
+        last_contacted_at=dt.datetime.now(dt.UTC),  # renders the reply card
+    )
+    db.add(prospect)
+    db.commit()
+    db.refresh(prospect)
+
+    detail = client.get(f"/prospects/{prospect.id}").text
+
+    # Stage override: heading + select + Move share the control row
+    assert re.search(r'<div class="stage-override-row">\s*<h4>Stage override</h4>', detail), (
+        "Stage override heading not in the control row"
+    )
+    assert '<div class="danger-block-head">\n      <h4>Stage override</h4>' not in detail
+
+    # Reply helper copy sits after the label, before the textarea
+    assert (
+        detail.index("<label>Reply text</label>")
+        < detail.index("Paste or summarize")
+        < detail.index('<textarea name="text"')
+    )
+
+    # Danger heading rides a block head, in front of the status/label text
+    m = re.search(r'<div class="danger-block-head">\s*<h3 id="danger-zone">', detail)
+    assert m, "danger heading not inside a block head"
+    head_i = detail.index('<h3 id="danger-zone">')
+    assert head_i < detail.index('for="dnc-reason"')
+
+    # Suppressed state: heading joins the Suppressed badge row
+    prospect.do_not_contact = True
+    prospect.do_not_contact_reason = "asked to stop"
+    db.commit()
+    sup = client.get(f"/prospects/{prospect.id}").text
+    assert re.search(
+        r'<div class="danger-block-head">\s*<h3 id="danger-zone">Danger zone</h3>\s*'
+        r'<span class="badge stage-do-not-contact">Suppressed</span>',
+        sup,
+    )
+    prospect.do_not_contact = False
+    prospect.do_not_contact_reason = None
+    db.commit()
+
+    # Filters panel: the URL explainer is gone (fragment)
+    frag = client.get("/prospects/filters", headers={"HX-Request": "true"}).text
+    assert "The URL keeps the state" not in frag
+    assert 'id="fp-q"' in frag  # fields untouched
+
+    # Board region label (PIPE chip + hint) removed
+    shell = (_ROOT / "app/templates/canvas/shell.html").read_text(encoding="utf-8")
+    assert 'data-region-label="board"' not in shell
+    assert "on the board" not in shell
+    setup_label = (_ROOT / "app/templates/partials/canvas_setup_cluster.html").read_text(
+        encoding="utf-8"
+    )
+    assert 'data-region-label="setup"' in setup_label  # SETUP label stays
+
+    # Terminal sub-stage counts → filter dropdown (lens links)
+    zones = (_ROOT / "app/templates/partials/board_zones.html").read_text(encoding="utf-8")
+    assert '<details class="sub-filter">' in zones
+    assert zones.count('href="/prospects?stage={{ sub }}"') == 1  # inside the loop
+    assert "zone-sub-badges" not in zones
+
+    # CSS contracts
+    css = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
+    assert "#detail-outreach > * + *" in css
+    assert ".danger-block form .btn.danger" in css and "align-self: flex-end" in css
+    assert ".stage-override-row h4" in css
+    assert ".sub-filter-menu" in css and "box-shadow: var(--shadow-2)" in css
+    assert ".danger-zone h3" in css  # descendant: heading keeps its danger color
+    appcss = (_ROOT / "app/static/css/app.css").read_text(encoding="utf-8")
+    assert ".action-group .action-inline {" in appcss and "flex-wrap: wrap" in appcss
+    nav = appcss.split(".sidenav-nav {", 1)[1].split("}", 1)[0]
+    assert "flex-direction: column" in nav and "flex: 1" in nav  # Sign out pinned
+    assert ".sub-filter summary" in appcss.split("@media (pointer: coarse)", 1)[1]

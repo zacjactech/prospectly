@@ -70,7 +70,7 @@
       <button class="btn primary" type="submit">Submit for review</button>
     </form>
     {% elif message.status == "pending_review" %}
-    <form method="post" action="/messages/{{ message.id }}/approve" {% if panel_mode %}hx-post="/messages/{{ message.id }}/approve"{% endif %} data-confirm="Approve this draft? Opening WhatsApp is a separate step; you press Send." {{ hxpost_refresh|safe }}>
+    <form method="post" action="/messages/{{ message.id }}/approve" class="action-inline" {% if panel_mode %}hx-post="/messages/{{ message.id }}/approve"{% endif %} data-confirm="Approve this draft? Opening WhatsApp is a separate step; you press Send." {{ hxpost_refresh|safe }}>
       {{ csrf_field() }}
       {% if not grounded_findings %}
       <label class="checkbox-line">

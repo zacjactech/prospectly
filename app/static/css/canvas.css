@@ -483,24 +483,71 @@
   vertical-align: 1px;
 }
 
-/* Terminal zone: one zone, three sub-badges (spec §2.3) — a row under the
-   head, counts stay in sync with the cards inside. */
-.zone-sub-badges {
-  display: flex;
-  flex-wrap: wrap;
+/* Terminal sub-stage counts as a filter dropdown (owner 2026-11-18: "make
+   this into a filter dropdown btn"); each entry links to that stage's lens. */
+.sub-filter {
+  position: relative;
+  align-self: flex-start;
+  margin: var(--space-2) var(--space-3);
+}
+
+.sub-filter summary {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-2);
-  row-gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.zone-sub-badges .badge {
-  font-size: 11px;
   padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  list-style: none;
 }
 
-.zone-sub-badges .badge .mono {
-  margin-left: 6px;
+.sub-filter summary::-webkit-details-marker {
+  display: none;
+}
+
+.sub-filter summary:hover,
+.sub-filter[open] summary {
+  color: var(--color-text);
+}
+
+.sub-filter summary svg {
+  width: 12px;
+  height: 12px;
+}
+
+.sub-filter-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: var(--space-1);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2); /* fill + shadow, no box outline (shade ladder) */
+}
+
+.sub-filter-menu a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+}
+
+.sub-filter-menu a:hover {
+  background: var(--color-surface-hover);
 }
 
 .zone-body {
@@ -1206,8 +1253,18 @@
   border-color: transparent;
 }
 
-.danger-zone > h3 {
+.danger-zone h3 {
   color: var(--color-danger);
+}
+
+/* Head rows pair a heading with status/label text on one line (owner
+   2026-11-18: "move to the other side in front of the next text"). */
+.danger-block-head h3 {
+  margin: 0;
+}
+
+.danger-block-head label {
+  margin-bottom: 0;
 }
 
 .danger-block + .danger-block {
@@ -1228,6 +1285,15 @@
 
 .danger-block form {
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Block outreach rides the right edge (owner 2026-11-18: "move to the other
+   side (right)"); the plain Clear suppression button keeps its place. */
+.danger-block form .btn.danger {
+  align-self: flex-end;
 }
 
 .danger-block > .muted.small {
@@ -1238,6 +1304,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.stage-override-row h4 {
+  margin: 0;
+  flex: none;
 }
 
 .stage-override-row select {
@@ -1891,23 +1962,85 @@
   }
 }
 
+/* Phase tabs (owner 2026-11-18): stacked flow shows one phase at a time
+   instead of one endless scroll. Hidden >=1024 — the wide canvas shows every
+   group spatially — and the same media query scopes the group hiding, so the
+   strip and its state are inert on the wide board. */
+.phase-tabs {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .phase-tabs {
+    display: flex;
+    gap: var(--space-1);
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    margin-bottom: var(--space-3);
+    background: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .phase-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .phase-tabs [role="tab"] {
+    flex: none;
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--color-text-muted);
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .phase-tabs [role="tab"]:hover {
+    color: var(--color-text);
+  }
+
+  .phase-tabs [role="tab"][aria-selected="true"] {
+    color: var(--color-text);
+    border-bottom-color: var(--color-accent);
+  }
+
+  .phase-tabs [role="tab"]:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+
+  .phase-group:not(.phase-active) {
+    display: none;
+  }
+}
+
 /* Tablet / narrow desktop (768–1023): hybrid layout — rail + a 2-column
    zone grid instead of one 4000px column (adapt: two-column, not a shrink of
    the phone list). Phase bands span both columns; the grid gap owns spacing. */
 @media (min-width: 768px) and (max-width: 1023px) {
-  #board-root {
+  /* The phase-group wrapper is the grid now (zones are no longer direct
+     children of #board-root); band labels span both columns. */
+  .phase-group {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-3);
   }
 
-  #board-root .band-label {
+  .phase-group .band-label {
     grid-column: 1 / -1;
     margin-top: 0;
     margin-bottom: 0;
   }
 
-  #board-root .canvas-zone + .canvas-zone {
+  .phase-group .canvas-zone + .canvas-zone {
     margin-top: 0; /* grid gap already separates */
   }
 }
@@ -2801,7 +2934,13 @@ input[type="file"]::file-selector-button {
   font-weight: var(--fw-semibold);
 }
 
-/* Outreach: state row, then the message as a quiet preview, then actions. */
+/* Outreach: state row, then the message as a quiet preview, then actions.
+   Owner 2026-11-18: "TOO tight add gap btween the 3 group vertically". */
+#detail-outreach > * + * {
+  margin-top: var(--space-4);
+}
+
+
 .outreach-status {
   display: flex;
   align-items: center;

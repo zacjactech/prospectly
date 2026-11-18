@@ -3,7 +3,24 @@
    swap of #board-root). Zones are absolutely positioned by canvas.js —
    CSP forbids inline style attributes, so no coordinates here. DOM order is
    canonical stage order (j/k and no-JS reading order depend on it). #}
+{# Phase tabs (owner 2026-11-18: "instead of displaying all the content at
+   once can you make it into tab"): stacked flow (<1024) shows one phase at a
+   time; the media-scoped CSS hides the strip and reveals every group on the
+   wide canvas, so this markup is inert there. First group is active
+   server-side (no flash); sessionStorage remembers the last choice; a lens
+   auto-selects its own phase (JS). #}
+<nav class="phase-tabs" role="tablist" aria-label="Pipeline phases">
+  {% for band in bands %}
+  <button type="button" role="tab" id="phase-tab-{{ band.key }}"
+          aria-controls="phase-{{ band.key }}" data-phase="{{ band.key }}"
+          {% if loop.first %}aria-selected="true"{% endif %}>{{ band.label }}</button>
+  {% endfor %}
+</nav>
+
 {% for band in bands %}
+<div class="phase-group{% if loop.first %} phase-active{% endif %}"
+     data-phase="{{ band.key }}" id="phase-{{ band.key }}"
+     role="tabpanel" aria-labelledby="phase-tab-{{ band.key }}">
 <div class="band-label" data-band="{{ band.key }}">
   <span class="phase-chip" aria-hidden="true">{{ band.key }}</span>
   <span class="band-name">{{ band.label }}</span>
@@ -25,12 +42,20 @@
     </h2>
   </header>
   {% if zone.sub_badges %}
-  <div class="zone-sub-badges">
-    {% for sub in zone.stages %}
-    <span class="badge stage-{{ sub|replace('_','-') }}" data-sub-stage="{{ sub }}">{{ sub|replace('_',' ') }}
-      <span class="mono" data-count>{{ zone_sub_counts.get(sub, 0) }}</span></span>
-    {% endfor %}
-  </div>
+  {# Sub-stage counts became a filter dropdown (owner 2026-11-18: "make this
+     into a filter dropdown btn"): each entry links to that stage's lens. #}
+  <details class="sub-filter">
+    <summary>
+      <span>Filter stage</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+    </summary>
+    <div class="sub-filter-menu">
+      {% for sub in zone.stages %}
+      <a href="/prospects?stage={{ sub }}">{{ sub|replace('_',' ') }}
+        <span class="badge stage-{{ sub|replace('_','-') }}" data-sub-stage="{{ sub }}">{{ zone_sub_counts.get(sub, 0) }}</span></a>
+      {% endfor %}
+    </div>
+  </details>
   {% endif %}
   <div class="drop-label" aria-hidden="true"></div>
   <div class="zone-body" data-zone-body>
@@ -42,4 +67,5 @@
   </div>
 </section>
 {% endfor %}
+</div>
 {% endfor %}
