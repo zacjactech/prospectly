@@ -1866,6 +1866,9 @@
   /* Stacked flow is never density-compact (spec §V2.6): cards keep their
      meta + status rows even though the transform-layer zoom is clamped. */
   .canvas-screen.density-compact .prospect-card {
+    --card-pad: var(--space-4); /* density is inert in stacked: full-size
+       cards at every zoom (the compact rule's 12px pad made cards visibly
+       expand/collapse on zoom) */
     height: var(--card-h);
     padding: var(--card-pad);
   }

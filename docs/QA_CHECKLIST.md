@@ -923,3 +923,11 @@ Gate: 413 tests, ruff/format/mypy/node --check clean, assets `?v=64`.
 Docs: pipeline-canvas (§V2.2 contract, §4 panels, §5 mapping, §6.1, §1.3),
 API_DESIGN (two route families), UI spec (deep links, tree, §2.3, §7),
 USER_FLOWS wording, canvas-implementation-tasks amendment.
+
+- **Scroll fix (2026-11-18):** stacked views (<1024) no longer bind the wide
+  wheel/pan/zoom-key gestures — wheel scrolls the page (measured: wheel no
+  longer canceled at 760/390, zoom/density stay 93%/full, cards stop
+  expand/collapsing); wide ≥1024 keeps wheel-zoom (owner spec, measured
+  93%→58% density flip); stacked card drag still moves stages (new → replied
+  at 390, seed restored); mode-crossing fit runs wide-only so stacked entry
+  can't overwrite the stored wide view. Test: test_stacked_view_scrolls_instead_of_zooming.

@@ -749,6 +749,11 @@
   function onPointerDown(e) {
     if (e.pointerType !== "mouse" && !e.isPrimary) return; // no pinch (spec §2.2)
     if (e.button !== 0) return;
+    /* Stacked (<1024): background pan and zone drag are wide-canvas gestures.
+       position:static !important means they move nothing on screen, but they
+       still wrote pan/zone state into storage. Cards are board.js's (their
+       stage drag still works — that listener is document-level). */
+    if (window.innerWidth < 1024) return;
     var t = e.target;
     if (t.closest && t.closest(".canvas-controls, .move-menu, .panel")) return;
     /* Setup cards and outreach message cards are links/forms that live
@@ -771,6 +776,11 @@
 
   function onWheel(e) {
     if (!vp) return;
+    /* Stacked flow (<1024) owns no transform layer: wheel/trackpad must
+       scroll the page. The wide handler's preventDefault killed scrolling and
+       its zoom only flipped card density (owner: "scrolling is not working in
+       the other view it only expanding and collapsing the card"). */
+    if (window.innerWidth < 1024) return;
     e.preventDefault();
     /* Owner request 2026-11-16: plain wheel zooms at the pointer; Ctrl/Cmd +
        wheel moves the canvas (deltaX/deltaY). Trackpad pinch also arrives as
@@ -803,6 +813,9 @@
     if (window.PlPanel && window.PlPanel.isOpen()) return;
     if (document.body.classList.contains("move-menu-open")) return;
     var k = e.key;
+    /* Stacked has no transform layer: zoom keys would only flip stored
+       zoom/density state (and the density padding) with no visual purpose. */
+    if (window.innerWidth < 1024 && "+=-0f".indexOf(k) >= 0) return;
     if (k === "+" || k === "=") {
       e.preventDefault();
       zoomCenter(ZOOM_STEP);
@@ -999,7 +1012,7 @@
         });
         applyDefaultLayout();
         applyStoredZones();
-        fit();
+        if (mode === "wide") fit(); // stacked has no transform to fit; don't overwrite the stored wide view
       }
       scheduleWires();
     });

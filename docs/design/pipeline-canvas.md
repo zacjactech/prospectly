@@ -157,6 +157,7 @@ New: app/static/js/canvas.js, app/static/css/canvas.css (tokens only; constants 
 | wheel | zoom at cursor |
 | Ctrl/Cmd+wheel | pan deltaX/deltaY (trackpad pinch also arrives as ctrl+wheel) |
 | touch two-finger | disabled <1024 (no transform layer); ≥1024 tablets same synthetic path |
+| wheel **stacked <1024** | **page scroll** — the wide zoom/pan/zoom-key handlers are guarded off below 1024 (2026-11-18: they preventDefault'd scrolling and only flipped card density — "it only expanding and collapsing the card"); zone drag and background pan are inert there too (they wrote state without moving anything), and stacked pins density visuals so cards stay full-size at every zoom. Card drag (stage moves) stays document-level and keeps working |
 
 Overflow fades (critique P1 run 2, 2026-11-18): the world is always larger
 than the viewport at the readable floor, so an edge cuts something (setup

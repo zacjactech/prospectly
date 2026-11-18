@@ -1281,3 +1281,38 @@ def test_panel_tables_carry_stacked_labels() -> None:
         html = (cards / name).read_text(encoding="utf-8")
         for label in labels:
             assert f'data-label="{label}"' in html, f"{name}: missing {label}"
+
+
+def test_stacked_view_scrolls_instead_of_zooming() -> None:
+    """Owner: "scrolling is not working in the other view it only expanding
+    and collapsing the card."
+
+    The stacked flow (<1024) has no transform layer, but the wide canvas
+    handlers were still bound: wheel preventDefault killed page scrolling and
+    the zoom flipped card density (compact's 12px pad vs full's 16px = cards
+    visibly expand/collapse). All four wide-only gestures are now guarded, and
+    stacked pins density visuals so any zoom path is inert there. Card drag
+    (board.js, document-level) keeps working — verified live: new → replied
+    at 390px.
+    """
+    js = (_ROOT / "app/static/js/canvas.js").read_text(encoding="utf-8")
+
+    wheel = js.split("function onWheel(", 1)[1].split("function ", 1)[0]
+    assert "window.innerWidth < 1024" in wheel
+    assert wheel.index("window.innerWidth < 1024") < wheel.index("e.preventDefault()"), (
+        "stacked guard must come before preventDefault"
+    )
+
+    pointer = js.split("function onPointerDown(", 1)[1].split("function ", 1)[0]
+    assert "window.innerWidth < 1024" in pointer  # pan + zone drag are wide-only
+    assert "startZoneDrag" in pointer and "startPan" in pointer  # still wired for wide
+
+    keys = js.split("var k = e.key;", 1)[1].split("});", 1)[0]
+    assert '"+=-0f".indexOf(k)' in keys  # zoom keys inert in stacked
+
+    resize = js.split("if (mode !== lastLayoutMode)", 1)[1].split("scheduleWires();", 1)[0]
+    assert 'if (mode === "wide") fit()' in resize  # never overwrite stored wide view
+
+    css = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
+    stacked = css.split("/* Stacked flow is never density-compact", 1)[1].split("}", 1)[0]
+    assert "--card-pad: var(--space-4)" in stacked  # density inert in stacked
