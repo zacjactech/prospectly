@@ -35,6 +35,3 @@ build/
 # Design-skill working artifacts
 .taste-skill/
 .impeccable/
-
-# JS tooling (owner: always pnpm)
-node_modules/

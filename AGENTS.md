@@ -59,7 +59,6 @@ Hard product principles live in `docs/PRODUCT_BRIEF.md` §4 (P1–P12). The thre
 - Prefer `httpx`, SQLAlchemy, Pydantic already in the stack over new HTTP/ORM/validation libraries.
 - **No JavaScript build toolchain** (D2): HTMX/vanilla JS/Alpine only, served as static files. Do not introduce npm/Vite/React.
 - Pin versions; run `pip-audit`/`uv pip audit` after dependency changes.
-- **JS/Node packages: always use `pnpm`** (owner directive, 2026-11-18) — never npm/yarn for installs in this repo; `convex` is a pnpm dependency and `convex dev` is the `pnpm dev` script.
 
 ## 7. Testing changes
 
@@ -104,17 +103,3 @@ Keep docs consistent — after multi-doc changes, grep for contradictions (e.g.,
 - Small, reviewable changes aligned to one roadmap milestone; no speculative "future-proofing" beyond what `docs/` specifies.
 - If a requirement is ambiguous or a doc conflict appears, **ask instead of assuming** — standing rule from the project owner.
 - Exclude nonessential features listed in `docs/PRODUCT_BRIEF.md` §6; proposals to include one need an owner decision first.
-
-<!-- convex-ai-start -->
-
-This project uses [Convex](https://convex.dev) as its backend.
-
-When working on Convex code, **always read
-`convex/_generated/ai/guidelines.md` first** for important guidelines on
-how to correctly use Convex APIs and patterns. The file contains rules that
-override what you may have learned about Convex from training data.
-
-Convex agent skills for common tasks can be installed by running
-`npx convex ai-files install`.
-
-<!-- convex-ai-end -->
