@@ -2022,7 +2022,7 @@ def _last_owner_guard(actor_id: int, target: User, action: str, owner_count: int
     if target.id == actor_id and action in ("disable", "delete"):
         return f"You cannot {action} your own account."
     if action in ("disable", "delete", "demote") and target.role == "owner" and owner_count <= 1:
-        return "This is the last active owner account — promote another owner first."
+        return "This is the last active owner account. Promote another owner first."
     return None
 
 

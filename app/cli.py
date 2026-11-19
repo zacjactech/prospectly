@@ -46,7 +46,7 @@ def backup() -> int:
         if db_file is None:
             print("Backup supports the SQLite database only (DATABASE_URL is not sqlite).")
         else:
-            print(f"No database yet at {db_file} — nothing to back up.")
+            print(f"No database yet at {db_file}. Nothing to back up.")
         return 1
     print(f"Backup written: {target}")
     return 0

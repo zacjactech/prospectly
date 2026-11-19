@@ -111,7 +111,7 @@ def create_app() -> FastAPI:
                 "title": "That form could not be processed",
                 "message": (
                     "A required field was missing from the submission. "
-                    "Go back and try again — nothing was saved."
+                    "Go back and try again. Nothing was saved."
                 ),
                 "detail": detail,
             },

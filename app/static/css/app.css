@@ -2359,8 +2359,14 @@ ul.spaced li .muted {
   .form-section .field {
     margin-bottom: 0;
   }
+  /* full-width sections drop back to one column, so the grid gap above can no
+     longer supply the spacing — as `display: block` with zeroed margins the
+     fields touched (measured: 0px between Username and Password on /setup).
+     Keep them on the same grid, just single-column. */
   .form-section.full-width {
-    display: block;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--sp-4);
   }
   .form-section.full-width .field {
     margin-bottom: 0;

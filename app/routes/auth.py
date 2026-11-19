@@ -60,7 +60,7 @@ _MAX_NEXT_LENGTH = 2048
 _REASONS = {
     "expired": "Your session expired. Sign in again to continue.",
     "disabled": "This account has been disabled.",
-    "reset": "Password updated — sign in with your new password.",
+    "reset": "Password updated. Sign in with your new password.",
 }
 
 

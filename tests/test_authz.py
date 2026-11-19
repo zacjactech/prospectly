@@ -695,3 +695,39 @@ def test_stamp_owner_is_role_scoped() -> None:
     assert authz.stamp_owner(member) == 7
     assert authz.stamp_owner(admin) is None
     assert authz.stamp_owner(None) is None
+
+
+# ===== 11. Owner copy directive (2026-11-17), extended to these pages =====
+
+
+def test_setup_page_carries_no_em_dashes(db: Session, token: str) -> None:
+    """ "remove all em dashes between text" — the empty-users first-run page."""
+    client = _client()
+    response = client.get("/setup", headers=HTML)
+    assert response.status_code == 200
+    assert "—" not in response.text, "/setup still renders an em dash"
+
+
+def test_auth_and_account_pages_carry_no_em_dashes(roles: dict[str, TestClient]) -> None:
+    """Same directive on every page Phase A/B added.
+
+    `test_canvas_contract.py::test_rendered_pages_carry_no_em_dashes` only
+    sweeps six gate-off canvas/settings URLs, so login, forgot-password,
+    Account, Users and the canvas itself were never checked.
+    """
+    # Unauthenticated: the allowlisted credential pages.
+    anonymous = _client()
+    for url in ("/login", "/forgot-password"):
+        assert "—" not in anonymous.get(url, headers=HTML).text, url
+
+    # Signed in: the pages the gate protects.
+    for role, client in roles.items():
+        for url in (
+            "/",
+            "/prospects",
+            "/settings/saved-views",
+            "/settings/account",
+            "/settings/users",
+        ):
+            html = client.get(url, headers=HTML).text
+            assert "—" not in html, f"{role} {url} still renders an em dash"
