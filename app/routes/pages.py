@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from datetime import date, datetime
+from types import SimpleNamespace
 from typing import Annotated, Any
 from urllib.parse import quote, urlencode
 
@@ -14,6 +15,16 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.auth import (
+    SESSION_COOKIE_NAME,
+    check_rate_limit,
+    client_key,
+    current_user,
+    gate_enabled,
+    require_permission,
+    reset_rate_limit,
+    revoke_user_sessions,
+)
 from app.cli import perform_backup
 from app.config import BASE_DIR, save_settings, settings
 from app.db import get_db
@@ -29,11 +40,13 @@ from app.models import (
     ResearchRun,
     Source,
     Tag,
+    User,
+    UserSession,
     WebsiteCheck,
 )
+from app.services import authz, import_service, merge_service
 from app.services import dashboard as dashboard_service
 from app.services import findings as findings_service
-from app.services import import_service, merge_service
 from app.services import notes as notes_service
 from app.services import opportunity as opportunity_service
 from app.services import outreach as outreach_service
@@ -42,6 +55,7 @@ from app.services import prospect as prospect_service
 from app.services import providers as providers_service
 from app.services import retention as retention_service
 from app.services import saved_views as saved_views_service
+from app.services import users as users_service
 from app.services.usage import usage_summary
 from app.validation import (
     FollowUpFormData,
@@ -311,6 +325,7 @@ def _render_list(
         q=q,
         include_archived=include_archived,
         do_not_contact_only=do_not_contact_only,
+        visible_to=current_user(request),
     )
     filters: dict[str, Any] = {
         "stage": stage,
@@ -350,10 +365,22 @@ def _render_list(
 # on the same routes get the panel fragment only.
 
 
-def _setup_cluster_context(db: Session) -> dict:
+def _can_settings(request: Request) -> bool:
+    """Whether the viewer may open settings surfaces (cluster cards, links).
+
+    Gate off → everyone (pass-through); gate on → settings permission, and
+    fail closed if the identity somehow vanished.
+    """
+    if not gate_enabled():
+        return True
+    user = current_user(request)
+    return user is not None and authz.has_permission(user.role, "settings")
+
+
+def _setup_cluster_context(db: Session, user: authz.Identity | None = None) -> dict:
     """Live one-line state for each setup card (§V2.3). Read-only queries."""
     profile = profile_service.get_or_create_profile(db)
-    needs = dashboard_service.needs_attention(db)
+    needs = dashboard_service.needs_attention(db, visible_to=user)
     provider_rows = providers_service.provider_status(db)
     configured = sum(1 for r in provider_rows if r.get("configured") and r.get("implemented"))
     usage = usage_summary(db)
@@ -402,15 +429,22 @@ def _setup_cluster_context(db: Session) -> dict:
     return {"card_states": card_states, "saved_views": views}
 
 
-def _outreach_context(db: Session) -> dict:
-    """Messages in flight, grouped by state (spec §V2.1 outreach region)."""
-    messages = (
+def _outreach_context(db: Session, user: authz.Identity | None = None) -> dict:
+    """Messages in flight, grouped by state (spec §V2.1 outreach region).
+
+    ``user`` scopes the rows to the prospects that user may see — message
+    drafts are row-level data like the board itself.
+    """
+    query = (
         db.query(OutreachMessage)
         .join(Prospect)
         .filter(OutreachMessage.status.in_(("pending_review", "approved", "opened_in_whatsapp")))
         .order_by(OutreachMessage.updated_at.desc())
-        .all()
     )
+    scope = authz.scope_criterion(user)
+    if scope is not None:
+        query = query.filter(scope)
+    messages = query.all()
     groups = {
         "pending_review": [m for m in messages if m.status == "pending_review"],
         "approved": [m for m in messages if m.status == "approved"],
@@ -456,6 +490,7 @@ def _render_canvas(
             q=q,
             include_archived=include_archived,
             do_not_contact_only=do_not_contact_only,
+            visible_to=current_user(request),
         )
     active_filters = _active_filters(
         stage=stage,
@@ -514,9 +549,10 @@ def _render_canvas(
         "message_type": message_type,
         "open_card": open_card,
         "panel_body_template": panel_body_template,
+        "can_settings": _can_settings(request),
         **_board_context(db, rows, stage=stage),
-        **_setup_cluster_context(db),
-        **_outreach_context(db),
+        **_setup_cluster_context(db, current_user(request)),
+        **_outreach_context(db, current_user(request)),
     }
     if panel_context:
         context.update(panel_context)
@@ -531,6 +567,37 @@ def _render_canvas(
 # Settings family as one tab-based page (owner 2026-11-18: "views without
 # the canvas" become standalone tab pages — the tab strip is their navigation;
 # these routes never had rail entries, only canvas setup cards).
+#: Tab key -> required permission. Unlisted keys default to ``"settings"``;
+#: ``None`` = any signed-in user (account self-service, shared filter presets).
+TAB_PERMISSIONS: dict[str, str | None] = {
+    "account": None,
+    "saved_views": None,
+    "users": "users",
+}
+
+#: Tabs that only exist while the gate is on (they manage identities).
+_AUTH_ONLY_TABS = frozenset({"account", "users"})
+
+
+def _visible_tabs(request: Request) -> list[tuple[str, str, str]]:
+    """Settings tabs the current viewer may actually open.
+
+    Gate off → everything except the identity-management tabs (no identities
+    exist to manage); gate on → filtered by role so a member never sees a
+    tab that would 403.
+    """
+    if not gate_enabled():
+        return [t for t in SETTINGS_TABS if t[0] not in _AUTH_ONLY_TABS]
+    user = current_user(request)
+    role = user.role if user else None
+    visible: list[tuple[str, str, str]] = []
+    for key, label, href in SETTINGS_TABS:
+        perm = TAB_PERMISSIONS.get(key, "settings")
+        if perm is None or authz.has_permission(role, perm):
+            visible.append((key, label, href))
+    return visible
+
+
 SETTINGS_TABS: list[tuple[str, str, str]] = [
     ("general", "General", "/settings/general"),
     ("profile", "Profile", "/settings/profile"),
@@ -540,6 +607,8 @@ SETTINGS_TABS: list[tuple[str, str, str]] = [
     ("retention", "Retention", "/settings/retention"),
     ("usage", "Usage", "/settings/usage"),
     ("merge", "Duplicates", "/merge/duplicates"),
+    ("account", "Account", "/settings/account"),
+    ("users", "Users", "/settings/users"),
 ]
 
 
@@ -576,7 +645,7 @@ def _card_page(
             name="settings_page.html",
             context={
                 **context,
-                "settings_tabs": SETTINGS_TABS,
+                "settings_tabs": _visible_tabs(request),
                 "active_tab": card,
                 "tab_tpl": body,
             },
@@ -605,18 +674,20 @@ def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
-def _status_context(db: Session) -> dict[str, object]:
+def _status_context(db: Session, user: authz.Identity | None = None) -> dict[str, object]:
     """Status card content (was the dashboard page): attention queue, metrics,
     quick start. The 01→03 pipeline strip is dropped — the board itself is on
-    screen with phase chips and counts (§V2.3)."""
+    screen with phase chips and counts (§V2.3).
+    ``user`` scopes every count to the prospects that user may see.
+    """
     return {
         "app_name": settings.app_name,
-        "stage_counts": dashboard_service.stage_counts(db),
+        "stage_counts": dashboard_service.stage_counts(db, visible_to=user),
         "pipeline_phases": dashboard_service.PIPELINE_PHASES,
         "stage_label": dashboard_service.stage_label,
-        "total_prospects": dashboard_service.total_prospects(db),
-        "metrics": dashboard_service.dashboard_metrics(db),
-        "needs_attention": dashboard_service.needs_attention(db),
+        "total_prospects": dashboard_service.total_prospects(db, visible_to=user),
+        "metrics": dashboard_service.dashboard_metrics(db, visible_to=user),
+        "needs_attention": dashboard_service.needs_attention(db, visible_to=user),
     }
 
 
@@ -624,7 +695,11 @@ def _status_context(db: Session) -> dict[str, object]:
 def index(request: Request, db: DbSession) -> HTMLResponse:
     """The canvas, with the Status card open (§V2.2)."""
     return _card_page(
-        request, db, card="status", body="canvas/cards/status.html", context=_status_context(db)
+        request,
+        db,
+        card="status",
+        body="canvas/cards/status.html",
+        context=_status_context(db, current_user(request)),
     )
 
 
@@ -636,7 +711,7 @@ def status_card(request: Request, db: DbSession) -> HTMLResponse:
         db,
         card="status",
         body="canvas/cards/status.html",
-        context=_status_context(db),
+        context=_status_context(db, current_user(request)),
         page="standalone",
         heading="Status",
     )
@@ -684,17 +759,11 @@ def prospects_filters(
     The query string carries the current filter state so the panel always
     opens on what the board is showing. HX-Request → panel body fragment.
     """
-    categories = sorted(
-        (
-            row[0]
-            for row in db.query(Prospect.category)
-            .filter(Prospect.category.isnot(None))
-            .distinct()
-            .all()
-            if row[0]
-        ),
-        key=str.lower,
-    )
+    facet_q = db.query(Prospect.category).filter(Prospect.category.isnot(None))
+    scope = authz.scope_criterion(current_user(request))
+    if scope is not None:
+        facet_q = facet_q.filter(scope)
+    categories = sorted((row[0] for row in facet_q.distinct().all() if row[0]), key=str.lower)
     return _card_page(
         request,
         db,
@@ -801,6 +870,7 @@ def prospect_create(
         normalize_phone(data.phone_raw, settings.phone_default_country) if data.phone_raw else None
     )
 
+    creator = current_user(request)
     prospect, error = prospect_service.create_prospect(
         db,
         business_name=data.business_name,
@@ -815,6 +885,8 @@ def prospect_create(
         phone_raw=data.phone_raw,
         email=data.email,
         website_url=data.website_url,
+        owner_id=authz.stamp_owner(creator),
+        visible_to=creator,
     )
     if error:
         return _card_page(
@@ -1025,6 +1097,7 @@ def prospect_update(
     prospect, error = prospect_service.update_prospect(
         db,
         prospect_id,
+        visible_to=current_user(request),
         business_name=data.business_name,
         category=data.category,
         location_area=data.location_area,
@@ -1092,10 +1165,11 @@ def prospect_archive(
 
 @router.post("/prospects/{prospect_id}/unarchive", response_class=HTMLResponse, response_model=None)
 def prospect_unarchive(
+    request: Request,
     prospect_id: int,
     db: Session = Depends(get_db),
 ) -> HTMLResponse | RedirectResponse:
-    ok = prospect_service.unarchive_prospect(db, prospect_id)
+    ok = prospect_service.unarchive_prospect(db, prospect_id, visible_to=current_user(request))
     if not ok:
         prospect = db.get(Prospect, prospect_id)
         if prospect is None:
@@ -1180,7 +1254,11 @@ def prospect_unsuppress(
 
 
 @router.get("/settings/profile", response_class=HTMLResponse)
-def profile_form(request: Request, db: DbSession) -> HTMLResponse:
+def profile_form(
+    request: Request,
+    db: DbSession,
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
+) -> HTMLResponse:
     profile = profile_service.get_or_create_profile(db)
     discovery_jobs = db.query(DiscoveryJob).order_by(DiscoveryJob.created_at.desc()).limit(5).all()
     return _card_page(
@@ -1205,6 +1283,7 @@ def profile_update(
     target_industries: str | None = Form(None),
     target_locations: str | None = Form(None),
     ideal_signals: str | None = Form(None),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> HTMLResponse | RedirectResponse:
     try:
         data: ProfileFormData = validate_profile_form(
@@ -1238,6 +1317,7 @@ def profile_update(
 def profile_discovery_run(
     request: Request,
     db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> HTMLResponse | RedirectResponse:
     """Queue a profile-driven discovery run (Flow 1, SYSTEM_ARCHITECTURE §4.1).
 
@@ -1265,7 +1345,11 @@ def profile_discovery_run(
 
 
 @router.get("/settings/usage", response_class=HTMLResponse)
-def usage_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+def usage_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
+) -> HTMLResponse:
     """Usage card: provider + AI call accounting per day (§2.7)."""
     stats = dashboard_service.usage_stats(db)
     return _card_page(
@@ -1284,7 +1368,11 @@ def usage_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
 
 
 @router.get("/settings/providers", response_class=HTMLResponse)
-def providers_settings_form(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+def providers_settings_form(
+    request: Request,
+    db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
+) -> HTMLResponse:
     """Providers card: configured/enabled status, usage, caps (§2.7).
 
     Read-only by design: keys are never rendered, only presence booleans.
@@ -1304,7 +1392,11 @@ def providers_settings_form(request: Request, db: Session = Depends(get_db)) -> 
 
 
 @router.get("/settings/general", response_class=HTMLResponse)
-def general_settings_form(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+def general_settings_form(
+    request: Request,
+    db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
+) -> HTMLResponse:
     """General card: vocabulary, defaults, caps, backup (§2.7)."""
     return _card_page(
         request,
@@ -1327,6 +1419,7 @@ def general_settings_update(
     default_follow_up_days: str | None = Form(None),
     category_vocabulary: str | None = Form(None),
     backup: str | None = Form(None),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> HTMLResponse | RedirectResponse:
     """Update general settings or trigger a database backup."""
     if backup:
@@ -1393,7 +1486,11 @@ def general_settings_update(
 
 
 @router.get("/settings/import", response_class=HTMLResponse)
-def import_form(request: Request, db: DbSession) -> HTMLResponse:
+def import_form(
+    request: Request,
+    db: DbSession,
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
+) -> HTMLResponse:
     """CSV import card, step 1: upload form."""
     return _card_page(
         request,
@@ -1415,6 +1512,7 @@ def import_preview_page(
     db: Session = Depends(get_db),
     file: UploadFile | None = File(None),
     import_token: str | None = Form(None),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> HTMLResponse:
     """CSV import wizard step 2: parse file and show preview (or re-show preview)."""
 
@@ -1521,6 +1619,7 @@ def import_commit_page(
     db: Session = Depends(get_db),
     import_token: str = Form(...),
     row_indices: list[int] = Form([]),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> HTMLResponse:
     """CSV import wizard step 3: commit selected rows and show results."""
     preview = import_service.load_import_session(import_token)
@@ -1697,6 +1796,7 @@ def merge_duplicates_list(
     request: Request,
     db: Session = Depends(get_db),
     min_score: float = 0.85,
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> HTMLResponse:
     """Fuzzy duplicate review page."""
     pairs = merge_service.find_fuzzy_duplicates(db, min_score=min_score)
@@ -1721,6 +1821,7 @@ def merge_prospects_page(
     db: Session = Depends(get_db),
     source_id: int = Form(...),
     target_id: int = Form(...),
+    _perm: SimpleNamespace | None = Depends(require_permission("danger")),
 ) -> HTMLResponse | RedirectResponse:
     """Merge source prospect into target prospect from HTML form."""
     target, error = merge_service.merge_prospects(
@@ -1741,6 +1842,7 @@ def merge_prospects_page(
 def retention_sweep_page(
     request: Request,
     db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> HTMLResponse:
     """Retention sweep page - flag inactive prospects for review."""
     flagged = retention_service.list_retention_flagged(db)
@@ -1763,6 +1865,7 @@ def retention_sweep_run(
     request: Request,
     db: Session = Depends(get_db),
     months: int = Form(12),
+    _perm: SimpleNamespace | None = Depends(require_permission("danger")),
 ) -> HTMLResponse | RedirectResponse:
     """Run retention sweep from HTML form."""
     result = retention_service.sweep_inactive_prospects(db, months=months, actor="user")
@@ -1778,6 +1881,7 @@ def retention_clear_flag(
     request: Request,
     prospect_id: int,
     db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("danger")),
 ) -> HTMLResponse | RedirectResponse:
     """Clear retention-review flag from a prospect."""
     ok = retention_service.clear_retention_flag(db, prospect_id=prospect_id, actor="user")
@@ -1785,6 +1889,315 @@ def retention_clear_flag(
         return HTMLResponse("Prospect not found or not flagged", status_code=404)
     return RedirectResponse(
         url=f"/settings/retention?flash={quote('Retention flag cleared')}&flash_type=success",
+        status_code=303,
+    )
+
+
+#: Valid account roles (authz.POLICY: owner > admin > member).
+ROLES: tuple[str, ...] = ("owner", "admin", "member")
+
+
+# ===== Account (self-service; any signed-in user) =====
+
+
+def _account_id(request: Request) -> int | None:
+    """Signed-in user id (None only if the session vanished mid-request)."""
+    identity = current_user(request)
+    return identity.id if identity else None
+
+
+def _gate_off_account() -> RedirectResponse | None:
+    """Identity surfaces are inert while the gate is off (no sessions exist)."""
+    if not gate_enabled():
+        return RedirectResponse("/", status_code=303)
+    return None
+
+
+@router.get("/settings/account", response_class=HTMLResponse, response_model=None)
+def account_page(
+    request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse | RedirectResponse:
+    """Own account: identity, active sessions, change-password (SECURITY §3)."""
+    bypass = _gate_off_account()
+    if bypass:
+        return bypass
+    identity = current_user(request)
+    if identity is None:
+        return RedirectResponse("/login", status_code=303)
+    sessions = (
+        db.query(UserSession)
+        .filter_by(user_id=identity.id)
+        .order_by(UserSession.created_at.desc())
+        .all()
+    )
+    current_token = request.cookies.get(SESSION_COOKIE_NAME, "")
+    return _card_page(
+        request,
+        db,
+        page="settings",
+        card="account",
+        body="canvas/cards/account.html",
+        context={
+            "app_name": settings.app_name,
+            "account": identity,
+            "sessions": sessions,
+            "current_token": current_token,
+        },
+    )
+
+
+@router.post("/settings/account/password", response_class=HTMLResponse, response_model=None)
+def account_change_password(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_password: str = Form(""),
+    new_password: str = Form(""),
+    confirm: str = Form(""),
+) -> HTMLResponse | RedirectResponse:
+    """Change your own password; every *other* session is revoked (SECURITY §3)."""
+    bypass = _gate_off_account()
+    if bypass:
+        return bypass
+    identity = current_user(request)
+    if identity is None:
+        return RedirectResponse("/login", status_code=303)
+    # Credential check → rate limited like login: a hijacked session must not
+    # be able to brute-force the *current* password for permanent takeover.
+    limit_key = client_key(request, f"account:{identity.username}")
+    if not check_rate_limit(limit_key):
+        return HTMLResponse("Too many attempts. Wait a minute and try again.", status_code=429)
+
+    def _again(error: str) -> HTMLResponse:
+        sessions = (
+            db.query(UserSession)
+            .filter_by(user_id=identity.id)
+            .order_by(UserSession.created_at.desc())
+            .all()
+        )
+        return _card_page(
+            request,
+            db,
+            page="settings",
+            card="account",
+            body="canvas/cards/account.html",
+            context={
+                "app_name": settings.app_name,
+                "account": identity,
+                "sessions": sessions,
+                "current_token": request.cookies.get(SESSION_COOKIE_NAME, ""),
+                "error": error,
+            },
+            status_code=400,
+        )
+
+    user = db.get(User, identity.id)
+    assert user is not None
+    if not users_service.verify_password(current_password, user.password_hash):
+        return _again("Current password is incorrect.")
+    if new_password != confirm:
+        return _again("The two passwords do not match.")
+    try:
+        users_service.set_password(db, user, new_password)
+    except ValueError as exc:
+        return _again(str(exc))
+    reset_rate_limit(limit_key)
+    # This device stays signed in; every other session dies server-side.
+    revoke_user_sessions(db, identity.id, keep_token=request.cookies.get(SESSION_COOKIE_NAME))
+    return RedirectResponse(
+        url=f"/settings/account?flash={quote('Password updated')}&flash_type=success",
+        status_code=303,
+    )
+
+
+# ===== Users (owner-only user management) =====
+
+
+def _last_owner_guard(actor_id: int, target: User, action: str, owner_count: int) -> str | None:
+    """Refuse self-lockout and the loss of the last active owner (SECURITY §3).
+
+    Returns a user-facing refusal message, or ``None`` when the action is
+    allowed. ``owner_count`` counts *active* owners, so a disabled owner
+    cannot be used to satisfy the invariant.
+    """
+    if target.id == actor_id and action in ("disable", "delete"):
+        return f"You cannot {action} your own account."
+    if action in ("disable", "delete", "demote") and target.role == "owner" and owner_count <= 1:
+        return "This is the last active owner account — promote another owner first."
+    return None
+
+
+@router.get("/settings/users", response_class=HTMLResponse, response_model=None)
+def users_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("users")),
+) -> HTMLResponse | RedirectResponse:
+    """User management: accounts, roles, disable/enable (owner only)."""
+    bypass = _gate_off_account()
+    if bypass:
+        return bypass
+    identity = current_user(request)
+    users = db.query(User).order_by(User.username).all()
+    return _card_page(
+        request,
+        db,
+        page="settings",
+        card="users",
+        body="canvas/cards/users.html",
+        context={
+            "app_name": settings.app_name,
+            "users": users,
+            "account_id": identity.id if identity else None,
+            "roles": ROLES,
+        },
+    )
+
+
+@router.post("/settings/users", response_class=HTMLResponse, response_model=None)
+def user_create(
+    request: Request,
+    db: Session = Depends(get_db),
+    username: str = Form(""),
+    password: str = Form(""),
+    confirm: str = Form(""),
+    role: str = Form("member"),
+    _perm: SimpleNamespace | None = Depends(require_permission("users")),
+) -> HTMLResponse | RedirectResponse:
+    """Create an account directly (signup may be env-gated off)."""
+    bypass = _gate_off_account()
+    if bypass:
+        return bypass
+
+    def _again(error: str) -> HTMLResponse:
+        return _card_page(
+            request,
+            db,
+            page="settings",
+            card="users",
+            body="canvas/cards/users.html",
+            context={
+                "app_name": settings.app_name,
+                "users": db.query(User).order_by(User.username).all(),
+                "account_id": _account_id(request),
+                "roles": ROLES,
+                "error": error,
+                "form_username": username,
+                "form_role": role,
+            },
+            status_code=400,
+        )
+
+    if role not in ROLES:
+        return _again(f"Unknown role: {role}.")
+    if password != confirm:
+        return _again("The two passwords do not match.")
+    try:
+        users_service.create_user(db, username=username, password=password, role=role)
+    except ValueError as exc:
+        return _again(str(exc))
+    return RedirectResponse(
+        url=f"/settings/users?flash={quote(f'User {username.strip().lower()} created')}"
+        "&flash_type=success",
+        status_code=303,
+    )
+
+
+@router.post("/settings/users/{user_id}/role", response_class=HTMLResponse, response_model=None)
+def user_set_role(
+    request: Request,
+    user_id: int,
+    db: Session = Depends(get_db),
+    role: str = Form(...),
+    _perm: SimpleNamespace | None = Depends(require_permission("users")),
+) -> HTMLResponse | RedirectResponse:
+    """Change a user's role (owner only; self-demotion allowed only with a
+    second active owner in place)."""
+    bypass = _gate_off_account()
+    if bypass:
+        return bypass
+    identity = current_user(request)
+    target = db.get(User, user_id)
+    if target is None or identity is None:
+        return HTMLResponse("User not found", status_code=404)
+    if role not in ROLES:
+        return HTMLResponse(f"Unknown role: {role}.", status_code=400)
+    action = "demote" if target.role == "owner" and role != "owner" else "promote"
+    owner_count = db.query(User).filter(User.role == "owner", User.disabled.is_(False)).count()
+    refusal = _last_owner_guard(identity.id, target, action, owner_count)
+    if refusal:
+        return RedirectResponse(
+            url=f"/settings/users?flash={quote(refusal)}&flash_type=error", status_code=303
+        )
+    target.role = role
+    return RedirectResponse(
+        url=f"/settings/users?flash={quote(f'{target.username} is now {role}')}&flash_type=success",
+        status_code=303,
+    )
+
+
+@router.post("/settings/users/{user_id}/toggle", response_class=HTMLResponse, response_model=None)
+def user_toggle(
+    request: Request,
+    user_id: int,
+    db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("users")),
+) -> HTMLResponse | RedirectResponse:
+    """Disable (revokes every session) or re-enable an account."""
+    bypass = _gate_off_account()
+    if bypass:
+        return bypass
+    identity = current_user(request)
+    target = db.get(User, user_id)
+    if target is None or identity is None:
+        return HTMLResponse("User not found", status_code=404)
+    action = "enable" if target.disabled else "disable"
+    owner_count = db.query(User).filter(User.role == "owner", User.disabled.is_(False)).count()
+    refusal = _last_owner_guard(identity.id, target, action, owner_count)
+    if refusal:
+        return RedirectResponse(
+            url=f"/settings/users?flash={quote(refusal)}&flash_type=error", status_code=303
+        )
+    target.disabled = not target.disabled
+    if target.disabled:
+        # Disabled kills the account at its next request anyway; revoking now
+        # ends existing sessions immediately (SECURITY §3).
+        revoke_user_sessions(db, target.id)
+    verb = "disabled" if target.disabled else "enabled"
+    return RedirectResponse(
+        url=f"/settings/users?flash={quote(f'{target.username} {verb}')}&flash_type=success",
+        status_code=303,
+    )
+
+
+@router.post("/settings/users/{user_id}/delete", response_class=HTMLResponse, response_model=None)
+def user_delete(
+    request: Request,
+    user_id: int,
+    db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("users")),
+) -> HTMLResponse | RedirectResponse:
+    """Delete an account; its prospects become shared (owner_id -> NULL)."""
+    bypass = _gate_off_account()
+    if bypass:
+        return bypass
+    identity = current_user(request)
+    target = db.get(User, user_id)
+    if target is None or identity is None:
+        return HTMLResponse("User not found", status_code=404)
+    owner_count = db.query(User).filter(User.role == "owner", User.disabled.is_(False)).count()
+    refusal = _last_owner_guard(identity.id, target, "delete", owner_count)
+    if refusal:
+        return RedirectResponse(
+            url=f"/settings/users?flash={quote(refusal)}&flash_type=error", status_code=303
+        )
+    # Hand the user's private rows to the shared pool rather than orphaning
+    # them behind an owner_id nobody can resolve (authz: NULL = shared).
+    db.query(Prospect).filter(Prospect.owner_id == target.id).update(
+        {"owner_id": None}, synchronize_session=False
+    )
+    db.delete(target)  # user_sessions cascade via relationship + FK
+    return RedirectResponse(
+        url=f"/settings/users?flash={quote(f'User {target.username} deleted')}&flash_type=success",
         status_code=303,
     )
 
@@ -2637,6 +3050,6 @@ def outreach_queue(
         return templates.TemplateResponse(
             request=request,
             name="partials/canvas_outreach_region.html",
-            context=_outreach_context(db),
+            context=_outreach_context(db, current_user(request)),
         )
     return _render_canvas(request, db)

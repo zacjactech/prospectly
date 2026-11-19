@@ -195,11 +195,22 @@ provider key required for live data) · `not implemented` = spec gap.
 
 ## Test suite
 
-`uv run pytest` — **378 tests pass, 0 failed** (2026-11-17); `ruff check`, `ruff format --check`, `mypy app` all clean. The 378 include the
-45-test canvas contract suite below (333 baseline + 45). Dependency audit
-(`uvx pip-audit`) reported no known vulnerabilities on 2026-11-17.
+`pytest` — **457 tests pass, 0 failed** (2026-11-19); `ruff check`, `ruff format --check`, `mypy app` all clean. The 457 include the
+45-test canvas contract suite below (333 baseline + 45 + 79 auth/authz).
+Dependency audit (`uvx pip-audit`) reported no known vulnerabilities on
+2026-11-17.
 
 Coverage by area (newest first):
+- `test_authz.py` — 30: the Phase B authorization suite — permission matrix
+  (member/admin/owner × settings/danger/users, HTML + JSON, gate on and off),
+  `owner_id` stamping (member vs owner/admin vs gate off), board/API/facet
+  scoping, dashboard `stage_counts`/`total_prospects`/`needs_attention`
+  scoping, outreach-region scoping, hidden ≡ missing byte-identical 404
+  (prospect + child row, HTML + JSON), dedupe scoping, the leak-free
+  duplicate message (identical for visible and hidden conflicts, page and
+  PATCH paths), Account page + change-password (rate limit → 429, other
+  sessions revoked), Users CRUD, self-lockout guards, role-filtered tab strip
+  and setup cluster, gate-bound Account rail link
 - `test_provider_status.py` — 11: Settings → Providers page + JSON twin,
   key values never leak into either surface, Brave reported as config-only,
   `enabled` follows the real factories (only the selected provider reads as
@@ -452,8 +463,8 @@ unit test into a live call (AGENTS §7).
 
 ## Known gaps (spec promises not yet built)
 
-Two, both **explicitly deferred with a reason** (recorded here rather than
-silently dropped; the matching spec text now says so):
+Three, all **explicitly recorded rather than silently dropped** (the matching
+spec text now says so):
 
 1. **Providers page affordances** — the status page shipped 2026-11-11
    (read-only; it 404'd before, closing the Phase 2 exit criterion *"Settings
@@ -465,6 +476,17 @@ silently dropped; the matching spec text now says so):
 2. **`GET /settings` index** — API_DESIGN §1 listed a settings index route;
    the nav has always linked straight to the sub-pages, so no index exists.
    Amended in API_DESIGN to say so.
+3. **Prospect erasure route** — `SECURITY_AND_PRIVACY.md` §7 and
+   `DATABASE_DESIGN.md` §3 promise `DELETE /prospects/{id}?confirm=erase`
+   (hard delete, cascade, tombstone audit entry containing no personal data)
+   and API_DESIGN §2.1 lists it, but no such route exists in `app/routes/*`
+   and no service implements it — the only deletion in the product today is
+   `POST /settings/users/{id}/delete` (accounts). Marked unbuilt in
+   API_DESIGN 2026-11-19. **Needs an owner decision** (hard delete vs
+   archive-only is a P5/erasure tradeoff), so it was *not* quietly
+   implemented as part of the auth work. The same pass marked API_DESIGN
+   §2.8's `GET /usage` and `PATCH /settings` rows unbuilt — usage is HTML-only
+   at `GET /settings/usage`.
 
 Closed earlier and covered by tests: findings evidence CRUD, notes surface
 (Flow 9), HTMX research-progress polling (`test_findings_crud.py`,
@@ -967,3 +989,43 @@ USER_FLOWS wording, canvas-implementation-tasks amendment.
   1431px → panel w560 sideSheet (canvas intact, URL unchanged), 768px → same,
   390px → PlPanel.open NOT called (navigate branch). Deep links still land on
   the detail tab page at any width.
+
+## Phase B — accounts, roles & row visibility (2026-11-19)
+
+**Deterministic:** `pytest` **457 passed / 0 failed**, 0 `SAWarning`;
+`ruff check`, `ruff format --check`, `mypy app` all clean.
+
+Automated coverage (`tests/test_authz.py`, 30 tests, gate on unless stated):
+
+- [x] Permission matrix — member 403 on every `settings`/`danger`/`users`
+      surface (HTML error page *and* JSON `{"detail"}`), admin passes
+      settings/danger but not users, owner passes all; gate off → every
+      permission dependency passes through while `/settings/account` and
+      `/settings/users` redirect `303 /` and their tabs disappear.
+- [x] `owner_id` stamping — member create → own id; owner/admin/gate-off
+      create → `NULL` (shared), on both the JSON and HTML create paths.
+- [x] Scoping — board HTML, `/api/v1/prospects`, filter facets,
+      `stage_counts` / `total_prospects` / `needs_attention`, and the outreach
+      region never surface another member's rows (owner/admin see all three).
+- [x] Row-visibility guard — a member's hidden prospect and a hidden child
+      row answer byte-identically to a missing id, HTML (`Accept: text/html`)
+      and JSON; owner/admin get 200.
+- [x] Dedupe — `check_duplicates` scoped for members, unscoped for owners;
+      the duplicate message is **identical** for a visible and a hidden
+      conflict (create + PATCH) and never names the row for a scoped caller.
+- [x] Account — page renders for all three roles; change password keeps this
+      device and revokes every other session (old password then fails login);
+      5 wrong current passwords → `429`.
+- [x] Users — create / promote / disable / enable / delete round trip; delete
+      hands the user's prospects to the shared pool (`owner_id → NULL`);
+      self-lockout guards refuse self-disable, self-delete and last-owner
+      demote (allowed once a second owner exists).
+- [x] Navigation — role-filtered settings tab strip, `can_settings`-wrapped
+      setup cluster, gate-bound Account rail link.
+
+**Manual walkthrough still open** (`USER_FLOWS.md` Flow 0.5 items 6–7 and
+Flow 12 — needs a browser pass against the dev server before the milestone is
+called done): Account page at each breakpoint, the `this device` session
+badge, change-password success/failure/429 copy in the real form, Users page
+role select + delete confirm, and the member's canvas (no settings cards, no
+Users tab, no 403 dead ends).

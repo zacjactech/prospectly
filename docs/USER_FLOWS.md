@@ -19,6 +19,16 @@ Single-user tool; every flow is designed for one operator moving prospects throu
 3. **Forgot password:** `/login` → *Forgot password?* → enter username → the reset link appears on screen (local instance sends no email) → open it → new password (confirm) → every session is signed out → login shows "Password updated".
 4. **Sign out:** account menu → Log out (this device) or Log out everywhere → `/login`.
 5. **Roles:** a `member` hitting Settings / Danger zone / Users sees a 403 "not allowed" page; Users is owner-only; prospects owned by another member are invisible to them (list scoped, direct URL → 404-style denial).
+6. **Account (self-service, any role):** rail **Account** → identity + role badge, the list of active sessions (this device marked), change password. Gate off → the rail link and the page are absent (`303 /`).
+7. **Change password:** Account → current password + new + confirm → ⚠ wrong current password is rate limited (5 / 60s per IP+username → 429) → on success **every other session of that account is revoked server-side**; this device stays signed in.
+
+## Flow 12 — Manage users (owner only)
+
+1. Rail → **Settings → Users** (`/settings/users`, `users` permission; gate off → `303 /`).
+2. **Add user:** username + password + confirm + role (`owner` / `admin` / `member`) → account created. Username/password policy errors re-render the form inline (no session is issued — the new user signs in separately).
+3. **Change role:** row action → role select → save. ⚠ Refuses (error flash) if it would demote the last *active* owner.
+4. **Disable / enable:** ⚠ You can never disable your own account; disabling revokes that user's sessions **immediately** (their next request bounces to `/login?reason=disabled`).
+5. **Delete:** ⚠ Refuses for yourself and for the last active owner. On success the user's prospects are **not** orphaned: their `owner_id` is set to `NULL`, so the rows join the shared pool every role can see.
 
 ## Flow 1 — Discover prospects automatically (default path)
 
@@ -114,6 +124,9 @@ Operator weekly: Dashboard "requires review" → fix unverified findings → app
 | No message without approval | `messages` state machine; no API path skips `approve` |
 | `sent_confirmed` only by explicit confirmation | `confirm-sent` is the sole writer of `sent_confirmed`/`sent_confirmed_at` |
 | Suppression blocks all outbound | guard in draft/approve/open services |
-| No duplicate prospects | unique partial indexes + add/import pre-checks |
+| No duplicate prospects | unique partial indexes + add/import pre-checks; a scoped (`member`) pre-check miss still hits the index and is reported leak-free |
+| Members never see another member's rows | `authz.scope_criterion` inside list/facet/dashboard/outreach queries; `AuthMiddleware._path_denial` on direct row URLs (hidden ≡ missing, byte-identical 404) |
+| No account self-lockout | `_last_owner_guard`: no self disable/delete, no disable/delete/demote while ≤1 active owner |
+| Password change ends other sessions | `revoke_user_sessions(keep_token=…)` after `set_password`; the current device keeps its cookie |
 | AI claims start unverified | finding invariant in service layer |
 | History preserved | `activities` append-only; message text versions kept (`generated_text` vs `current_text`) |

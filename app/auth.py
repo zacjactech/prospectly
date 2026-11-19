@@ -34,6 +34,7 @@ HTML requests get ``302 /login?next=<local path>[&reason=…]``; API/JSON get
 from __future__ import annotations
 
 import datetime as dt
+import re
 import secrets
 import threading
 import time
@@ -45,11 +46,21 @@ from fastapi import HTTPException, Request
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as DbSession
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.responses import JSONResponse, RedirectResponse, Response
+from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from app.config import settings
 from app.db import SessionLocal
-from app.models import User, UserSession
+from app.models import (
+    Finding,
+    FollowUp,
+    Note,
+    Opportunity,
+    OutreachMessage,
+    Prospect,
+    ResearchRun,
+    User,
+    UserSession,
+)
 from app.services import authz
 
 #: Name of the opaque session cookie (value format changed2026-11-18).
@@ -183,9 +194,16 @@ def revoke_session(db: DbSession, token: str | None) -> None:
     db.flush()
 
 
-def revoke_user_sessions(db: DbSession, user_id: int) -> None:
-    """Kill every session of a user (logout-all, disable, password reset)."""
-    db.execute(delete(UserSession).where(UserSession.user_id == user_id))
+def revoke_user_sessions(db: DbSession, user_id: int, *, keep_token: str | None = None) -> None:
+    """Kill every session of a user (logout-all, disable, password reset).
+
+    ``keep_token`` spares one session — used when changing your own password:
+    this device stays signed in, every other session dies.
+    """
+    stmt = delete(UserSession).where(UserSession.user_id == user_id)
+    if keep_token is not None:
+        stmt = stmt.where(UserSession.token != keep_token)
+    db.execute(stmt)
     db.flush()
 
 
@@ -238,6 +256,71 @@ def _users_exist(db: DbSession) -> bool:
     return db.execute(select(User.id).limit(1)).first() is not None
 
 
+# ---------------------------------------------------------------------------
+# Row-level visibility guard (authz): path -> resource id -> owning prospect
+# ---------------------------------------------------------------------------
+#
+# One enforcement point for every route that addresses a prospect or one of
+# its children by id (pages, API, HTMX partials, and any future route with
+# these path shapes). Only members are checked — owner/admin see everything
+# and gate-off never reaches this code. A row the member may not see answers
+# with the *same* 404 body the route produces for a missing row, so
+# existence stays indistinguishable from invisibility.
+
+#: ``(path pattern, resource kind, not-found message)`` — messages mirror the
+#: routes' own 404 copy exactly (see app/routes/{pages,api}.py).
+_RESOURCE_PATHS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (re.compile(r"/prospects/(\d+)"), "prospect", "Prospect not found"),
+    # NOTE: /retention/{id}/clear deliberately absent — that route is already
+    # danger-gated (owner/admin, who see every row), so a member-facing check
+    # there would only create an oracle: 404 for an invisible row vs 403 from
+    # the permission dependency for a missing one.
+    (re.compile(r"/findings/(\d+)"), "finding", "Finding not found"),
+    (re.compile(r"/notes/(\d+)"), "note", "Note not found"),
+    (re.compile(r"/messages/(\d+)"), "message", "Message not found"),
+    (re.compile(r"/opportunities/(\d+)"), "opportunity", "Opportunity not found"),
+    (re.compile(r"/follow-ups/(\d+)"), "follow_up", "Follow-up not found"),
+    (re.compile(r"/research/runs/(\d+)"), "research_run", "Research run not found"),
+)
+
+#: Child row -> model (each carries ``prospect_id``).
+_CHILD_MODELS: dict[str, type] = {
+    "finding": Finding,
+    "note": Note,
+    "message": OutreachMessage,
+    "opportunity": Opportunity,
+    "follow_up": FollowUp,
+    "research_run": ResearchRun,
+}
+
+
+def _path_denial(db: DbSession, user: User, path: str) -> str | None:
+    """404 body when ``path`` addresses a row ``user`` may not see; else None.
+
+    Missing rows return None too — the route then produces its own 404, so a
+    hidden row and a absent row are byte-identical responses.
+    """
+    if user.role != "member":
+        return None  # owner/admin see everything; members are the only scope
+    for pattern, kind, message in _RESOURCE_PATHS:
+        match = pattern.search(path)
+        if match is None:
+            continue
+        row_id = int(match.group(1))
+        if kind == "prospect":
+            prospect = db.get(Prospect, row_id)
+        else:
+            child = db.get(_CHILD_MODELS[kind], row_id)
+            if child is None:
+                continue  # missing child: the route 404s with this message
+            prospect = db.get(Prospect, child.prospect_id)
+        if prospect is None:
+            continue  # missing prospect: the route 404s
+        if not authz.can_see_prospect(user, prospect.owner_id):
+            return message
+    return None
+
+
 class AuthMiddleware(BaseHTTPMiddleware):
     """Enforce the account session on every non-allowlisted request."""
 
@@ -285,6 +368,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 disabled_redirect = RedirectResponse("/login?reason=disabled", status_code=302)
                 clear_session_cookie(disabled_redirect)
                 return disabled_redirect
+
+            # Row-level visibility: deny member access to rows they may not
+            # see, before the route (or its writes) ever run.
+            denial = _path_denial(db, user, request.url.path)
+            if denial is not None:
+                if wants_json(request):
+                    return JSONResponse({"detail": denial}, status_code=404)
+                return HTMLResponse(denial, status_code=404)
 
             # Immutable identity for handlers/deps (the ORM row is detached
             # when this middleware's session closes).

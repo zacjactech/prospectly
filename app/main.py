@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
-from app.auth import AuthMiddleware
+from app.auth import AuthMiddleware, gate_enabled
 from app.config import BASE_DIR, settings
 from app.csrf import CSRFMiddleware, csrf_field, csrf_token
 from app.logging_setup import setup_logging
@@ -131,6 +131,8 @@ def create_app() -> FastAPI:
     # Expose CSRF helpers to Jinja2 templates.
     pages.templates.env.globals["csrf_token"] = csrf_token
     pages.templates.env.globals["csrf_field"] = csrf_field
+    # Gate state drives nav visibility (Account link, settings cluster cards).
+    pages.templates.env.globals["gate_enabled"] = gate_enabled
     # Activity payloads render as readable text (never raw JSON) in the panels.
     pages.templates.env.filters["describe_payload"] = describe_payload
 

@@ -101,7 +101,7 @@ consistent, and a clean commit series.
 2. Google Places discovery provider (billing-gated; storage-rule compliance coded then).
 3. Browser-assisted research (Playwright adapter for JS-heavy sites).
 4. Fuzzy merge UI, saved views, retention sweep (auto-flag inactive >N months).
-5. **Hosted multi-user:** PostgreSQL migration (checklist: freeze writes → alembic to PG → ORM-level dump/restore → `DATABASE_URL` swap → smoke suite → hosted auth hardening), Docker packaging, optional WhatsApp Business Platform adapter behind the same approval gate. *(Local accounts + roles + `owner_id` scoping shipped 2026-11-18 on owner decision — see `SECURITY_AND_PRIVACY.md` §3; what remains here is only the hosted/Postgres dimension.)*
+5. **Hosted multi-user:** PostgreSQL migration (checklist: freeze writes → alembic to PG → ORM-level dump/restore → `DATABASE_URL` swap → smoke suite → hosted auth hardening), Docker packaging, optional WhatsApp Business Platform adapter behind the same approval gate. *(Local accounts + roles + `owner_id` scoping shipped 2026-11-18 on owner decision, and the **authorization enforcement layer** on 2026-11-19 — `require_permission` on 20 page handlers (16 paths) + 10 API endpoints, `AuthMiddleware` row-visibility guard, query-level `scope_criterion` across list/facet/dashboard/outreach, Account + Users surfaces, self-lockout guards — see `SECURITY_AND_PRIVACY.md` §3; what remains here is only the hosted/Postgres dimension.)*
 
 ---
 

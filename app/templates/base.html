@@ -49,6 +49,8 @@
   {%- elif p == '/settings/import' -%}Import
   {%- elif p == '/settings/saved-views' -%}Saved views
   {%- elif p == '/settings/retention' -%}Retention
+  {%- elif p.startswith('/settings/account') -%}Account
+  {%- elif p.startswith('/settings/users') -%}Users
   {%- elif p.startswith('/messages') -%}Message
   {%- else -%}{{ app_name }}{%- endif -%}
 {%- endmacro %}
@@ -123,6 +125,12 @@
         <!-- Pinned foot (spec §1.1): shortcuts help + sign out (POST, csrf). -->
         <div class="rail-foot">
           <span class="nav-group-label">Session</span>
+          {% if gate_enabled() %}
+          <a href="/settings/account" class="nav-link" title="Account" aria-label="Account" data-tip="Account">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span class="nav-text">Account</span>
+          </a>
+          {% endif %}
           <button class="nav-link" type="button" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" data-tip="Keyboard shortcuts" data-show-help>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="M6 8h.01"></path><path d="M10 8h.01"></path><path d="M14 8h.01"></path><path d="M18 8h.01"></path><path d="M8 12h.01"></path><path d="M12 12h.01"></path><path d="M16 12h.01"></path><path d="M7 16h10"></path></svg>
             <span class="nav-text">Shortcuts</span>

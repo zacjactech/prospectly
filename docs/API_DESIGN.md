@@ -7,6 +7,16 @@ Two surfaces over one service layer (D3):
 
 Conventions (both surfaces): JSON API uses standard HTTP status codes; timestamps ISO-8601 UTC; errors as `{ "error": { "code", "message", "details?" } }` (FastAPI `HTTPException` paths — including the access gate's `401 {"detail": …}` — return bare `{"detail": …}`); list endpoints support `?page=&page_size=&sort=&filter...`; **all state-changing JSON endpoints require header `X-CSRF-Token`** (from cookie) — session auth is cookie-based: when `APP_ACCESS_TOKEN` is set (the gate switch), `GET/POST /login` authenticates a `users` account and issues a revocable DB-backed session (see `SECURITY_AND_PRIVACY.md` §3).
 
+**Role policy (Phase B, both surfaces).** With the gate on, three route-level
+dependencies enforce `authz.PERMISSIONS` — `settings` (owner+admin), `danger`
+(owner+admin), `users` (owner only) — and return `403` with the copy in
+`authz.PERMISSION_MESSAGES`. Everything else is authenticated-only. Row
+visibility is separate from role: a `member` only ever sees `owner_id IS NULL`
+(shared) or `owner_id = self` prospects, enforced by `AuthMiddleware` for
+direct row URLs and by `scope_criterion` inside list/facet/dashboard/outreach
+queries. With the gate unset (`APP_ACCESS_TOKEN` absent) every permission
+dependency passes through and `owner_id` is never stamped.
+
 ---
 
 ## 1. Pages (HTML)
@@ -72,6 +82,22 @@ reachable without a session — the allowlist):
 | POST | `/logout` | Revoke this session row + clear the cookie → `303 /login` |
 | POST | `/logout-all` | Revoke every session of the signed-in user → `303 /login` (Account page) |
 
+**Account & Users pages** (Phase B; session required, not allowlisted):
+
+| Method | Path | Permission | Purpose |
+|---|---|---|---|
+| GET | `/settings/account` | any signed-in role | Own account: username, role badge, active sessions (`this device` marker), change-password form. Gate off → `303 /` (no identities exist) |
+| POST | `/settings/account/password` | any signed-in role | Verify current password (rate limited 5/60s per IP+username → plain-text `429`), set the new one, then revoke **every other** session of that user (this device keeps working) → `303 /settings/account` |
+| GET | `/settings/users` | `users` (owner) | User management table + create form |
+| POST | `/settings/users` | `users` (owner) | Create an account (`username`, `password`, `confirm`, `role` ∈ `owner\|admin\|member`) → `303 ?flash=…`; `400` re-render on policy/duplicate errors |
+| POST | `/settings/users/{id}/role` | `users` (owner) | Change role → `303 ?flash=…`; `404 User not found`; self-lockout refusals arrive as `303 ?flash=…&flash_type=error` |
+| POST | `/settings/users/{id}/toggle` | `users` (owner) | Disable (revokes that user's sessions immediately) / re-enable → `303` |
+| POST | `/settings/users/{id}/delete` | `users` (owner) | Delete an account; its prospects' `owner_id → NULL` (become shared) → `303` |
+
+Self-lockout guards (`_last_owner_guard`) refuse with a `303` + error flash:
+you can never disable or delete yourself, and the last **active** owner can
+never be disabled, deleted, or demoted (a disabled owner does not count).
+
 Errors on these pages re-render the form with `error` copy (200/401/403/429);
 credential endpoints are rate limited (5 attempts / 60s per IP+subject).
 
@@ -89,20 +115,28 @@ headers.
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
 | GET | `/prospects` | `stage`, `tag`, `category`, `location`, `q`, `archived`, `page`, `page_size` | `ProspectList` |
-| POST | `/prospects` | `ProspectCreate` | `201 Prospect` · `409 duplicate` (with `existing_id`) · `422 validation` |
-| GET | `/prospects/{id}` | — | `Prospect` (with counts) |
-| PATCH | `/prospects/{id}` | `ProspectPatch` | `200 Prospect` |
-| DELETE | `/prospects/{id}` | `?confirm=erase` | `204` (explicit erase path, cascades) |
+| POST | `/prospects` | `ProspectCreate` | `201 Prospect` · `409 duplicate` · `422 validation` |
+| GET | `/prospects/{id}` | — | `Prospect` (with counts) — `404` for a row outside a member's scope |
+| PATCH | `/prospects/{id}` | `ProspectPatch` | `200 Prospect` · `409 duplicate` (identity keys re-checked) |
+| DELETE | `/prospects/{id}` | `?confirm=erase` | `204` (explicit erase path, cascades) — **not built**; see QA checklist §Known gaps #3 |
 | POST | `/prospects/{id}/archive` · `/unarchive` | — | `200 Prospect` |
 | POST | `/prospects/{id}/merge` | `{target_prospect_id}` | `200 Prospect` (re-links children, logs) |
 
-**Duplicate response example**
+**Duplicate response example** (bare `{"detail": …}`, same shape as every other
+`HTTPException` path):
 
 ```json
-{ "error": { "code": "duplicate_prospect",
-             "message": "A prospect with the same phone already exists",
-             "details": { "existing_id": 42, "match_type": "phone" } } }
+{ "detail": "A prospect with this phone number already exists." }
 ```
+
+The copy is field-level and leak-free. Only a caller who can *see* the
+conflicting row ever gets the row-named variant
+(`Duplicate prospect already exists: {name} (id={n})` / on edit
+`Would duplicate existing prospect: {name} (id={n})`) — an unscoped caller
+(owner/admin, or the gate off) always can, a scoped `member` never does, so
+the two paths are indistinguishable and cannot be used as an existence
+oracle. The scoped pre-check and the partial-unique-index backstop therefore
+return byte-identical messages.
 
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
@@ -178,10 +212,16 @@ headers.
 
 | Method | Path | Returns |
 |---|---|---|
-| GET | `/settings/providers` | per-provider `{configured: bool, enabled: bool, last_error?}` — **never the key values** |
-| GET | `/usage?period=YYYY-MM-DD` | `provider_usage` + `ai_usage` rows |
-| PATCH | `/settings` | runtime settings (allowlisted keys only) |
-| GET | `/healthz` | `{status:"ok"}` |
+| GET | `/settings/providers` | per-provider `{configured: bool, enabled: bool, last_error?}` — **never the key values**; requires `settings` (owner+admin) when the gate is on |
+| GET | `/usage?period=YYYY-MM-DD` | `provider_usage` + `ai_usage` rows — **not built**: usage is HTML-only at `GET /settings/usage` (QA checklist §Known gaps) |
+| PATCH | `/settings` | runtime settings (allowlisted keys only) — **not built** (QA checklist §Known gaps) |
+| GET | `/healthz` | `{status:"ok"}` — allowlisted, no session needed |
+
+The other gated JSON endpoints in this file — `POST /imports/preview`,
+`POST /imports/commit`, `GET /merge/duplicates` (`settings`) and `POST /merge`,
+`POST /retention/sweep`, `POST /retention/{id}/clear` (`danger`, owner+admin) —
+are documented where they sit in the flow; the HTML-only `/settings/users*`
+set (`users`, owner only) is in §1.
 
 ---
 
@@ -208,12 +248,12 @@ AI structured-output schemas reuse the same Pydantic models (`GeneratedDraft`, `
 | 200/201/202/204 | success / created / accepted (async job) / no content |
 | 400 | malformed request (bad CSV, bad URL) |
 | 401 | no/invalid session cookie or wrong credentials (only when `APP_ACCESS_TOKEN` is set); body `{"detail": …}` for API, login form for HTML. Non-API HTML requests get `302 → /login?next=…` instead |
-| 403 | suppressed prospect action; CSRF failure; role denial (`require_permission` — HTML error page for browsers, `{"detail": …}` for JSON); disabled account; login/setup password-policy violations render the form with 401/403 |
-| 404 | unknown resource |
-| 409 | duplicate prospect; invalid state transition; active-message conflict |
+| 403 | suppressed prospect action; CSRF failure; role denial (`require_permission` for `settings`/`danger`/`users` — HTML error page "Not allowed" for browsers, `{"detail": …}` for JSON); disabled account; login/setup password-policy violations render the form with 401/403 |
+| 404 | unknown resource **or a row the caller may not see**: for a `member`, `AuthMiddleware._path_denial` answers `404` with the *same* body the route would return for a missing id (`Prospect not found`, `Message not found`, …), so hidden and absent rows are byte-identical — there is no existence oracle. Applies to `/prospects/{id}`, `/findings/{id}`, `/notes/{id}`, `/messages/{id}`, `/opportunities/{id}`, `/follow-ups/{id}`, `/research/runs/{id}` and their `/api/v1` equivalents. `/retention/{id}/clear` is deliberately **not** in that table (it is `danger`-gated, so adding it would only create a 404-vs-403 oracle) |
+| 409 | duplicate prospect; invalid state transition; active-message conflict. For a scoped (`member`) caller the duplicate copy is always the leak-free `A prospect with this {field} already exists.` — never the row's name/id — because the scoped pre-check and the unique-index backstop must be indistinguishable |
 | 413 | upload too large |
 | 422 | schema validation (FastAPI default, normalized to error envelope) |
-| 429 | provider rate limit surfaced to client (rare; jobs absorb these); credential-endpoint rate limit (login/setup/signup/forgot/reset, 5/60s per IP+subject) |
+| 429 | provider rate limit surfaced to client (rare; jobs absorb these); credential-endpoint rate limit (login/setup/signup/forgot/reset **and change-password**, 5/60s per IP+subject — the change-password bucket is keyed `ip:account:{username}` so a hijacked session cannot brute-force the current password) |
 | 500/502 | unexpected / provider failure — request ID included, no internals leaked |
 
 ## 5. Versioning & stability

@@ -34,6 +34,15 @@ Scope: a local-first, single-operator tool that stores personal contact data (na
 - **First run:** with the gate on and an empty `users` table, every path redirects to `/setup`; API callers get JSON `401` (never an HTML page). `POST /logout` clears the cookie **and** deletes the row.
 - LAN/public exposure must sit behind TLS with `COOKIE_SECURE=true` (plain-HTTP LAN sends credentials in clear text).
 
+**Authorization enforcement (Phase B, amended 2026-11-19).**
+
+- **Row visibility is enforced before the route runs.** `AuthMiddleware._path_denial` runs after the session lookup and before `call_next`: for a `member` (owner/admin are never scoped) it resolves `/prospects/{id}`, `/findings/{id}`, `/notes/{id}`, `/messages/{id}`, `/opportunities/{id}`, `/follow-ups/{id}`, `/research/runs/{id}` — page and `/api/v1` paths alike — and answers `404` with **exactly the body the route would return for a missing id**. Hidden ≡ absent, byte for byte: a member cannot probe for the existence of another member's rows. `/retention/{id}/clear` is deliberately excluded from that table; it is already `danger`-gated, so including it would only create a 404-vs-403 oracle.
+- **Queries are scoped, not just URLs.** `authz.scope_criterion` / `scoped_prospect_subq` are pushed into the prospect list, the filters facets, the board, the dashboard (all 16 metric functions take `visible_to`), and the outreach region, so no count, facet or message card can surface a hidden row.
+- **Duplicate messages must not become an oracle.** The scoped pre-check can only see visible rows while the partial unique indexes see everything. For a scoped caller both paths therefore return the *same* leak-free copy (`A prospect with this {field} already exists.`); the row-named variant (`Duplicate prospect already exists: {name} (id={n})`) is only ever shown to a caller who can already see that row. `update_prospect` also rewrites `normalized_name` on rename — without it the index never fires on a rename and a member could rename into a hidden exact match.
+- **Navigation never advertises a 403.** `_visible_tabs` filters the settings tab strip by role (and drops the identity tabs entirely when the gate is off); the setup cluster's settings cards are wrapped in `can_settings`; the Account rail link is rendered only while `gate_enabled()`. The routes still enforce the permission — this only keeps unreachable surfaces out of the UI.
+- **Change password is a credential check, so it is rate limited** (5 / 60s per IP + `account:{username}` → plain-text `429`): a hijacked session must not be able to brute-force the *current* password for permanent takeover. Success clears the bucket, then `revoke_user_sessions(keep_token=…)` ends every other session of that account while this device keeps working.
+- **Self-lockout is impossible** (`_last_owner_guard`): no self disable/delete, and no disable/delete/demote while ≤1 *active* owner (a disabled owner does not satisfy the invariant). Deleting a user sets their prospects' `owner_id → NULL` (shared) instead of orphaning them; disabling revokes their sessions immediately.
+
 
 ## 4. Secure local configuration & secret handling
 
@@ -75,7 +84,7 @@ Additionally: research jobs only target URLs already attached to a prospect (or 
 | Business-purpose contacts | Outreach targets **business contact channels** recorded with source and purpose; `source` + `source_type` stored on every contact point |
 | Purpose limitation | Contact fields used only for in-app outreach; no export-to-marketing-tools features |
 | Data minimization | We store what the workflow needs (name, business role context, business contact) — no personal (non-business) data collection features |
-| Erasure | `DELETE /prospects/{id}?confirm=erase` cascades personal data; tombstone audit without content |
+| Erasure | `DELETE /prospects/{id}?confirm=erase` cascades personal data; tombstone audit without content — **route not built** (QA checklist §Known gaps #3; needs an owner decision) |
 | Opt-out | One-click **Do not contact** (Flow 8); suppression checked before draft/approve/open; suppression list exportable |
 | Frequency control | `last_contacted_at` + one-active-message-per-prospect + follow-up pacing defaults; no bulk send path exists |
 | Auditability | Append-only `activities` with actor + timestamps |
@@ -98,8 +107,8 @@ Additionally: research jobs only target URLs already attached to a prospect (or 
 
 ## 9. Abuse-case checklist (tested in QA)
 
-All eight items are automated; names below are the tests that pin them
-(last verified: `uv run pytest` 378 passed, 2026-11-17).
+All items are automated; names below are the tests that pin them
+(last verified: `pytest` 457 passed, 2026-11-19).
 
 - [x] `do_not_contact` prospect: draft generation, approve, open all return 403 with reason. — `tests/test_phase5_security.py::test_do_not_contact_blocks_draft_generate`, `…_blocks_approve_and_open`; round trips in `tests/test_suppression_and_stages.py`
 - [x] Skipping states via direct API (`POST /confirm-sent` on `draft`) → 409. — `tests/test_phase3_routes.py::test_illegal_transition_returns_409`, `tests/test_suppression_and_stages.py`
@@ -109,6 +118,12 @@ All eight items are automated; names below are the tests that pin them
 - [x] XSS payload in business name, finding statement, message text → renders escaped everywhere. — `tests/test_phase5_security.py::test_xss_renders_escaped_in_templates`
 - [x] Logs grepped for API keys → zero matches (redaction test). — `tests/test_phase5_security.py::test_log_redaction_masks_api_keys`
 - [x] Non-loopback bind without token → process refuses to start. — `tests/test_phase5_security.py::test_non_loopback_bind_without_token_refuses`
+- [x] Role matrix: a `member` gets 403 on every `settings`/`danger`/`users` surface (HTML error page + JSON `{"detail"}`), an `admin` passes settings/danger but not users, the owner passes all, and with the gate unset everything passes through. — `tests/test_authz.py::test_settings_pages_permission_matrix`, `…_test_danger_surfaces_permission_matrix`, `…_test_users_page_permission_matrix`, `…_test_api_permission_matrix`, `…_test_gate_off_passes_settings_through_and_hides_identity_surfaces`
+- [x] A member's hidden prospect and a hidden child row answer **byte-identically** to a missing id (HTML and JSON) → no existence oracle. — `tests/test_authz.py::test_hidden_prospect_404_is_byte_identical_to_missing`, `…_test_hidden_rows_404_over_json_and_on_child_paths`
+- [x] Duplicate copy is identical for a visible and a hidden conflict (and never names the row for a scoped caller) → no dedupe oracle. — `tests/test_authz.py::test_duplicate_message_is_identical_for_visible_and_hidden_rows`, `…_test_update_path_duplicate_message_is_leak_free`
+- [x] Change password: 5 wrong current passwords → `429`; success keeps this device and revokes every other session. — `tests/test_authz.py::test_change_password_is_rate_limited`, `…_test_change_password_revokes_other_sessions`
+- [x] Self-lockout: cannot disable/delete yourself, cannot demote the last active owner (allowed once a second owner exists). — `tests/test_authz.py::test_self_lockout_guards`
+- [x] Scoping: board, API list, filter facets, dashboard counts, needs-attention and the outreach region never surface another member's rows; `owner_id` is stamped only for member creates. — `tests/test_authz.py::test_member_board_excludes_foreign_rows`, `…_test_api_list_is_scoped_per_role`, `…_test_filters_facets_are_scoped`, `…_test_dashboard_counts_are_scoped`, `…_test_needs_attention_is_scoped`, `…_test_outreach_region_is_scoped`, `…_test_member_create_stamps_owner_id`, `…_test_unscoped_roles_create_shared_rows`
 
 ## 10. Dependency & supply-chain hygiene
 

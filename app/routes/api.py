@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import hashlib
 import os
+from types import SimpleNamespace
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, File, HTTPException, Path, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.auth import current_user, require_permission
 from app.config import settings
 from app.db import get_db
 from app.jobs.worker import queue_research_job
@@ -64,8 +66,8 @@ from app.schemas import (
     SuppressionOut,
     WebsiteCheckOut,
 )
+from app.services import authz, import_service, merge_service
 from app.services import findings as findings_service
-from app.services import import_service, merge_service
 from app.services import opportunity as opportunity_service
 from app.services import outreach as outreach_service
 from app.services import profile as profile_service
@@ -97,6 +99,7 @@ def list_prospects(
     do_not_contact_only: bool = Query(False),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    user: SimpleNamespace | None = Depends(current_user),
 ) -> list[ProspectOut]:
     rows = prospect_service.list_prospects(
         db,
@@ -109,6 +112,7 @@ def list_prospects(
         do_not_contact_only=do_not_contact_only,
         limit=limit,
         offset=offset,
+        visible_to=user,
     )
     return [_prospect_to_out(r) for r in rows]
 
@@ -122,6 +126,7 @@ def list_prospects(
 def create_prospect(
     payload: ProspectCreate,
     db: Session = Depends(get_db),
+    user: SimpleNamespace | None = Depends(current_user),
 ) -> ProspectOut:
     # Resolve or create a default "manual" source.
     source = db.query(Source).filter(Source.type == "manual").first()
@@ -151,6 +156,8 @@ def create_prospect(
         email=str(payload.email) if payload.email else None,
         website_url=payload.website_url,
         social_links=payload.social_links,
+        owner_id=authz.stamp_owner(user),
+        visible_to=user,
     )
     if error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error)
@@ -179,9 +186,12 @@ def update_prospect(
     prospect_id: int = Path(ge=1),
     payload: ProspectPatch = Body(...),
     db: Session = Depends(get_db),
+    user: SimpleNamespace | None = Depends(current_user),
 ) -> ProspectOut:
     update_data = payload.model_dump(exclude_unset=True)
-    prospect, error = prospect_service.update_prospect(db, prospect_id, **update_data)
+    prospect, error = prospect_service.update_prospect(
+        db, prospect_id, visible_to=user, **update_data
+    )
     if error:
         if error == "Prospect not found":
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
@@ -215,8 +225,9 @@ def archive_prospect(
 def unarchive_prospect(
     prospect_id: int = Path(ge=1),
     db: Session = Depends(get_db),
+    user: SimpleNamespace | None = Depends(current_user),
 ) -> ProspectOut:
-    ok = prospect_service.unarchive_prospect(db, prospect_id)
+    ok = prospect_service.unarchive_prospect(db, prospect_id, visible_to=user)
     if not ok:
         # Could be not-found or blocked by dedupe; treat as conflict for now.
         prospect = db.get(Prospect, prospect_id)
@@ -239,6 +250,7 @@ def unarchive_prospect(
 def check_prospect_dupes(
     prospect_id: int = Path(ge=1),
     db: Session = Depends(get_db),
+    user: SimpleNamespace | None = Depends(current_user),
 ) -> DedupeCheckOut:
     prospect = db.get(Prospect, prospect_id)
     if prospect is None:
@@ -251,6 +263,7 @@ def check_prospect_dupes(
         website_url=prospect.website_url,
         location_city=prospect.location_city,
         exclude_id=prospect.id,
+        visible_to=user,
     )
     return DedupeCheckOut(
         exact_match=dupe["exact"] is not None,
@@ -382,7 +395,10 @@ def list_activities(
 
 
 @router.get("/settings/profile", response_model=ProfileOut)
-def get_profile(db: DbSession) -> ProfileOut:
+def get_profile(
+    db: DbSession,
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
+) -> ProfileOut:
     profile = profile_service.get_or_create_profile(db)
     return ProfileOut.model_validate(profile)
 
@@ -391,6 +407,7 @@ def get_profile(db: DbSession) -> ProfileOut:
 def update_profile(
     payload: ProfileIn,
     db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> ProfileOut:
     profile = profile_service.update_profile(
         db,
@@ -403,7 +420,10 @@ def update_profile(
 
 
 @router.get("/settings/providers", response_model=list[ProviderStatusOut])
-def get_provider_status(db: DbSession) -> list[ProviderStatusOut]:
+def get_provider_status(
+    db: DbSession,
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
+) -> list[ProviderStatusOut]:
     """Per-provider configured/enabled status (API_DESIGN §2.8).
 
     Booleans and counters only — key values are never returned (D8).
@@ -913,6 +933,7 @@ def cancel_follow_up_api(
 def import_preview(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> ImportPreview:
     """Parse an uploaded CSV and return a preview (valid / duplicate / error rows).
 
@@ -979,6 +1000,7 @@ def import_preview(
 def import_commit(
     payload: ImportCommitIn,
     db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> ImportResult:
     """Commit selected preview rows as new prospects under the csv_import source."""
     preview = import_service.load_import_session(payload.import_token)
@@ -1099,6 +1121,7 @@ def list_fuzzy_duplicates_api(
     min_score: float = Query(0.85, ge=0.0, le=1.0),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> list[DuplicatePairOut]:
     """List fuzzy duplicate prospect pairs for manual merge review."""
     pairs = merge_service.find_fuzzy_duplicates(db, min_score=min_score, limit=limit)
@@ -1123,6 +1146,7 @@ def list_fuzzy_duplicates_api(
 def merge_prospects_api(
     payload: MergeIn,
     db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("danger")),
 ) -> DuplicatePairOut:
     """Merge source prospect into target prospect."""
     target, error = merge_service.merge_prospects(
@@ -1155,6 +1179,7 @@ def merge_prospects_api(
 def retention_sweep_api(
     payload: RetentionSweepIn,
     db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("danger")),
 ) -> RetentionSweepOut:
     """Run a retention sweep to flag inactive prospects for review."""
     result = retention_service.sweep_inactive_prospects(db, months=payload.months, actor="user")
@@ -1174,6 +1199,7 @@ def retention_sweep_api(
 )
 def list_retention_flagged_api(
     db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> list[ProspectOut]:
     """List all prospects flagged for retention review."""
     rows = retention_service.list_retention_flagged(db)
@@ -1188,6 +1214,7 @@ def list_retention_flagged_api(
 def clear_retention_flag_api(
     prospect_id: int = Path(ge=1),
     db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("danger")),
 ) -> ProspectOut:
     """Clear the retention-review flag from a prospect."""
     ok = retention_service.clear_retention_flag(db, prospect_id=prospect_id, actor="user")

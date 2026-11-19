@@ -1407,6 +1407,269 @@
         }
       }
     },
+    "/settings/account": {
+      "get": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "Account Page",
+        "description": "Own account: identity, active sessions, change-password (SECURITY §3).",
+        "operationId": "account_page_settings_account_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/account/password": {
+      "post": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "Account Change Password",
+        "description": "Change your own password; every *other* session is revoked (SECURITY §3).",
+        "operationId": "account_change_password_settings_account_password_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_account_change_password_settings_account_password_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/users": {
+      "get": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "Users Page",
+        "description": "User management: accounts, roles, disable/enable (owner only).",
+        "operationId": "users_page_settings_users_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "User Create",
+        "description": "Create an account directly (signup may be env-gated off).",
+        "operationId": "user_create_settings_users_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_user_create_settings_users_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/users/{user_id}/role": {
+      "post": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "User Set Role",
+        "description": "Change a user's role (owner only; self-demotion allowed only with a\nsecond active owner in place).",
+        "operationId": "user_set_role_settings_users__user_id__role_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_user_set_role_settings_users__user_id__role_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/users/{user_id}/toggle": {
+      "post": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "User Toggle",
+        "description": "Disable (revokes every session) or re-enable an account.",
+        "operationId": "user_toggle_settings_users__user_id__toggle_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/users/{user_id}/delete": {
+      "post": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "User Delete",
+        "description": "Delete an account; its prospects become shared (owner_id -> NULL).",
+        "operationId": "user_delete_settings_users__user_id__delete_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/prospects/{prospect_id}/research": {
       "get": {
         "tags": [
@@ -6018,6 +6281,27 @@
         ],
         "title": "ActivityOut"
       },
+      "Body_account_change_password_settings_account_password_post": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "title": "Current Password",
+            "default": ""
+          },
+          "new_password": {
+            "type": "string",
+            "title": "New Password",
+            "default": ""
+          },
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "Body_account_change_password_settings_account_password_post"
+      },
       "Body_approve_message_api_api_v1_messages__message_id__approve_post": {
         "properties": {
           "ungrounded_acknowledgement": {
@@ -6961,6 +7245,45 @@
           "current_text"
         ],
         "title": "Body_submit_message_api_api_v1_messages__message_id__submit_post"
+      },
+      "Body_user_create_settings_users_post": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username",
+            "default": ""
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "default": ""
+          },
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "default": ""
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "default": "member"
+          }
+        },
+        "type": "object",
+        "title": "Body_user_create_settings_users_post"
+      },
+      "Body_user_set_role_settings_users__user_id__role_post": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "Body_user_set_role_settings_users__user_id__role_post"
       },
       "DedupeCheckOut": {
         "properties": {

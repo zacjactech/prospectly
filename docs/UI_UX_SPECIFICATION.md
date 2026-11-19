@@ -36,8 +36,10 @@ Pipeline Canvas (GET /prospects — the default surface)
 ```
 
 **Rail (left):** Canvas group — Home / Board / Outreach / Status — then
-Shortcuts and Sign out. The settings tree is gone from the rail: the setup
-cluster *is* the index.
+**Account** (added 2026-11-19; self-service, any role — identity, active
+sessions, change password; rendered only while the gate is on, since there are
+no identities without it), then Shortcuts and Sign out. The settings tree is
+gone from the rail: the setup cluster *is* the index.
 
 **Every setup has its own card that opens its own pipeline.** A card click
 loads `GET <route>` over HTMX into a slide-over panel whose body is a numbered
@@ -153,6 +155,9 @@ Moved under Settings because CSV is not the default discovery path. 3-step wizar
 - **Usage:** table of provider calls/errors/rate-limits per day + AI calls/tokens per day, with a daily-cap strip (used / cap, "blocked" when reached). Simple table, no charts.
 - **General:** category vocabulary editor, default follow-up days, daily caps with **used-today and a "cap reached — calls blocked" badge**, backup button + last-backup timestamp.
 - **Import (CSV):** secondary utility — Upload → Preview → Commit. Not the default discovery path.
+- **Account** (`/settings/account`, any signed-in role; added 2026-11-19): *Signed in* table (username + role badge), *Active sessions* table with a `this device` badge, and a *Change password* form whose helper copy states "Every other session is signed out." Rate-limited on the current-password field (429 plain-text copy, not an error page).
+- **Users** (`/settings/users`, owner only; added 2026-11-19): *Add user* form (username / password / confirm / role select) above an *Accounts* table (username · role · status badge · created · actions: role select, disable/enable, delete). Self-lockout refusals arrive as an error flash on the same page, never a dead end.
+- **Role-filtered chrome (2026-11-19):** the settings **tab strip** only renders tabs the viewer may open (`_visible_tabs`) — a member sees *Saved views* + *Account* only, and with the gate off the two identity tabs disappear entirely; the canvas **setup cluster** wraps its settings-linked cards in `can_settings` so a member is never shown a card that would 403. These are visibility rules only — every route still enforces its permission.
 
 ### 2.8 Auth pages (only when `APP_ACCESS_TOKEN` is set; amended 2026-11-18)
 - All auth pages are standalone (`.auth-shell` — centered `.auth-card` with brand lockup, no app chrome; nothing to leak behind a gate) and share one layout: `Sign in`, `Set up` (first run), `Create account`, `Reset password`, `Choose a new password`.

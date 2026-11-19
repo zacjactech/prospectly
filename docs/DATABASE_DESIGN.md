@@ -199,6 +199,15 @@ Drives automated discovery (who to look for, where) and personalizes outreach dr
 | reset_expires_at | DATETIME NULL — 30-minute TTL |
 | created_at | DATETIME |
 
+**Ownership stamping (`prospects.owner_id`, Phase B).** One rule, one writer:
+`authz.stamp_owner()` returns the caller's id **only for a `member`** — an
+`owner`/`admin` create (or any create while the gate is off) leaves `NULL`,
+because the owner's pipeline is the team's pipeline and only a member's work
+is theirs alone. Visibility then follows from that single column: `NULL` is
+seen by every role, a set id by its owner plus all admins/owners.
+`disabled`/`role` are plain column updates; disabling additionally deletes
+that user's `user_sessions` rows in the same transaction (see §2.18).
+
 ### 2.18 `user_sessions` — revocable server-side sessions
 | Column | Notes |
 |---|---|
@@ -225,10 +234,10 @@ Revocation = row deletion: logout (own), logout-all, disable-user and password r
 | opportunities ↔ findings | M : N | CASCADE join rows |
 | prospects ↔ tags | M : N | CASCADE join rows |
 | users → user_sessions | 1 : N | CASCADE |
-| prospects.owner_id → users | 1 : N (nullable) | SET NULL; `NULL` = shared/legacy row visible to everyone |
+| prospects.owner_id → users | 1 : N (nullable) | `NULL` = shared/legacy row visible to every role. **Not a database FK** — `owner_id` is a plain indexed `Integer`, so the hand-off is done in application code: `POST /settings/users/{id}/delete` rewrites `prospects.owner_id → NULL` for that user *inside the same transaction as the delete*, so deleting an account never orphans its private rows behind an id nobody can resolve |
 | outreach_messages → activities | via payload reference | — |
 
-**Retention note:** deletion of a prospect is allowed only via an explicit "delete personal data" action, which cascades findings/activities and writes a tombstone `settings` audit entry (what was deleted, when, by whom) containing no personal data.
+**Retention note:** deletion of a prospect is allowed only via an explicit "delete personal data" action, which cascades findings/activities and writes a tombstone `settings` audit entry (what was deleted, when, by whom) containing no personal data. **Not built** — no such route exists yet (QA checklist §Known gaps #3, owner decision pending); today the only deletion path in the product is `POST /settings/users/{id}/delete`, which hands the user's prospects to the shared pool instead of erasing them.
 
 ## 4. Indexes (query-driven)
 
