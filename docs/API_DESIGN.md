@@ -40,7 +40,7 @@ moved. Retired page templates are gone; `login.html` keeps its own chrome.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/` | **Canvas** with the **Status** card open (attention queue · metrics · quick start). Gate on + **signed out** → the **landing page** instead: wordmark, one line of copy, Sign in (plus *Create an account* when `ALLOW_SIGNUP=true`), rendered by `AuthMiddleware` before any route so it carries **no data at all**. Gate unset, first run (`users` empty → `302 /setup`), a dead cookie (`302 /login?reason=…`) or signed in → unchanged |
+| GET | `/` | **Canvas** with the **Status** card open (attention queue · metrics · quick start). Gate on + **signed out** → the **landing page** instead: wordmark, one line of copy, Sign in (plus *Create an account* when `ALLOW_SIGNUP=true`), rendered by `AuthMiddleware` before any route so it carries **no data at all**. Signed in → the canvas with the **Status** card open, the world hidden behind it until the panel closes (§V2 amendment 2026-11-19). Gate unset, first run (`users` empty → `302 /setup`), a dead cookie (`302 /login?reason=…`) or signed in → unchanged |
 | GET | `/status` | Status card alone (rail item + `g s` chord) |
 | GET | `/prospects` | Canvas (filters: stage, tag, category, location, search, include-archived) — the default landing surface; `HX-Request` → board fragment only |
 | GET | `/prospects/filters` | 360px Filters panel body (same filter fields + saved views); `HX-Request` → panel fragment only. Stage filter renders a single-zone lens |

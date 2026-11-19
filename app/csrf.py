@@ -131,6 +131,39 @@ def _extract_form_token(body: bytes, content_type: str) -> str | None:
     return None
 
 
+def _csrf_failure(request: Request) -> Response:
+    """Reject a stale/absent CSRF token in the caller's own language.
+
+    A browser re-posting an old form used to get raw
+    {"code":"csrf_failure"} JSON back — the same "looks like a crash" failure
+    mode as an unmatched route. JSON/API callers keep the exact contract they
+    had; HTML callers get the error page with a problem and a recovery.
+    """
+    accept = request.headers.get("accept", "")
+    if (
+        request.url.path.startswith("/api/")
+        or "application/json" in accept
+        or "text/html" not in accept
+    ):
+        return JSONResponse(
+            {"code": "csrf_failure", "message": "Missing or invalid CSRF token"},
+            status_code=403,
+        )
+    from app.routes import pages  # local: routes import this module at import time
+
+    return pages.templates.TemplateResponse(
+        request=request,
+        name="error.html",
+        context={
+            "app_name": settings.app_name,
+            "title": "Form expired",
+            "message": "This form's security token is out of date. Reload the page and try again.",
+            "detail": None,
+        },
+        status_code=403,
+    )
+
+
 class CSRFMiddleware(BaseHTTPMiddleware):
     """Reject state-changing requests that lack a matching CSRF token."""
 
@@ -157,13 +190,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             request._receive = receive
 
             if not _tokens_match(cookie_token, presented_token):
-                return JSONResponse(
-                    {
-                        "code": "csrf_failure",
-                        "message": "Missing or invalid CSRF token",
-                    },
-                    status_code=403,
-                )
+                return _csrf_failure(request)
 
         # First visit (no cookie yet): pre-seed ONE token that both the
         # rendered forms (via csrf_token()) and the Set-Cookie below use —

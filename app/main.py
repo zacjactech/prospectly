@@ -14,6 +14,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
@@ -137,11 +138,15 @@ def create_app() -> FastAPI:
     pages.templates.env.filters["describe_payload"] = describe_payload
 
     @app.exception_handler(HTTPException)
-    async def http_exception_handler(request: Request, exc: HTTPException) -> Response:
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> Response:
         """HTML requests get the error page; JSON/API keeps {detail} shape.
 
-        Permission denials (403 from require_permission) and FastAPI's own
-        404s otherwise land in the browser as raw JSON.
+        Registered for *both* exception classes: FastAPI's HTTPException
+        (raised by require_permission and route handlers) subclasses
+        Starlette's, but an unmatched route raises only Starlette's — without
+        the second registration a dead bookmark answered raw
+        {"detail":"Not Found"} to a browser.
         """
         accept = request.headers.get("accept", "")
         is_json = request.url.path.startswith("/api/") or "application/json" in accept

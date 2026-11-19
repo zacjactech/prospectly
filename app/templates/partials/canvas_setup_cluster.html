@@ -7,7 +7,7 @@
   <span class="region-chip" aria-hidden="true">SETUP</span>
 </div>
 
-<div class="setup-cluster" data-region="setup" aria-label="Setup cards">
+<div class="setup-cluster" data-region="setup" aria-label="Setup cards" data-collapsed>
   <a class="setup-card" href="/status"
      data-setup-card="status" {% if card_states.status.warn %}data-state="warn"{% endif %}>
     <span class="sc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg></span>
@@ -20,12 +20,13 @@
 
 {% if can_settings %}
     <a class="setup-card" href="/settings/profile"
-       data-setup-card="profile">
+       data-setup-card="profile" {% if card_states.profile.warn %}data-state="warn"{% endif %}>
       <span class="sc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
       <span class="sc-main">
         <span class="sc-title">Profile</span>
         <span class="sc-state mono">{{ card_states.profile.meta }}</span>
       </span>
+      {% if card_states.profile.warn %}<span class="sc-warn" title="Needs attention" aria-hidden="true"></span>{% endif %}
     </a>
 {% endif %}
 
@@ -62,12 +63,13 @@
 
 {% if can_settings %}
     <a class="setup-card" href="/settings/retention"
-       data-setup-card="retention">
+       data-setup-card="retention" {% if card_states.retention.warn %}data-state="warn"{% endif %}>
       <span class="sc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"></rect><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"></path><path d="M10 12h4"></path></svg></span>
       <span class="sc-main">
         <span class="sc-title">Retention</span>
         <span class="sc-state mono">{{ card_states.retention.meta }}</span>
       </span>
+      {% if card_states.retention.warn %}<span class="sc-warn" title="Needs attention" aria-hidden="true"></span>{% endif %}
     </a>
 {% endif %}
 
@@ -103,4 +105,8 @@
       </span>
     </a>
 {% endif %}
+
+  <button class="setup-more" type="button" data-setup-more aria-expanded="false">
+    All setup
+  </button>
 </div>

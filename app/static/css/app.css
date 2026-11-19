@@ -148,6 +148,14 @@
   }
 }
 
+/* Home first paint (spec V2 amendment, owner 2026-11-19): the Status panel
+   owns the screen and the canvas world is revealed when it closes. `visibility`
+   rather than `display` keeps the box measured, so fit-to-view still runs
+   behind the panel and nothing jumps on reveal. */
+body.first-paint .canvas-world {
+  visibility: hidden;
+}
+
 /* ===== Reset ===== */
 * {
   box-sizing: border-box;
@@ -429,7 +437,7 @@ body.nav-open .sidenav {
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-2);
-  padding: var(--sp-3);
+  padding: var(--sp-4); /* drawer only: >=768px overrides this for the 56px rail */
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -657,7 +665,9 @@ button.nav-link {
 
   .sidenav-head {
     justify-content: center;
-    padding: var(--sp-3) var(--sp-1);
+    /* rail: 8px horizontal clears the 8px floor the drawer already had at
+       16px — the brand mark still centres in the 56px rail. */
+    padding: var(--sp-3) var(--sp-2);
   }
 
   .sidenav .brand-text,
@@ -1519,6 +1529,7 @@ input[type="file"]::file-selector-button:hover {
 }
 
 .badge.stage-researched,
+.badge.stage-opportunity-identified,
 .badge.stage-contacted,
 .badge.stage-replied,
 .badge.stage-interested,
@@ -1531,7 +1542,6 @@ input[type="file"]::file-selector-button:hover {
   border-color: transparent;
 }
 
-.badge.stage-opportunity-identified,
 .badge.stage-follow-up-due,
 .badge.stage-unverified,
 .badge.stage-check-failed,
@@ -2562,10 +2572,29 @@ kbd {
 }
 
 /* The included partials keep their panel heading in the DOM for HTMX
-   fragment parity (tests + panel reuse); the page h1 owns the visible title. */
+   fragment parity (tests + panel reuse); the page h1 owns the visible title.
+
+   They are visually hidden with the .sr-only pattern rather than
+   `display: none`: dropping the only h2 left every standalone page reading
+   H1 -> H3 -> H4 to a screen reader (critique 2026-11-19, P2). The detail
+   head's duplicated badge row and Edit button stay `display: none` so no
+   control is focusable twice. */
 .standalone-page .panel-heading,
 .standalone-page .prospect-name,
 .detail-page .detail-head {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.detail-page .detail-head .badge-row,
+.detail-page .detail-head .header-actions {
   display: none;
 }
 

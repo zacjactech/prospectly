@@ -55,7 +55,8 @@
         </td>
         <td data-label="Role">
           {% if u.id != account_id %}
-          <form method="post" action="/settings/users/{{ u.id }}/role" class="form-inline">
+          <form method="post" action="/settings/users/{{ u.id }}/role" class="form-inline"
+                data-confirm="Change {{ u.username }}'s role?">
             {{ csrf_field() }}
             <select name="role" aria-label="Role for {{ u.username }}">
               {% for r in roles %}
@@ -76,7 +77,8 @@
         <td data-label="Actions">
           {% if u.id != account_id %}
           <div class="action-group">
-            <form method="post" action="/settings/users/{{ u.id }}/toggle" class="form-inline">
+            <form method="post" action="/settings/users/{{ u.id }}/toggle" class="form-inline"
+                  data-confirm="{% if u.disabled %}Enable {{ u.username }}?{% else %}Disable {{ u.username }}? They are signed out immediately. You can re-enable them.{% endif %}">
               {{ csrf_field() }}
               <button class="btn small ghost" type="submit">
                 {{ 'Enable' if u.disabled else 'Disable' }}

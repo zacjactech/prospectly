@@ -550,6 +550,10 @@ def _render_canvas(
         "open_card": open_card,
         "panel_body_template": panel_body_template,
         "can_settings": _can_settings(request),
+        # Spec V2 amendment (owner 2026-11-19): on Home the Status panel owns
+        # the first screen and the world is revealed when it closes, instead
+        # of the panel floating over a cropped, edge-faded canvas.
+        "first_paint": bool(open_card) and request.url.path == "/",
         **_board_context(db, rows, stage=stage),
         **_setup_cluster_context(db, current_user(request)),
         **_outreach_context(db, current_user(request)),

@@ -95,7 +95,25 @@
     });
   }
 
-  /* ----- Destructive confirms: <form data-confirm="..."> -----
+  /* Home first paint: the Status panel owns the screen; revealing the world is
+   its close. fit-to-view already ran behind the panel, so nothing jumps. */
+document.addEventListener("pl:panel-closed", function () {
+  document.body.classList.remove("first-paint");
+});
+
+/* Setup cluster disclosure: attention cards stay out, the rest one click away. */
+document.addEventListener("click", function (e) {
+  var btn = e.target.closest && e.target.closest("[data-setup-more]");
+  if (!btn) return;
+  var cluster = btn.closest(".setup-cluster");
+  if (!cluster) return;
+  var wasCollapsed = cluster.hasAttribute("data-collapsed");
+  if (wasCollapsed) cluster.removeAttribute("data-collapsed");
+  else cluster.setAttribute("data-collapsed", "");
+  btn.setAttribute("aria-expanded", String(wasCollapsed));
+});
+
+/* ----- Destructive confirms: <form data-confirm="..."> -----
      Delegated to document in the CAPTURE phase so that (a) forms injected
      by HTMX swaps (research page polling) are covered — one-time binding
      missed them, silently dropping the Delete confirmation — and (b) the

@@ -42,6 +42,36 @@
 </div>
 {% endif %}
 
+
+<section class="card" id="detail-stage">
+  {# Stage moves are the routine progression action, so they sit above
+     Overview instead of inside the Danger zone, where they read as
+     destructive (critique 2026-11-19, P2). The control row stays
+     byte-identical to the owner's 2026-11-18 "Stage override on one
+     line" decision, and the sr-only h3 keeps the outline
+     H1 -> H2 -> H3 -> H4 now that the page h2 is visually hidden. #}
+  <h3 class="sr-only">Stage</h3>
+  {% if next_stages %}
+  <form method="post" action="/prospects/{{ prospect.id }}/stage" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/stage"{% endif %} class="stage-form" {{ hxpost_refresh|safe }}>
+    {{ csrf_field() }}
+    <div class="field full">
+      <label class="sr-only" for="stage-override">Move to stage</label>
+      <div class="stage-override-row">
+        <h4>Stage override</h4>
+        <select id="stage-override" name="stage" data-stage-select required>
+          <option value="" selected disabled>Move to...</option>
+          {% for t in next_stages %}
+          <option value="{{ t }}">{{ t|replace('_',' ') }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn" type="submit" data-stage-submit disabled aria-label="Move to the selected stage">Move</button>
+      </div>
+    </div>
+  </form>
+  {% else %}
+  <p class="muted small">No further transitions from this stage.</p>
+  {% endif %}
+</section>
 <section class="card" id="detail-overview">
   <dl class="facts">
     <dt>Phone</dt>
@@ -421,26 +451,4 @@
     </div>
   </div>
 
-  <div class="danger-block">
-    {% if next_stages %}
-    <form method="post" action="/prospects/{{ prospect.id }}/stage" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/stage"{% endif %} class="stage-form" {{ hxpost_refresh|safe }}>
-      {{ csrf_field() }}
-      <div class="field full">
-        <label class="sr-only" for="stage-override">Move to stage</label>
-        <div class="stage-override-row">
-          <h4>Stage override</h4>
-          <select id="stage-override" name="stage" data-stage-select required>
-            <option value="" selected disabled>Move to...</option>
-            {% for t in next_stages %}
-            <option value="{{ t }}">{{ t|replace('_',' ') }}</option>
-            {% endfor %}
-          </select>
-          <button class="btn" type="submit" data-stage-submit disabled aria-label="Move to the selected stage">Move</button>
-        </div>
-      </div>
-    </form>
-    {% else %}
-    <p class="muted small">No further transitions from this stage.</p>
-    {% endif %}
-  </div>
 </section>

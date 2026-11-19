@@ -35,6 +35,23 @@ Pipeline Canvas (GET /prospects — the default surface)
       wires ← board ("messages in flight")
 ```
 
+**First paint & setup disclosure (§V2 amendment, owner-approved 2026-11-19).**
+Two changes to what Home shows, both from the design critique:
+
+- **The Status panel owns the first screen.** `GET /` still opens the Status
+  card (`data-panel-open="status"` is unchanged), but the canvas world is
+  `visibility: hidden` behind it and is **revealed when the panel closes**.
+  The world is hidden rather than removed so fit-to-view still measures it
+  and nothing jumps on reveal. Only `/` does this — `/prospects`, `/outreach`
+  and deep links render the canvas as before.
+- **The setup cluster discloses.** Nine cards at once was the largest decision
+  point on the canvas. Cards in a `warn` state (Status, Profile when no offer,
+  Retention when rows are flagged) stay out; the rest sit behind one labelled
+  **All setup** control (`aria-expanded`, chevron rotates). Cards stay in the
+  DOM — `display: none` only takes them out of the grid and the tab order —
+  and Profile/Retention now actually surface the warn state their
+  `card_states` already carried.
+
 **Rail (left):** Canvas group — Home / Board / Outreach / Status — then
 **Account** (added 2026-11-19; self-service, any role — identity, active
 sessions, change password; rendered only while the gate is on, since there are
