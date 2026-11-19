@@ -53,6 +53,9 @@ def _isolate_external_providers(monkeypatch: pytest.MonkeyPatch) -> None:
         "app_access_token",
     ):
         monkeypatch.setattr(settings, attr, None)
+    # The developer's .env may open /signup (ALLOW_SIGNUP=true); tests must
+    # assert the shipped default instead, and opt in explicitly where needed.
+    monkeypatch.setattr(settings, "allow_signup", False)
     monkeypatch.setattr(settings, "osm_enabled", False)
     monkeypatch.setattr(settings, "bizdata_enabled", False)
     monkeypatch.setattr(settings, "tavily_daily_cap", 1000)

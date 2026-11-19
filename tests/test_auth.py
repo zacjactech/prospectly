@@ -407,7 +407,14 @@ def test_logout_clears_session_and_revokes_row(db: Session, token: str) -> None:
     assert r.headers["location"] == "/login"
     assert client.cookies.get(SESSION_COOKIE_NAME) is None
     assert lookup_session(db, value) is None  # revoked, not just forgotten
-    assert client.get("/").status_code == 302
+    # Signed-out root is the data-free landing page (owner decision
+    # 2026-11-19), not a bounce to /login: it must render, and it must carry
+    # no canvas, no rail and no data of any kind.
+    landing = client.get("/")
+    assert landing.status_code == 200
+    assert "Sign in" in landing.text
+    assert "data-setup-card" not in landing.text
+    assert "rail-foot" not in landing.text
 
 
 def test_logout_all_kills_every_session(db: Session, token: str) -> None:
@@ -719,3 +726,42 @@ def test_require_permission_dependency(token: str, monkeypatch) -> None:
     # Gate off: pass-through (no identity, no denial).
     monkeypatch.setattr(settings, "app_access_token", None)
     assert dep(_request_with_role(None)) is None
+
+
+# ===== Landing page (owner decision 2026-11-19) =====
+
+
+def test_signed_out_root_renders_a_data_free_landing(db: Session, token: str) -> None:
+    """The gate used to bounce `/` to /login; it now has a front door.
+
+    Rendered by AuthMiddleware *before* any route, so it cannot query: a
+    seeded prospect must never appear in it.
+    """
+    _seed_owner(db)
+    db.add(Prospect(business_name="Secret Pipeline Ltd"))
+    db.commit()
+
+    client = _client()
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "Sign in" in response.text
+    # No canvas, no rail, no data.
+    assert "data-setup-card" not in response.text
+    assert "rail-foot" not in response.text
+    assert "Secret Pipeline Ltd" not in response.text
+
+
+def test_landing_is_not_served_to_json_callers(db: Session, token: str) -> None:
+    """JSON keeps the JSON contract (API_DESIGN §4), never an HTML page."""
+    _seed_owner(db)
+    client = _client()
+    response = client.get("/", headers={"Accept": "application/json"})
+    assert response.status_code == 401
+    assert "detail" in response.json()
+
+
+def test_gate_off_root_is_still_the_canvas(db: Session, no_token: None) -> None:
+    """Gate unset -> pass-through unchanged: `/` is the app, not a landing."""
+    response = _client().get("/")
+    assert response.status_code == 200
+    assert "data-setup-card" in response.text

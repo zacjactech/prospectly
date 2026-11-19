@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{{ app_name }}</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <!-- Signed-out entry point (owner decision 2026-11-19): the gate used to
+       bounce straight to /login, so the app had no front door. Rendered by
+       AuthMiddleware before any route runs, so it carries no data at all --
+       it cannot query, and it must never grow a metric, name or count. -->
+  <main class="auth-shell">
+    <div class="card auth-card">
+      <div class="brand auth-brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span class="brand-text">{{ app_name }}</span>
+      </div>
+      <h1>{{ app_name }}</h1>
+      <p class="muted">
+        Local-first prospecting: find businesses, gather evidence, and draft
+        WhatsApp messages you approve before anything is sent.
+      </p>
+
+      <div class="action-group">
+        <a class="btn primary" href="/login">Sign in</a>
+      </div>
+
+      <div class="auth-links">
+        <a href="/forgot-password">Forgot password?</a>
+        {% if allow_signup %}<a href="/signup">Create an account</a>{% endif %}
+      </div>
+    </div>
+  </main>
+</body>
+</html>

@@ -321,6 +321,26 @@ def _path_denial(db: DbSession, user: User, path: str) -> str | None:
     return None
 
 
+def _landing_response(request: Request) -> HTMLResponse:
+    """Signed-out front door (owner decision 2026-11-19).
+
+    The gate used to bounce ``/`` straight to ``/login``, so the app had no
+    landing page. This renders one *before* any route runs, which is also why
+    it can carry no data at all: no query, no count, no prospect name. Keep it
+    that way -- the template is a static shell plus these two settings.
+
+    Imported lazily: ``app.routes.pages`` imports this module at module level.
+    """
+    from app.routes import pages
+
+    return pages.templates.TemplateResponse(
+        request=request,
+        name="landing.html",
+        context={"app_name": settings.app_name, "allow_signup": settings.allow_signup},
+        status_code=200,
+    )
+
+
 class AuthMiddleware(BaseHTTPMiddleware):
     """Enforce the account session on every non-allowlisted request."""
 
@@ -352,9 +372,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
             # commit before any early return can roll it back.
             db.commit()
             if session is None:
-                reason = "expired" if token else None
                 if wants_json(request):
                     return JSONResponse({"detail": _UNAUTHORIZED_DETAIL}, status_code=401)
+                if not token and request.url.path.rstrip("/") == "":
+                    # Signed-out root -> the landing page instead of a bounce to
+                    # /login. Only when *no* cookie was sent: a present but dead
+                    # cookie still redirects, so the documented
+                    # ?reason=expired / ?reason=disabled copy keeps working.
+                    return _landing_response(request)
+                reason = "expired" if token else None
                 return RedirectResponse(login_redirect_url(request, reason=reason), status_code=302)
 
             user = session.user

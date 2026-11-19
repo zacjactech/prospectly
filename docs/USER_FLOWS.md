@@ -15,6 +15,7 @@ Single-user tool; every flow is designed for one operator moving prospects throu
 *Owner decision 2026-11-18: full accounts + roles replaced the access-token credential.*
 
 1. **First run:** any page → redirected to `/setup` → create the **owner** account (username, password, confirm) → signed in, lands on the canvas.
+1.5. **Front door:** once an account exists, a signed-out visit to `/` shows the **landing page** (wordmark + one line + Sign in) instead of bouncing to `/login`. Sign in → canvas. Everything else still redirects: no session on a sub-path → `/login?next=…`, a dead cookie → `/login?reason=expired`.
 2. **Returning:** `/login` → username + password → canvas (or `?next=` target). Wrong credentials → inline error (same copy for unknown user); 5 failures / minute → wait-a-minute error.
 3. **Forgot password:** `/login` → *Forgot password?* → enter username → the reset link appears on screen (local instance sends no email) → open it → new password (confirm) → every session is signed out → login shows "Password updated".
 4. **Sign out:** rail **Sign out** → revokes this session row, clears the cookie, → `/login`. Ending *every* session lives on the Account page (**Sign out everywhere** → *Log out of all sessions*) — both are CSRF-protected `POST`s.
