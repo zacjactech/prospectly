@@ -2018,12 +2018,15 @@ table.prospects td a:not(.btn):hover {
 }
 
 /* Generic data table used by usage + follow-ups lists. Reuses the prospects
-   table sizing so all tables read consistently. */
+   table sizing so all tables read consistently. The floor is capped at the
+   available width: a bare `min-width: 640px` kept the document wider than the
+   viewport on Settings → Usage, Account and Users (685–709px at 390/640px),
+   scrolling the whole page sideways. */
 table.data-table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--fs-sm);
-  min-width: 640px;
+  min-width: min(640px, 100%);
 }
 
 table.data-table th {

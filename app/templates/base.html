@@ -19,8 +19,8 @@
   <meta name="theme-color" content="#0b0c0e">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/static/css/app.css?v=69">
-  <link rel="stylesheet" href="/static/css/canvas.css?v=69">
+  <link rel="stylesheet" href="/static/css/app.css?v=70">
+  <link rel="stylesheet" href="/static/css/canvas.css?v=70">
   {# htmx settles class/width/height across element-replacing swaps. It also
      settles `style` by default, which is a style-attribute write that our
      hash-only style-src CSP blocks (it surfaced as a console violation after
@@ -28,10 +28,10 @@
      style attribute is excluded here rather than whitelisting the hash. #}
   <meta name="htmx-config" content='{"attributesToSettle":["class","width","height"]}'>
   <script src="/static/js/htmx.min.js" defer></script>
-  <script src="/static/js/app.js?v=69" defer></script>
-  <script src="/static/js/panel.js?v=69" defer></script>
-  <script src="/static/js/canvas.js?v=69" defer></script>
-  <script src="/static/js/board.js?v=69" defer></script>
+  <script src="/static/js/app.js?v=70" defer></script>
+  <script src="/static/js/panel.js?v=70" defer></script>
+  <script src="/static/js/canvas.js?v=70" defer></script>
+  <script src="/static/js/board.js?v=70" defer></script>
 </head>
 {# Slim mobile header title, derived from the path so no content template
    needs a new block (spec §1 amendment 2026-11-11). #}

@@ -1,4 +1,4 @@
-# QA Checklist — living document (last full manual pass: 2026-11-11; canvas contract pass: 2026-11-16)
+# QA Checklist — living document (last full manual pass: 2026-11-11; canvas contract pass: 2026-11-16; Phase B authz browser pass: 2026-11-19)
 
 Full manual walkthrough of the user flows (USER_FLOWS.md). Each flow is
 verified against the running app and backed by regression tests in `tests/`.
@@ -463,7 +463,7 @@ unit test into a live call (AGENTS §7).
 
 ## Known gaps (spec promises not yet built)
 
-Three, all **explicitly recorded rather than silently dropped** (the matching
+Four, all **explicitly recorded rather than silently dropped** (the matching
 spec text now says so):
 
 1. **Providers page affordances** — the status page shipped 2026-11-11
@@ -487,6 +487,15 @@ spec text now says so):
    implemented as part of the auth work. The same pass marked API_DESIGN
    §2.8's `GET /usage` and `PATCH /settings` rows unbuilt — usage is HTML-only
    at `GET /settings/usage`.
+4. **Table stacking breakpoint (spec vs CSS, found 2026-11-19):**
+   `UI_UX_SPECIFICATION.md` §7 promises tables stack with `data-label` headers
+   at **768–1023px** and again at **&lt;768px**, but every stacking rule in
+   `app/static/css/app.css` sits in `@media (max-width: 639px)` — so tables
+   only stack at ≤639px, and the 640–767px band shows a normal table. **Needs
+   an owner decision:** either the CSS moves to `max-width: 767px` (closer to
+   the spec, but stacks tables where there is room for real columns) or the
+   spec is amended to 639px. Not changed unilaterally — §7 is a binding
+   design decision (AGENTS.md §2).
 
 Closed earlier and covered by tests: findings evidence CRUD, notes surface
 (Flow 9), HTMX research-progress polling (`test_findings_crud.py`,
@@ -1023,9 +1032,45 @@ Automated coverage (`tests/test_authz.py`, 30 tests, gate on unless stated):
 - [x] Navigation — role-filtered settings tab strip, `can_settings`-wrapped
       setup cluster, gate-bound Account rail link.
 
-**Manual walkthrough still open** (`USER_FLOWS.md` Flow 0.5 items 6–7 and
-Flow 12 — needs a browser pass against the dev server before the milestone is
-called done): Account page at each breakpoint, the `this device` session
-badge, change-password success/failure/429 copy in the real form, Users page
-role select + delete confirm, and the member's canvas (no settings cards, no
-Users tab, no 403 dead ends).
+**Manual walkthrough — 2026-11-19 (Playwright, headless Chromium, gate on,
+seeded DB `sqlite:////tmp/opencode/canvas-responsive.db`):**
+
+- [x] **First run** → `/setup` creates the owner and lands on the canvas;
+      `GET /` with no users answers `302 → /setup`, `/healthz` stays `200`.
+- [x] **Owner canvas** — rail carries **Account**; all 9 setup cards present;
+      0 console errors.
+- [x] **Account page** — *Signed in* (username + `owner` badge), *Active
+      sessions* with a single `this device` row, *Change password*, *Sign out
+      everywhere*. Wrong current password → inline alert "Current password is
+      incorrect."; success → toast **"Password updated"** + `?flash=…`, this
+      device still signed in, and the **new** password then signs in while the
+      old one does not. 6 wrong attempts → plain-text **"Too many attempts.
+      Wait a minute and try again."** at `429`.
+- [x] **Users page** — role select defaults to `member`; creating `crew` →
+      `?flash=User crew created`; delete shows the native confirm
+      **"Delete crew? Their prospects become shared."** and, on accept,
+      `?flash=User crew deleted` with the row gone.
+- [x] **Member canvas** — setup cluster collapses to `status` + `saved_views`
+      only (all 7 settings cards hidden); rail keeps Account (self-service);
+      settings tab strip is `["/settings/saved-views", "/settings/account"]`
+      (no General/Providers/Import/Retention/Usage/Duplicates/Users); the strip
+      is `overflow-x: auto` so the remaining tabs stay reachable; `/settings/general`
+      and `/settings/users` render the real error page — **"Not allowed"** +
+      *"Settings changes require an admin or owner account."* / *"Only the
+      owner can manage users."* (HTML, not raw JSON); 0 console errors.
+- [x] **Responsive** — no horizontal page scroll on `/settings/account`,
+      `/settings/users` or `/settings/usage` at 360 / 390 / 640 / 700 / 767 /
+      768 / 769 / 800 / 1024 / 1440 (`documentElement.scrollWidth ==
+      innerWidth` everywhere), no element inside `main` overflowing its box,
+      tables still stack with `data-label` headers below 640px.
+
+**Finding fixed during the pass:** `table.data-table { min-width: 640px }` was
+unconditional, so Settings → Usage (pre-existing), Account and Users rendered
+685–709px wide at a 390px viewport and scrolled the whole page sideways. The
+floor is now `min(640px, 100%)` — it keeps the 640px minimum wherever the
+container has room and drops it when it does not. Verified 360→1440 with zero
+overflow; `app/static/css/app.css` asset ref bumped `?v=69` → `?v=70`.
+
+Not exercised in the browser (covered by `tests/test_authz.py`): the JSON 403
+matrix, byte-identical hidden≡missing 404, duplicate-message parity,
+`owner_id` stamping/scoping, self-lockout guards, and the gate-off pass-through.
