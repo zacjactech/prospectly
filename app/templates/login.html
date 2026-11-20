@@ -6,18 +6,21 @@
   <meta name="robots" content="noindex">
   <title>Sign in · {{ app_name }}</title>
   <link rel="stylesheet" href="/static/css/app.css">
+  <script src="/static/js/auth.js" defer></script>
 </head>
 <body>
-  <!-- Standalone dark page: centered card + brand lockup, no app chrome
-       (spec §2.8 / redesign handoff §3). -->
+  <!-- Standalone dark page: framed card on the page ground, no app chrome
+       (spec §2.8; two-column layout, owner reference 2026-11-20). -->
+  {% set auth_back_href = "/" %}
+  {% set auth_back_label = "Back to Prospectly" %}
   <main class="auth-shell">
-    <div class="card auth-card">
-      <div class="brand auth-brand">
-        <span class="brand-dot" aria-hidden="true"></span>
-        <span class="brand-text">{{ app_name }}</span>
-      </div>
+    <div class="auth-frame">
+    <div class="auth-card">
       <h1>Sign in</h1>
       <p class="muted">Sign in with your Prospectly account.</p>
+      {% if allow_signup %}
+      <p class="auth-alt">New to {{ app_name }}? <a href="/signup">Create an account</a></p>
+      {% endif %}
 
       {% if error %}
       <div class="flash error" role="alert">{{ error }}</div>
@@ -37,8 +40,15 @@
           </div>
           <div class="field full">
             <label for="password">Password</label>
-            <input type="password" id="password" name="password"
-                   autocomplete="current-password" required>
+                        <div class="pw-wrap">
+              <input type="password" id="password" name="password"
+              autocomplete="current-password" required>
+              <button class="pw-toggle" type="button" data-pw-toggle
+                      aria-controls="password" aria-label="Show password">
+                <svg class="pw-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                <svg class="pw-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 5.2A11 11 0 0 1 12 5.5c6.4 0 10 6.5 10 6.5a18.6 18.6 0 0 1-3.1 3.9"></path><path d="M6.5 6.7A18.4 18.4 0 0 0 2 12s3.6 6.5 10 6.5a10.6 10.6 0 0 0 3.9-.7"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>
+              </button>
+            </div>
           </div>
         </div>
         <div class="action-group">
@@ -48,10 +58,10 @@
 
       <div class="auth-links">
         <a href="/forgot-password">Forgot password?</a>
-        {% if allow_signup %}<a href="/signup">Create an account</a>{% endif %}
       </div>
     </div>
-  {% include "partials/auth_visual.html" %}
+    {% include "partials/auth_visual.html" %}
+    </div>
   </main>
 </body>
 </html>

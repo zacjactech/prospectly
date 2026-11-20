@@ -12,17 +12,12 @@
        bounce straight to /login, so the app had no front door. Rendered by
        AuthMiddleware before any route runs, so it carries no data at all --
        it cannot query, and it must never grow a metric, name or count. -->
+  {% set auth_back_href = "" %}
+  {% set auth_back_label = "" %}
   <main class="auth-shell">
-    <div class="card auth-card">
-      <div class="brand auth-brand">
-        <span class="brand-dot" aria-hidden="true"></span>
-        <span class="brand-text">{{ app_name }}</span>
-      </div>
+    <div class="auth-frame">
+    <div class="auth-card">
       <h1>{{ app_name }}</h1>
-      <p class="muted">
-        Local-first prospecting: find businesses, gather evidence, and draft
-        WhatsApp messages you approve before anything is sent.
-      </p>
 
       <div class="action-group">
         <a class="btn primary" href="/login">Sign in</a>
@@ -33,7 +28,8 @@
         {% if allow_signup %}<a href="/signup">Create an account</a>{% endif %}
       </div>
     </div>
-  {% include "partials/auth_visual.html" %}
+    {% include "partials/auth_visual.html" %}
+    </div>
   </main>
 </body>
 </html>

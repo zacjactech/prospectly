@@ -1,17 +1,18 @@
-{# Auth visual panel (owner, 2026-11-19): a photograph beside the form in the
-   two-column layout. Decorative — aria-hidden with an empty alt, and no
-   caption under it (taste rule 1).
+{# Auth visual panel (owner reference, 2026-11-20): the photograph side of the
+   framed card. It carries content — wordmark, back link, one-liner — so it is
+   NOT aria-hidden; the picture itself is decorative (empty alt).
 
    STAND-IN from a live Wikimedia Commons search (photos.mjs), to be swapped
    for the client's own photograph when one exists — only src/srcset change.
 
      "Quezon City skyline at night 10Sep2025" by RFNirmala — CC0 / public
-     domain, no attribution required. https://commons.wikimedia.org/wiki/File:Quezon_City_skyline_at_night_10Sep2025.jpg
+     domain, no attribution required.
+     https://commons.wikimedia.org/wiki/File:Quezon_City_skyline_at_night_10Sep2025.jpg
 
-   Chosen for its dark upper ground and warm amber city lights, which sit
-   with the charcoal + orange palette; the alternatives searched had a
-   violet cast (taste bans violet) or were near-black. #}
-<div class="auth-visual" aria-hidden="true">
+   Chosen for its dark upper ground and warm amber city lights, which sit with
+   the charcoal + orange palette; the alternatives searched had a violet cast
+   (taste bans violet) or were near-black. #}
+<div class="auth-visual">
   <img src="/static/img/photo-f177258978-960.webp"
        srcset="/static/img/photo-f177258978-500.webp 500w,
                /static/img/photo-f177258978-960.webp 960w,
@@ -20,4 +21,21 @@
        width="1280" height="962" alt=""
        fetchpriority="high" decoding="async"
        data-source="stand-in" data-subject="stand-in">
+  <div class="auth-visual-shade" aria-hidden="true"></div>
+  <div class="auth-visual-top">
+    <span class="brand">
+      <span class="brand-dot" aria-hidden="true"></span>
+      <span class="brand-text">{{ app_name }}</span>
+    </span>
+    {% if auth_back_href %}
+    <a class="auth-back" href="{{ auth_back_href }}">
+      {{ auth_back_label }}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path>
+      </svg>
+    </a>
+    {% endif %}
+  </div>
+  <p class="auth-visual-line">Local-first prospecting: find businesses, gather evidence, and draft WhatsApp messages you approve before anything is sent.</p>
 </div>
