@@ -1,0 +1,23 @@
+{# Auth visual panel (owner, 2026-11-19): a photograph beside the form in the
+   two-column layout. Decorative — aria-hidden with an empty alt, and no
+   caption under it (taste rule 1).
+
+   STAND-IN from a live Wikimedia Commons search (photos.mjs), to be swapped
+   for the client's own photograph when one exists — only src/srcset change.
+
+     "Quezon City skyline at night 10Sep2025" by RFNirmala — CC0 / public
+     domain, no attribution required. https://commons.wikimedia.org/wiki/File:Quezon_City_skyline_at_night_10Sep2025.jpg
+
+   Chosen for its dark upper ground and warm amber city lights, which sit
+   with the charcoal + orange palette; the alternatives searched had a
+   violet cast (taste bans violet) or were near-black. #}
+<div class="auth-visual" aria-hidden="true">
+  <img src="/static/img/photo-f177258978-960.webp"
+       srcset="/static/img/photo-f177258978-500.webp 500w,
+               /static/img/photo-f177258978-960.webp 960w,
+               /static/img/photo-f177258978.webp 1280w"
+       sizes="(max-width: 767px) 100vw, 50vw"
+       width="1280" height="962" alt=""
+       fetchpriority="high" decoding="async"
+       data-source="stand-in" data-subject="stand-in">
+</div>
