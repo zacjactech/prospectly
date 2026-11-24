@@ -1,0 +1,3108 @@
+/* Prospectly Pipeline Canvas — canvas engine, board, cards, slide-over
+   panels, move menu (docs/design/pipeline-canvas.md).
+   Tokens only: every color/border/shadow/radius/duration comes from
+   tokens.css :root (aliased by app.css) — no hex values live here (spec §2).
+   Geometry constants
+   mirror canvas.js/board.js (ZONE_W/ZONE_GAP/ZONE_HEAD/CARD_H/CARD_GAP/
+   ZONE_PAD/GRID — spec §2): change them in both places. */
+
+/* ===== Canvas constants (mirrored in canvas.js) ===== */
+.canvas-screen {
+  --zone-w: 288px;
+  --zone-gap: var(--space-7);
+  --zone-head-h: 36px;
+  --card-h: 84px;
+  --card-pad: var(--space-4); /* card + stage-tab inset, one source */
+  --card-gap: var(--space-4);
+  --zone-pad: var(--space-3);
+  --band-label-h: 36px;
+}
+
+/* ===== Full-bleed shell for canvas screens =====
+   base.html adds .main--canvas/.page--canvas when the path is a canvas
+   screen (only /prospects in Phase A): no page max-width, no main padding,
+   the screen owns the viewport (spec §1). */
+.main--canvas {
+  padding: 0;
+}
+
+.page--canvas {
+  max-width: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* The board wrapper is a plain world node now (zones are absolutely
+   positioned); the viewport owns the remaining height. */
+
+@media (max-width: 767px) {
+  /* Mobile header (52px) sits above the page — keep the document at
+     exactly one screen (the <768 stacked flow itself is Phase B). */
+  .page--canvas {
+    min-height: calc(100vh - var(--topbar-h));
+  }
+}
+
+/* ===== Screen layout: compact toolbar + viewport ===== */
+.canvas-screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* One compact row: heading · Filters-panel trigger · active chips · saved
+   view · Manage · Add prospect. It wraps below 1024px (stacked flow). */
+.canvas-toolbar {
+  flex: none;
+  min-height: calc(var(--control-h-md) + var(--space-4));
+  display: flex;
+  align-items: center;
+  column-gap: var(--space-4);
+  row-gap: 0;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+/* Saved-view group: micro-label + native select + Manage, kept together as
+   one control cluster with 12px internal rhythm. */
+.canvas-toolbar .views-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+  margin-left: var(--space-2);
+}
+
+.canvas-toolbar .views-picker > span {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+.canvas-toolbar .views-picker select {
+  height: var(--control-h-md);
+  padding: 0 var(--space-6) 0 var(--space-3);
+  max-width: 200px;
+  font-size: var(--fs-sm);
+  color: var(--color-text);
+  background: var(--color-field);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+}
+
+.canvas-toolbar .views-picker select:hover {
+  background: var(--color-surface);
+}
+
+.canvas-toolbar .views-picker select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.canvas-toolbar .views-manage {
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.canvas-toolbar .views-manage:hover {
+  color: var(--color-text);
+}
+
+/* The primary action is a separate group from the view controls. */
+.canvas-toolbar > .btn.primary {
+  margin-left: var(--space-2);
+}
+
+/* One primary per view: while a slide-over panel is open, its action is the
+   view's primary, so the page-level "Add prospect" steps down to secondary. */
+body.panel-open .canvas-toolbar > .btn.primary,
+body.panel-open .header-add.btn.primary {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+  box-shadow: none;
+}
+
+body.panel-open .canvas-toolbar > .btn.primary:hover,
+body.panel-open .header-add.btn.primary:hover {
+  background: var(--surface-2-hover);
+}
+
+/* Stage lens (?stage=): keep every lane visible so the pipeline structure
+   survives a narrow filter; dim the lanes outside the lens instead of
+   hiding them (Phase 1.3). */
+.board-lens .canvas-zone:not(.lens-match) {
+  opacity: 0.32;
+}
+
+.board-lens .canvas-zone:not(.lens-match):hover {
+  opacity: 0.7;
+}
+
+/* ===== Active-filter summary (base spec §1.2) =====
+   Removable URL-state chips get their own full-width band **below** the
+   toolbar as a sibling element (owner 2026-11-17: it overlapped the toolbar
+   row): darker surface, hairline separator, 12px vertical padding. */
+.canvas-screen .filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.filter-summary-label {
+  margin-right: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-text-subtle);
+}
+
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: var(--color-field);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  color: var(--color-text);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+
+.filter-pill:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+/* The × is decoration: generated content keeps it out of the DOM text, so
+   axe's visible-label check sees exactly the same label as the accessible
+   name (the sr-only "Remove filter:" prefix). */
+.filter-pill::after {
+  content: "×";
+  font-size: var(--fs-base);
+  line-height: 1;
+  color: inherit;
+}
+
+.filter-pill:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.filter-pill-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.filter-pill-clear {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-subtle);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.filter-pill-clear:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+/* Clear actions sit apart from the removable chips. */
+.filter-pill + .filter-pill-clear {
+  margin-left: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--color-border);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+/* The h1 IS the page heading (spec §1.2): 22px semibold sans — a deliberate
+   departure from the display-size h1 elsewhere. The old "mono uppercase
+   micro-label" treatment left with Phase 6.37 (zone titles too); this comment
+   matched the code again on 2026-11-18, critique run 2. */
+.canvas-toolbar h1 {
+  margin: 0 var(--space-1) 0 0;
+  font-family: var(--font-sans);
+  font-size: var(--type-22);
+  font-weight: var(--fw-semibold);
+  line-height: 1.25;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.canvas-toolbar .toolbar-spacer {
+  flex: 1;
+}
+
+/* Filters open the contracted 360px panel (§1.2/§4). */
+.canvas-toolbar .filter-open {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  flex: 0 0 auto;
+}
+
+.canvas-toolbar .filter-open svg {
+  width: 14px;
+  height: 14px;
+}
+
+.filter-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  border: 1px solid transparent;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Pending-review chip (critique P1, run 2): a real chip in the token system,
+   paired with Filters — the approval queue's entry point must not render as a
+   raw UA button (it computed Arial/gray/outset before this rule existed).
+   Mono = status readout; the warn dot is decoration, the word carries state. */
+.pending-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--color-field);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease;
+}
+
+.pending-chip:hover {
+  background: var(--color-surface-raised);
+}
+
+.pending-chip[hidden] {
+  display: none; /* author display beats the UA [hidden] rule */
+}
+
+.pending-chip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.pending-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--color-warn);
+}
+
+.canvas-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 320px;
+  overflow: hidden;
+  touch-action: none; /* pointer-drag pans instead of scrolling the page */
+  cursor: grab;
+  background: var(--color-bg);
+}
+
+.canvas-viewport.panning {
+  cursor: grabbing;
+}
+
+.canvas-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  /* NEVER transitioned (spec §2.1) — pan/zoom are direct manipulation. */
+}
+
+/* ===== Wires (spec §2.1/§2.3) =====
+   Presentation-only straight connectors, right-mid → next canonical
+   left-mid. Gray (--color-border), never orange (spec §3.5 whitelist). */
+.canvas-wires {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.canvas-wires .flow-wire {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1.5px;
+}
+
+.canvas-wires marker path {
+  fill: var(--color-border);
+}
+
+/* ===== Phase bands (spec §2.3) =====
+   A band's label row floats at the default y=0 above its zones (zones
+   themselves are freeform and persist separately; labels are annotations
+   of the default arrangement, not dragged). */
+.band-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: var(--band-label-h);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  pointer-events: none; /* never blocks zone/card interaction */
+}
+
+/* 24px square phase chip — one of the few sanctioned orange uses (§3.5). */
+.phase-chip {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.band-name {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-text-muted);
+}
+
+/* ===== Stage zones (spec §2.3/§3.2) ===== */
+.canvas-zone {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--zone-w);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid transparent; /* zone vs page and card vs zone = fill steps */
+  border-radius: var(--radius-md);
+}
+
+.zone-head {
+  flex: none;
+  min-height: var(--zone-head-h);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  cursor: grab; /* zone frame/header is the drag handle (spec §2.3) */
+}
+
+.zone-head:active {
+  cursor: grabbing;
+}
+
+.zone-title {
+  flex: 1;
+  line-height: 1.25;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--type-17);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-text-muted);
+}
+
+/* Count sits right; hot zones (due follow-ups / pending review) pair a
+   warn/accent dot with the number — never color alone (spec §3.2). */
+.zone-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+.zone-count[data-hot="warn"] {
+  color: var(--color-warn);
+}
+
+.zone-count[data-hot="accent"] {
+  color: var(--color-accent);
+}
+
+.zone-sep {
+  margin-right: var(--space-2);
+  color: var(--color-text-subtle);
+}
+
+.zone-count[data-hot]::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: var(--space-1);
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 1px;
+}
+
+/* Terminal sub-stage counts as a filter dropdown (owner 2026-11-18: "make
+   this into a filter dropdown btn"); each entry links to that stage's lens. */
+.sub-filter {
+  position: relative;
+  align-self: flex-start;
+  margin: var(--space-2) var(--space-3);
+}
+
+.sub-filter summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  list-style: none;
+}
+
+.sub-filter summary::-webkit-details-marker {
+  display: none;
+}
+
+.sub-filter summary:hover,
+.sub-filter[open] summary {
+  color: var(--color-text);
+}
+
+.sub-filter summary svg {
+  width: 12px;
+  height: 12px;
+}
+
+.sub-filter-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: var(--space-1);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2); /* fill + shadow, no box outline (shade ladder) */
+}
+
+.sub-filter-menu a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+}
+
+.sub-filter-menu a:hover {
+  background: var(--color-surface-hover);
+}
+
+.zone-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-gap);
+  padding: var(--zone-pad);
+  overflow-y: auto;
+  /* Body scrolls past 4 cards: 4 × (card + gap) (spec §2.3). */
+  max-height: calc(4 * (var(--card-h) + var(--card-gap)));
+}
+
+.zone-empty {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--color-text-subtle);
+}
+
+/* Loading (spec §2.4): three static skeleton cards per zone — no shimmer. */
+.zone-skeleton {
+  display: none;
+  flex-direction: column;
+  gap: var(--card-gap);
+}
+
+.zone-skeleton span {
+  display: block;
+  height: var(--card-h);
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-md);
+}
+
+.canvas-screen.is-loading .zone-skeleton {
+  display: flex;
+}
+
+.canvas-screen.is-loading .zone-body > .prospect-card,
+.canvas-screen.is-loading .zone-body > .zone-empty {
+  display: none;
+}
+
+/* Drop target mid-drag (spec §3.1): fill + dashed border + label — the
+   border alone is 2.17:1 (< 3:1), so the fill carries the affordance. */
+.canvas-zone.drop-target {
+  background: var(--color-accent-light);
+  border-style: dashed;
+  border-color: var(--color-accent-border);
+}
+
+.canvas-zone .drop-label {
+  display: none;
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-accent-light);
+  border: 1px dashed var(--color-accent-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text); /* 13.4:1 on the accent-light fill (spec §6.3) */
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  z-index: 3;
+}
+
+.canvas-zone.drop-target .drop-label {
+  display: block;
+}
+
+/* Alignment guides while dragging zones (spec §2.3): 1px dashed hairlines,
+   drawn and discarded client-side — never persisted. */
+.alignment-guide {
+  position: absolute;
+  background: transparent;
+  border: 0 dashed var(--color-border-strong);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.alignment-guide.v {
+  top: -2000px;
+  bottom: -2000px;
+  border-left-width: 1px;
+}
+
+.alignment-guide.h {
+  left: -2000px;
+  right: -2000px;
+  border-top-width: 1px;
+}
+
+/* ===== Prospect card (spec §3.1) =====
+   Uniform height: name row (13px semibold + top-right stage tag), mono meta
+   row (category · city), foot row (status dot + status badges + last-contact
+   / follow-up / Open-WhatsApp quick action). The spec's "row 4" rides on the
+   foot row — CARD_H and the 4 × (CARD_H+CARD_GAP) scroll math force uniform
+   height (decision recorded in the Phase A report). */
+.prospect-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  flex: none;
+  min-height: var(--card-h);
+  padding: var(--card-pad);
+  background: var(--color-surface-hover);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: grab;
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+
+.prospect-card:hover {
+  background: var(--color-surface-raised);
+}
+
+.prospect-card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* j/k keyboard highlight (distinct from .selected and :focus-visible). */
+.prospect-card.highlight {
+  border-color: var(--color-accent-border);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+/* Selected = its panel is open (spec §3.1). */
+.prospect-card.selected {
+  border-color: var(--color-accent-border);
+  box-shadow: 0 0 0 1px var(--color-accent-border), var(--glow-accent);
+}
+
+.pc-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-1);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  line-height: 1.25;
+}
+
+.pc-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  padding-bottom: 2px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text);
+}
+
+/* 6px status dot: warn = follow-up due/overdue, accent = requires review.
+   Carries a title so color is never the sole carrier (spec §3.1). The footer
+   copy is canonical; the name-row copy appears only in compact density, where
+   the footer is hidden (spec §2.5 keeps "name + dot"). */
+.pc-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.pc-dot-compact {
+  display: none;
+}
+
+.pc-dot[data-hot="warn"] {
+  background: var(--color-warn);
+}
+
+.pc-dot[data-hot="accent"] {
+  background: var(--color-accent);
+}
+
+.pc-meta {
+  margin: 0;
+  padding-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.pc-meta .subtle {
+  color: var(--color-text-subtle); /* "none" reads as metadata, not error */
+}
+
+.pc-foot {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  min-height: 28px;
+  min-width: 0;
+}
+
+.pc-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  row-gap: var(--space-1);
+  min-width: 0;
+  min-height: 28px;
+}
+
+.pc-badges .badge {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--fs-sm);
+  line-height: 1;
+}
+
+/* Reachable website = compact info-hue dot (distinct from the green stage
+   pill); the accessible name/tooltip carry the state. */
+.status-dot {
+  flex: none;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-reachable {
+  background: var(--color-info);
+  box-shadow: 0 0 0 1px var(--color-info-border);
+}
+
+.pc-side {
+  display: flex;
+  align-items: center;
+  align-self: flex-end;
+  gap: var(--space-2);
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+.pc-side .due-over {
+  color: var(--color-warn);
+}
+
+/* Small icon buttons on the card (⋯ move menu, Open WhatsApp). */
+.pc-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.pc-icon-btn:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+.pc-icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Dragging (spec §3.1): absolute at the pointer, slight lift, 90% opacity,
+   no transition. Coordinates are world-space (set by board.js via CSSOM). */
+.prospect-card.dragging {
+  position: absolute;
+  margin: 0;
+  z-index: 6;
+  pointer-events: none;
+  cursor: grabbing;
+  opacity: 0.9;
+  box-shadow: var(--shadow-2);
+  transform: scale(1.02);
+  transition: none;
+}
+
+/* Ghost left in the source slot while dragging (spec §3.1). */
+.pc-ghost {
+  flex: none;
+  height: var(--card-h);
+  background: transparent;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+/* Rejected (409): settle back into the slot — smooth and decelerating, never
+   a snap (owner pass 2026-11-17: "make it smooth and not too fast"). */
+.prospect-card.snapback {
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+/* ===== Density (spec §2.5) =====
+   ≥0.75 = full cards; <0.75 = compact: meta row hidden, status foot kept
+   (badges + due text never vanish — critique P1 run 2). */
+.canvas-screen.density-compact .prospect-card {
+  min-height: 40px;
+  --card-pad: var(--space-3);
+  padding: var(--card-pad);
+}
+
+/* Meta hides at compact; the status foot NEVER does (critique P1, run 2 +
+   owner 2026-11-18): Suppressed / no website found / due text are safety
+   status (P5/P6) — zooming out to scan is exactly when they must stay
+   readable, and the name-row dot alone was aria-hidden colour. Spec §2.5. */
+.canvas-screen.density-compact .pc-meta {
+  display: none;
+}
+
+/* ===== World overflow fades (critique P1 run 2, owner 2026-11-18) =====
+   The world is always larger than the viewport at the readable floor, so an
+   edge cuts something (setup above, terminal below, the messages region
+   right). A 64px fade to bg turns that cut into a "more this way"
+   affordance instead of a card sliced in half reading as a bug. Four
+   gradients on one overlay; per-edge classes come from the content union
+   in canvas.js (pointer-events: none — pan/drag pass straight through). */
+.world-edges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  --fade-t: transparent;
+  --fade-r: transparent;
+  --fade-b: transparent;
+  --fade-l: transparent;
+  background-image:
+    linear-gradient(to bottom, var(--fade-t), transparent),
+    linear-gradient(to left, var(--fade-r), transparent),
+    linear-gradient(to top, var(--fade-b), transparent),
+    linear-gradient(to right, var(--fade-l), transparent);
+  background-repeat: no-repeat;
+  background-size: 100% 64px, 64px 100%, 100% 64px, 64px 100%;
+  background-position: top, right, bottom, left;
+}
+
+.canvas-viewport.has-edge-t .world-edges { --fade-t: var(--color-bg); }
+.canvas-viewport.has-edge-r .world-edges { --fade-r: var(--color-bg); }
+.canvas-viewport.has-edge-b .world-edges { --fade-b: var(--color-bg); }
+.canvas-viewport.has-edge-l .world-edges { --fade-l: var(--color-bg); }
+
+/* ===== Zoom control cluster (spec §2.2) ===== */
+.canvas-controls {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1);
+  background: var(--color-surface-raised);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  z-index: 10;
+}
+
+.canvas-controls button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.canvas-controls button[data-canvas-zoom] {
+  width: auto;
+  min-width: 48px;
+  padding: 0 var(--space-2);
+  font-size: var(--type-12);
+  line-height: 1;
+}
+
+.canvas-controls button:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.canvas-controls button svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 1023px) {
+  /* The full world cannot fit at the 0.5 zoom floor on tablet widths, so
+     the stacked flow owns <1024 (spec §V2.6 amendment 2026-11-16). */
+  .canvas-controls {
+    display: none;
+  }
+}
+
+/* ===== Board states ===== */
+/* Empty board (spec §2.4): zones not rendered, centered EmptyState. */
+.canvas-empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+}
+
+.canvas-empty .empty {
+  margin-bottom: 0;
+}
+
+/* Error while refreshing (spec §2.4): page-level banner; the last-known
+   board stays underneath. No request-id header exists in the app yet, so
+   the banner reports the HTTP status honestly (decision in Phase A report).
+   [hidden] must beat .flash's display:flex (the UA hidden rule loses to
+   author display rules — browser-verified defect, fixed here). */
+.canvas-error {
+  position: absolute;
+  top: var(--sp-3);
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  max-width: min(560px, calc(100% - 24px));
+  z-index: 12;
+}
+
+.canvas-error[hidden] {
+  display: none;
+}
+
+/* Live status for count/move announcements (spec §6.3). */
+.canvas-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ===== Move-to menu (spec §3.1) =====
+   role=menu on surface-raised/shadow-2; server-rendered items live inside
+   the card and are re-parented to <body> while open (fixed position — the
+   world's transform never scales the menu). */
+.move-menu {
+  position: fixed;
+  z-index: 95;
+  min-width: 208px;
+  max-width: 260px;
+  padding: var(--sp-1);
+  background: var(--color-surface-raised);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.move-menu[hidden] {
+  display: none;
+}
+
+.move-menu .move-menu-label {
+  padding: var(--space-1) var(--space-2) var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-text-subtle);
+}
+
+.move-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.move-menu button:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.move-menu button:disabled {
+  color: var(--color-text-subtle);
+  cursor: default;
+}
+
+.move-menu button .mono {
+  font-size: var(--fs-sm);
+  color: var(--color-text-subtle);
+}
+
+/* ===== Slide-over panels (spec §4) =====
+   Modal dialogs at every breakpoint: backdrop, right slide-over, sticky
+   48px header (the section partial's head card restyled), scrolling body. */
+.panel-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim-soft); /* canvas stays legible behind (spec §4) */
+  z-index: 90;
+}
+
+.panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border-left: 1px solid transparent; /* fill step + shadow carry the drawer edge */
+  box-shadow: var(--shadow-2);
+  z-index: 91;
+  transform: translateX(32px);
+  opacity: 0;
+  transition: transform var(--dur-slow) var(--ease-out), opacity var(--dur-slow) var(--ease-out);
+}
+
+.panel.open {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+/* Two-level stack, >=1400px only (spec §4): the lower panel shifts left by
+   the top panel's width and drops its backdrop; the top one sits above. */
+.panel.stacked .panel-backdrop {
+  display: none;
+}
+
+.panel-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  padding: 0 var(--space-4) var(--space-5);
+  overflow-y: auto;
+  scroll-padding-top: 72px;
+}
+
+/* The fragment's head card doubles as the sticky 48px panel header. */
+.panel-body .card.detail-head,
+.panel-body .card.message-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4) 52px var(--space-3) var(--space-4);
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  background: var(--color-surface);
+}
+
+.panel-body .card.message-head {
+  padding-top: var(--space-3);
+}
+
+.message-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+}
+
+.message-back svg {
+  width: 14px;
+  height: 14px;
+}
+
+.message-back:hover {
+  color: var(--color-text);
+}
+
+.message-head-title {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.panel-body .card.message-head .badge-row {
+  margin-top: 0;
+  margin-left: auto; /* matches the detail head: tags ride the right edge */
+}
+
+.panel-body .detail-head .prospect-name,
+.panel-body .message-head .prospect-name {
+  font-size: var(--fs-base);
+}
+
+.panel-body .detail-head .header-actions,
+.panel-body .message-head .header-actions {
+  gap: var(--space-3);
+}
+
+.panel-body .detail-head .btn,
+.panel-body .message-head .btn {
+  height: var(--control-h-md);
+  font-size: var(--fs-sm);
+}
+
+/* Suppression banner inside a panel runs edge to edge. */
+.panel-body > .banner {
+  margin: 0 0 var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+/* Panels are narrow: the page's 2-up grid stacks (dual-rendered markup). */
+.panel-body .grid-2 {
+  grid-template-columns: 1fr;
+}
+
+.panel-body .card {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+}
+
+/* Empty fact values: muted dash + inline Add. */
+.empty-value {
+  color: var(--color-text-subtle);
+}
+
+.inline-add {
+  margin-left: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+  text-decoration: underline;
+}
+
+.inline-add:hover {
+  color: var(--color-text);
+}
+
+.fact-url {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.fact-url a {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fact-url .badge {
+  flex: none;
+}
+
+.datetime-input,
+.field input[type="datetime-local"] {
+  width: 100%;
+  color-scheme: dark;
+  font-family: var(--font-sans);
+}
+
+.datetime-input::-webkit-calendar-picker-indicator {
+  opacity: 0.75;
+}
+
+/* Danger zone: separated blocks; the red heading and tinted buttons carry it. */
+.panel-body .card.danger-zone {
+  border-color: transparent;
+}
+
+.danger-zone h3 {
+  color: var(--color-danger);
+}
+
+/* Head rows pair a heading with status/label text on one line (owner
+   2026-11-18: "move to the other side in front of the next text"). */
+.danger-block-head h3 {
+  margin: 0;
+}
+
+.danger-block-head label {
+  margin-bottom: 0;
+}
+
+.danger-block + .danger-block {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.danger-block h4 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.danger-block .field {
+  margin-bottom: var(--space-4);
+}
+
+.danger-block form {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Block outreach rides the right edge (owner 2026-11-18: "move to the other
+   side (right)"); the plain Clear suppression button keeps its place. */
+.danger-block form .btn.danger {
+  align-self: flex-end;
+}
+
+.danger-block > .muted.small {
+  margin-top: var(--space-2);
+}
+
+.stage-override-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.stage-override-row h4 {
+  margin: 0;
+  flex: none;
+}
+
+.stage-override-row select {
+  flex: 1;
+  max-width: 240px;
+  min-height: var(--control-h-md);
+}
+
+.stage-override-row .btn {
+  height: var(--control-h-md);
+  flex: none;
+}
+
+.panel-body > .card:last-child {
+  margin-bottom: 0;
+}
+
+/* 44px close hit area, fixed top-right above the sticky head. */
+.panel-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-4);
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.panel-close:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.panel-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Panel loading + load-error states (spec §4 content loading). */
+.panel-loading {
+  padding: var(--sp-5) var(--sp-4);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--color-text-subtle);
+}
+
+.panel-error {
+  padding: var(--sp-5) var(--sp-4);
+}
+
+.panel-error p {
+  margin-bottom: var(--sp-3);
+}
+
+/* Toasts must paint above open panels (they carry 409 reasons). */
+.toasts {
+  z-index: 96;
+}
+
+@media (max-width: 767px) {
+  /* <768: panels are full-screen sheets, slide-up (spec §4 mobile). */
+  .panel {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100% !important;
+    height: 92vh;
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+    transform: translateY(24px);
+  }
+
+  .panel.open {
+    transform: translateY(0);
+  }
+}
+
+/* ===== Canvas-only world: setup region, board region, outreach region =====
+   Spec §V2.1/V2.3. Coordinates come from canvas.js (absolute positioning);
+   CSS owns only size and appearance so the engine can move anything freely. */
+.region-label {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--band-label-h);
+  white-space: nowrap;
+}
+
+.region-chip {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  background: var(--color-surface-raised);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+}
+
+.region-hint {
+  font-size: var(--fs-xs);
+  color: var(--color-text-subtle);
+}
+
+/* --- Setup cluster: nine cards, 3 × 3 --- */
+.setup-cluster {
+  position: absolute;
+  display: grid;
+  grid-template-columns: repeat(3, 248px);
+  gap: var(--space-5);
+  width: max-content;
+}
+
+/* Cluster disclosure (critique 2026-11-19, P1): nine cards at once was the
+   largest decision point on the canvas. Cards that need attention stay out;
+   everything else is one labelled control away. The cards stay in the DOM —
+   display:none only takes them out of the grid and the tab order. */
+.setup-cluster[data-collapsed] > .setup-card:not([data-state="warn"]) {
+  display: none;
+}
+
+.setup-more {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-md);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+
+.setup-more::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.setup-more[aria-expanded="true"]::before {
+  transform: rotate(-135deg) translateY(-2px);
+}
+
+.setup-more:hover {
+  color: var(--color-text);
+}
+
+.setup-more:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.setup-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface-hover);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+
+/* Hover = fill step + 1px lift (owner: no underline, use another state). */
+.setup-card:hover {
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-1);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+.setup-card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.sc-icon {
+  flex: none;
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  border: 1px solid transparent;
+  color: var(--color-text-muted);
+}
+
+.sc-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sc-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.sc-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.sc-state {
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  padding-bottom: 2px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 168px;
+}
+
+.sc-warn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-warn);
+}
+
+.setup-card[data-state="warn"] {
+  background: var(--color-warn-light); /* warning reads as fill, not an outline */
+}
+
+/* --- Outreach region: three message zones --- */
+.canvas-region {
+  position: absolute;
+}
+
+.outreach-region {
+  /* Narrower columns and a tighter gap let the board fit include the first
+     (Pending review) zone at the 0.93 readable floor on a 1440 desktop. */
+  --outreach-zone-w: 232px;
+  display: grid;
+  grid-template-columns: repeat(3, var(--outreach-zone-w));
+  gap: var(--space-2);
+  align-items: start;
+}
+
+.msg-zone {
+  background: var(--color-surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+}
+
+.msg-zone-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.msg-zone-title {
+  line-height: 1.25;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--type-17);
+  font-weight: 600;
+  margin: 0;
+}
+
+.msg-zone-head .muted {
+  font-size: var(--fs-sm);
+  margin: 0;
+}
+
+.msg-zone-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  min-height: 44px;
+}
+
+.msg-card {
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-hover);
+  padding: var(--space-4);
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+
+.msg-card:hover {
+  background: var(--color-surface-raised);
+}
+
+.msg-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: inherit;
+  text-decoration: none;
+}
+
+.msg-card-main:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.msg-card-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.msg-card-text {
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+}
+
+.msg-card-actions {
+  margin-top: var(--space-2);
+}
+
+/* Confirm-sent (P1: the user confirms, the app never sends) is a small
+   button inside a dense card; keep a real 28px target with breathing room
+   (axe target-size: >=24x24 and 24px spacing). */
+.msg-card-actions .btn {
+  min-height: 28px;
+  padding: 0 var(--space-3);
+}
+
+/* ===== Setup-card panel: mini-pipeline (spec §V2.3) =====
+   Vertical numbered steps: real content inside each step, an arrow between
+   steps drawn by CSS (no extra markup, no inline styles). */
+.panel--server {
+  width: min(560px, calc(100vw - 72px));
+}
+
+.panel-heading {
+  font-size: var(--fs-xl);
+  margin: 0 0 var(--space-1);
+}
+
+/* Settings drawer pattern: one sticky opaque header with the close button
+   clear of the title (Phase 5.23). */
+.panel-body > .panel-heading {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4) 52px var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.panel-body > .panel-heading + .muted.small {
+  margin-top: 0;
+  margin-bottom: var(--space-4);
+  font-size: var(--fs-sm);
+  text-wrap: pretty;
+}
+
+/* Tables stay reachable: the card scrolls horizontally, first column keeps
+   a readable minimum; actions never fall out of the drawer (Phase 5.24). */
+.panel-body .card {
+  overflow-x: auto;
+}
+
+.panel-body .data-table {
+  min-width: 680px;
+}
+
+.panel-body .data-table th:first-child,
+.panel-body .data-table td:first-child {
+  min-width: 140px;
+}
+
+/* Statement columns keep a readable measure: the table scrolls sideways
+   instead of squeezing evidence text into a one-word-wide ribbon. */
+.panel-body .data-table td:nth-child(2),
+.panel-body table.prospects td:nth-child(2) {
+  min-width: 240px;
+}
+
+.panel-body table.prospects {
+  min-width: 680px;
+}
+
+/* Inputs fill their card; helper text wraps instead of clipping (5.25). */
+.panel-body .field input,
+.panel-body .field textarea,
+.panel-body .field select {
+  width: 100%;
+  max-width: 100%;
+}
+
+.panel-body .field .muted.small,
+.panel-body .field .hint {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Non-sequential settings panels: no step numbers/arrows. Import opts back
+   in with .import-panel (Phase 5.27). */
+.panel-body .flow-step-num {
+  display: none;
+}
+
+.panel-body .flow-step + .flow-step::before {
+  content: none;
+}
+
+.panel-body .import-panel .flow-step-num {
+  display: inline-flex;
+}
+
+.panel-body .import-panel .flow-step + .flow-step::before {
+  content: "→";
+}
+
+/* Empty states are quieter than the card title (Phase 5.28). */
+.panel-body .card > .muted:only-child,
+.panel-body .card .muted.small {
+  font-size: var(--fs-sm);
+  text-wrap: pretty;
+}
+
+.panel-body > .muted.small {
+  margin: 0 var(--space-4) var(--space-3);
+}
+
+/* Filters panel (360px, spec §1.2/§4): one column of fields, then saved
+   views and the optional save-current-view form. */
+.filter-panel-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+.filter-panel-form .field {
+  margin: 0;
+}
+
+.filter-panel-form select {
+  width: 100%;
+}
+
+.filter-panel-form .filter-toggles {
+  flex-wrap: wrap;
+}
+
+.filter-panel-form .filter-actions {
+  margin-top: var(--space-1);
+}
+
+.panel-section {
+  margin: 0 var(--space-4) var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.panel-section h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.saved-view-list {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+}
+
+.save-view-panel-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mini-pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 var(--space-4) var(--space-5);
+}
+
+.flow-step {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  padding: var(--space-3);
+}
+
+.flow-step + .flow-step {
+  margin-top: var(--space-5);
+}
+
+.flow-step + .flow-step::before {
+  content: "→";
+  position: absolute;
+  top: -26px;
+  left: 16px;
+  color: var(--color-text-subtle);
+  font-size: var(--fs-sm);
+}
+
+.flow-step-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.flow-step-num {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+  background: var(--color-field);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+}
+
+.flow-step-head h3 {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.flow-step-body > *:first-child {
+  margin-top: 0;
+}
+
+.flow-step-body .card {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.flow-step-body .form-section {
+  padding: 0;
+}
+
+.flow-step-body .action-group {
+  margin-top: var(--space-2);
+}
+
+.flow-step-note {
+  font-size: var(--fs-sm);
+  color: var(--color-text-subtle);
+  margin: var(--space-2) 0 0;
+}
+
+/* Mobile: the cluster stacks, the panel is a full-width sheet (spec §V2.6). */
+@media (max-width: 767px) {
+  .panel--server {
+    width: 100vw;
+  }
+}
+
+/* ===== Mobile (<768px): the canvas becomes the stacked flow (spec §V2.6) =====
+   No transform layer, no pan/zoom: the world lays out as one vertical column
+   in canonical order — setup cards, board bands/zones, outreach zones.
+   !important is deliberate: canvas.js writes geometry as inline styles, and
+   CSS must win there (CSP forbids us from templating styles instead).
+   Amendment 2026-11-16: <1024 (not <768) — 768 cannot fit the world at the
+   0.5 zoom floor, so tablet portrait gets the readable stacked flow. */
+@media (max-width: 1023px) {
+  .page--canvas {
+    height: auto;
+    min-height: calc(100vh - var(--topbar-h));
+    overflow: visible;
+  }
+
+  .canvas-viewport {
+    overflow: visible;
+    touch-action: auto;
+    cursor: default;
+    padding: var(--space-4);
+  }
+
+  .canvas-world {
+    position: static;
+    transform: none !important;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .canvas-wires,
+  .canvas-controls {
+    display: none;
+  }
+
+  .region-label,
+  .band-label {
+    position: static !important;
+  }
+
+  .setup-cluster {
+    position: static !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: auto;
+    gap: var(--space-3);
+  }
+
+  .setup-card {
+    padding: var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .sc-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .sc-state {
+    max-width: none;
+    white-space: normal;
+  }
+
+  .canvas-zone {
+    position: static !important;
+    width: auto;
+  }
+
+  /* Stacked zones were edge-to-edge (gap 0): one rhythm — zones 12px apart,
+     phase bands open their group (owner2026-11-18: "not proper spacing"). */
+  .canvas-zone + .canvas-zone {
+    margin-top: var(--space-3);
+  }
+
+  /* Header rides with its cards while scrolling a long stage list. */
+  .canvas-zone > .zone-head {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--color-surface);
+  }
+
+  .band-label {
+    margin-top: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
+  /* Stacked flow is never density-compact (spec §V2.6): cards keep their
+     meta + status rows even though the transform-layer zoom is clamped. */
+  .canvas-screen.density-compact .prospect-card {
+    --card-pad: var(--space-4); /* density is inert in stacked: full-size
+       cards at every zoom (the compact rule's 12px pad made cards visibly
+       expand/collapse on zoom) */
+    min-height: var(--card-h);
+    height: auto; /* content-driven: stacked forces meta + foot visible, so a
+       fixed 84px height pushed the badge row 9px out of the card (owner
+       2026-11-18, at a stored 50% zoom) */
+    padding: var(--card-pad);
+  }
+
+  .canvas-screen.density-compact .pc-meta {
+    display: block;
+  }
+
+  .canvas-screen.density-compact .pc-foot {
+    display: flex;
+  }
+
+  .zone-body {
+    max-height: none;
+  }
+
+  .outreach-region {
+    position: static !important;
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Phase tabs (owner 2026-11-18): stacked flow shows one phase at a time
+   instead of one endless scroll. Hidden >=1024 — the wide canvas shows every
+   group spatially — and the same media query scopes the group hiding, so the
+   strip and its state are inert on the wide board. */
+.phase-tabs {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .phase-tabs {
+    display: flex;
+    gap: var(--space-3); /* owner: "add more gap between tab" */
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    margin-bottom: var(--space-3);
+    background: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .phase-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .phase-tabs [role="tab"] {
+    flex: none;
+    min-height: 44px;
+    padding: var(--space-3) var(--space-4);
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--color-text-muted);
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .phase-tabs [role="tab"]:hover {
+    color: var(--color-text);
+  }
+
+  .phase-tabs [role="tab"][aria-selected="true"] {
+    color: var(--color-text);
+    border-bottom-color: var(--color-accent);
+  }
+
+  .phase-tabs [role="tab"]:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+
+  .phase-group:not(.phase-active) {
+    display: none;
+  }
+}
+
+/* Tablet / narrow desktop (768–1023): hybrid layout — rail + a 2-column
+   zone grid instead of one 4000px column (adapt: two-column, not a shrink of
+   the phone list). Phase bands span both columns; the grid gap owns spacing. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* The phase-group wrapper is the grid now (zones are no longer direct
+     children of #board-root); band labels span both columns. */
+  .phase-group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .phase-group .band-label {
+    grid-column: 1 / -1;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .phase-group .canvas-zone + .canvas-zone {
+    margin-top: 0; /* grid gap already separates */
+  }
+}
+
+/* The Filters panel owns saved views; hide the toolbar picker until there
+   is room for it beside the chips and the primary action. */
+@media (max-width: 1279px) {
+  .canvas-toolbar .views-picker,
+  .canvas-toolbar .views-manage {
+    display: none;
+  }
+}
+
+/* <768: the toolbar drops Add prospect — the header owns the one accent
+   action (owner2026-11-18: a full-width orange bar competed with the work). */
+@media (max-width: 767px) {
+  .canvas-toolbar > .btn.primary {
+    display: none;
+  }
+}
+
+/* <1024: controls stack; Filters + Add share a row, chips wrap. */
+@media (max-width: 1023px) {
+  .canvas-toolbar {
+    align-items: stretch;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .canvas-toolbar h1 {
+    flex: 1 1 100%;
+  }
+
+  .canvas-toolbar .toolbar-spacer {
+    display: none;
+  }
+
+  .canvas-toolbar > .btn.primary {
+    flex: 1 1 auto;
+  }
+
+  .canvas-toolbar .filter-open {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  /* Chips wrap instead of scrolling — every active filter stays visible. */
+  .canvas-toolbar .filter-summary {
+    flex: 1 1 100%;
+    margin: 0 calc(var(--space-3) * -1);
+    padding: var(--space-3);
+  }
+
+  .filter-pill {
+    flex: 0 0 auto;
+  }
+
+  .filter-pill-text {
+    max-width: 62vw;
+  }
+
+  /* Clear actions may wrap onto their own line; drop the divider there so it
+     never hangs at the start of a row. */
+  .filter-pill + .filter-pill-clear {
+    margin-left: 0;
+    padding-left: var(--space-2);
+    border-left: 0;
+  }
+
+  /* Filters + Add share the action row; chips follow. */
+  .canvas-toolbar h1 {
+    order: 0;
+  }
+
+  .canvas-toolbar .filter-open,
+  .canvas-toolbar > .btn.primary {
+    order: 1;
+  }
+
+  .canvas-toolbar .filter-summary {
+    order: 2;
+  }
+}
+
+/* ===== Phase 5 settings widgets ===== */
+.nowrap {
+  white-space: nowrap;
+}
+
+.saved-view-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 180px;
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent; /* ghost: tertiary, tinted red on hover */
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-danger);
+  cursor: pointer;
+}
+
+.icon-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.icon-btn:hover {
+  background: var(--color-danger-light);
+}
+
+/* Duplicates slider: accent track/thumb + min/max labels. */
+.range-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--color-accent);
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  margin-top: -5px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+/* CSV drop zone. */
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-4);
+  margin-bottom: var(--space-3);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-hover);
+  text-align: center;
+  cursor: pointer;
+}
+
+.dropzone:hover,
+.dropzone:focus-within {
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-light);
+}
+
+.dropzone input[type="file"] {
+  max-width: 100%;
+}
+
+.dropzone-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--color-text);
+}
+
+/* Usage cap progress bars. */
+.cap-row {
+  margin-bottom: var(--space-4);
+}
+
+.cap-row:last-of-type {
+  margin-bottom: var(--space-2);
+}
+
+.cap-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-size: var(--fs-sm);
+}
+
+.cap-progress {
+  width: 100%;
+  height: 8px;
+  appearance: none;
+  border: 0;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--color-surface-hover);
+}
+
+.cap-progress::-webkit-progress-bar {
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-pill);
+}
+
+.cap-progress::-webkit-progress-value {
+  background: var(--color-success);
+  border-radius: var(--radius-pill);
+}
+
+.cap-progress.warn::-webkit-progress-value {
+  background: var(--color-warn);
+}
+
+.cap-progress.danger::-webkit-progress-value {
+  background: var(--color-danger);
+}
+
+.cap-progress::-moz-progress-bar {
+  background: var(--color-success);
+  border-radius: var(--radius-pill);
+}
+
+.cap-progress.warn::-moz-progress-bar {
+  background: var(--color-warn);
+}
+
+.cap-progress.danger::-moz-progress-bar {
+  background: var(--color-danger);
+}
+
+.advanced {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.advanced summary {
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.advanced[open] summary {
+  color: var(--color-text);
+}
+
+/* Chip previews for comma-separated inputs. */
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-size: var(--fs-sm);
+}
+
+.chip-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.chip-remove:hover {
+  background: var(--color-field);
+  color: var(--color-text);
+}
+
+/* Non-import cards: no step numbers or arrows (Import keeps its 3 steps). */
+.panel-body .flow-step + .flow-step::before {
+  content: none;
+}
+
+.panel-body .import-panel .flow-step + .flow-step::before {
+  content: "→";
+}
+
+
+/* ===== Native controls: one themed treatment ===== */
+select,
+input[type="date"],
+input[type="datetime-local"],
+input[type="number"] {
+  color-scheme: dark;
+  font-family: var(--font-sans);
+}
+
+select {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  color: var(--color-text);
+  background: var(--color-field);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+}
+
+input[type="file"] {
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+}
+
+input[type="file"]::file-selector-button {
+  min-height: 32px;
+  margin-right: var(--space-3);
+  padding: 0 var(--space-3);
+  color: var(--color-text);
+  background: var(--surface-2); /* secondary button fill */
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+input[type="file"]::file-selector-button:hover {
+  background: var(--surface-2-hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Import future steps are visibly disabled. */
+.flow-step.is-future {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Data headings use the sans face; uppercase mono is reserved for section
+   markers/chips (Phase 6.37). */
+.band-name,
+.zone-title {
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-muted);
+}
+
+.zone-title {
+  color: var(--color-text);
+}
+
+
+/* Touch floor for the controls that stay interactive on phones (6.40). */
+@media (max-width: 1023px) {
+  .skip-link,
+  .mobile-menu-toggle,
+  .brand {
+    min-height: 44px;
+  }
+
+  .pc-icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .prospect-card {
+    height: auto;
+    min-height: var(--card-h);
+  }
+
+  .pc-foot {
+    height: auto;
+    min-height: 44px;
+  }
+
+  .msg-card-main {
+    min-height: 44px;
+  }
+
+  .msg-card-actions .btn {
+    min-height: 44px;
+  }
+}
+
+/* Real icon on message cards (avoids a wall of text-only cards). */
+.msg-card-icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-right: var(--space-1);
+  color: var(--color-text-muted);
+  vertical-align: -2px;
+}
+
+
+@media (min-width: 768px) {
+  .sidenav-head {
+    /* 52px row + the toolbar's 1px bottom border: the two border lines meet. */
+    height: calc(var(--control-h-md) + var(--space-4) + 1px);
+    padding: 0 var(--space-3);
+  }
+}
+
+
+/* Header shadow appears only after the drawer body scrolls. */
+.panel.panel-scrolled .detail-head,
+.panel.panel-scrolled .message-head,
+.panel.panel-scrolled .panel-body > .panel-heading {
+  box-shadow: var(--shadow-1);
+}
+
+
+/* Stage tag = a sunken TAB welded into the card's top-right corner (owner:
+   "another design entirely for the tags that bends with the card"). Negative
+   margins pull it out of the padding box onto the card edge, its top-right
+   radius matches the card's, and it carries no outline — the notch IS the
+   stage. Neutral fill; only an opt-out stage keeps the danger tint. */
+.pc-name-row .pc-stage-tag {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  max-width: 46%;
+  margin: calc(-1 * (var(--card-pad) + 1px)) calc(-1 * (var(--card-pad) + 1px)) 0 0;
+  padding: var(--space-1) var(--space-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--color-field);
+  border: 0;
+  border-radius: 0 var(--radius-md) 0 var(--radius-sm);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* ===== Drawer content patterns (setup panels) =====
+   One grammar for the side panels: inset cards, a small section head, and
+   hairline-separated rows. Keeps wide status data out of tables that cannot
+   breathe inside the 560px drawer. */
+.panel-callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.panel-callout-text {
+  min-width: 0;
+}
+
+.panel-callout h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.panel-callout p {
+  margin: 0;
+}
+
+.panel-callout .btn {
+  flex: none;
+}
+
+.panel-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.panel-section-head h3 {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+/* The final action row is flush with the card's bottom padding. */
+.panel-body .card > .action-group:last-child,
+.panel-body .card > form > .action-group:last-child {
+  margin-bottom: 0;
+}
+
+/* --- Saved views: row list (name, date, chips, actions) --- */
+.view-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.view-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.view-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.view-row:last-child {
+  padding-bottom: 0;
+}
+
+.view-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.view-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.view-title strong {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.view-title .muted {
+  font-size: var(--fs-xs);
+}
+
+.view-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.view-filters .badge {
+  padding: 2px var(--space-2); /* 2px: optical, badge stays one line-height */
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+}
+
+.view-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: 2px;
+}
+
+.view-actions form {
+  margin: 0;
+}
+
+/* --- Providers: grouped status rows --- */
+.provider-legend {
+  margin: 0 0 var(--space-3);
+}
+
+.provider-group + .provider-group {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.provider-group-head {
+  margin-bottom: var(--space-1);
+}
+
+.provider-group-head h3 {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.provider-row {
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.provider-group-head + .provider-row {
+  border-top: 0;
+  padding-top: var(--space-1);
+}
+
+.provider-row-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  flex-wrap: wrap;
+}
+
+.provider-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.provider-name strong {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.provider-flags {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+}
+
+.provider-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.provider-flag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+}
+
+.provider-flag.is-on .provider-flag-dot {
+  background: var(--color-success);
+}
+
+.provider-flag.is-off {
+  color: var(--color-text-subtle);
+}
+
+.provider-note {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+.provider-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: var(--space-2) 0 0;
+}
+
+.provider-metrics > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.provider-metrics dt {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+
+.provider-metrics dd {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.provider-error {
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--color-danger);
+}
+
+.provider-error-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.provider-footer {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.provider-footer > p {
+  margin: 0;
+}
+
+.provider-footer .advanced {
+  margin-top: var(--space-2);
+}
+
+/* --- Discovery runs --- */
+.run-list {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+}
+
+.run-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.run-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.run-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.run-meta {
+  font-variant-numeric: tabular-nums;
+}
+
+.run-error {
+  margin: 0;
+}
+
+/* Draft character count sits under its textarea, flush right. */
+.field-counter {
+  display: block;
+  margin-top: var(--space-1);
+  text-align: right;
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-subtle);
+}
+
+/* Message history: label/value rows instead of a run-on sentence. */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.history-list > div {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.history-list dt {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+
+.history-list dd {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.history-note {
+  margin: var(--space-2) 0 0;
+}
+
+/* ===== Borderless pass 2026-11-17: shade levels, colour = signal ===== */
+
+/* Cards: every chip on a prospect card is neutral by default — colour only
+   ever means "act on this" (suppression, failed verification). Verified by
+   `test_card_chips_use_colour_only_for_signals`. */
+.prospect-card .badge {
+  background: var(--color-surface-raised);
+  border-color: transparent;
+  color: var(--color-text-muted);
+}
+
+/* The stage tab keeps its sunken notch fill even against the neutral rule. */
+.prospect-card .pc-stage-tag {
+  background: var(--color-field);
+  border: 0;
+  color: var(--color-text-muted);
+}
+
+.prospect-card .pc-stage-tag.stage-do-not-contact {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.prospect-card .badge.danger,
+.prospect-card .badge.stage-do-not-contact,
+.prospect-card .badge.stage-failed,
+.prospect-card .badge.stage-contradicted {
+  background: var(--color-danger-light);
+  border-color: transparent;
+  color: var(--color-danger);
+}
+
+.prospect-card .badge.stage-check-failed {
+  background: var(--color-warn-light);
+  border-color: transparent;
+  color: var(--color-warn);
+}
+
+/* Detail head: name and badges share one wrapping line, actions centre
+   opposite them — one row instead of a title with floating pills under it. */
+.panel-body .card.detail-head {
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
+.panel-body .card.detail-head .header-row {
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.panel-body .card.detail-head .grow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.panel-body .card.detail-head .badge-row {
+  margin-top: 0;
+  margin-left: auto; /* name left, tags right, actions beside them */
+}
+
+/* Danger zone: status rides in each block head instead of a "Status:" line. */
+.danger-block-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+/* Head rows pair a title with an inline action/badge: the h4 grows and the
+   action rides the right edge (margin: 0 keeps the pair vertically centered). */
+.danger-block-head h4 {
+  margin: 0;
+  flex: 1 1 auto;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+/* Outreach: state row, then the message as a quiet preview, then actions.
+   Owner 2026-11-18: "TOO tight add gap btween the 3 group vertically". */
+#detail-outreach > * + * {
+  margin-top: var(--space-4);
+}
+
+
+.outreach-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.outreach-status .muted.small {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.outreach-preview {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Activity: payload reads on its own line under the event, never as JSON. */
+.activity-list li {
+  flex-wrap: wrap;
+}
+
+.activity-list li .payload {
+  flex: 0 0 100%;
+  margin-left: 0;
+  margin-top: 2px;
+  color: var(--color-text-subtle);
+}
+
+/* Owner 2026-11-17: canvas links never underline on hover — the fill/lift
+   state above carries the affordance (global a:hover would reintroduce it). */
+.canvas-screen a:hover {
+  text-decoration: none;
+}
+
+/* Findings restacked for the 560px panel (P1: statement owns the width;
+   verification, origin and actions live on their own line). */
+.finding-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.finding-row {
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.finding-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.finding-statement {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.finding-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.finding-meta .src {
+  max-width: 260px;
+  font-size: var(--fs-xs);
+}
+
+.finding-meta .row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.finding-meta .row-actions form {
+  margin: 0;
+}

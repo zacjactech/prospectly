@@ -1,0 +1,67 @@
+{# Profile card panel body (spec §V2.3 + layout pass 2026-11-16): one form
+   card for the profile fields and one discovery card. The profile form is a
+   single POST, so it stays whole. Discovery is unavailable until the profile
+   has an offer and at least one target industry — stated once beside the
+   disabled action, not in a separate banner. #}
+<h2 class="panel-heading" data-panel-title>Profile</h2>
+
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<section class="card">
+  <form method="post" action="/settings/profile">
+    {{ csrf_field() }}
+    <div class="field full">
+      <label for="profile-offer">What you offer</label>
+      <textarea id="profile-offer" name="offer" rows="4" placeholder="I build affordable websites for local businesses">{{ profile.offer or '' }}</textarea>
+    </div>
+    <div class="field">
+      <label for="profile-industries">Target industries</label>
+      <input id="profile-industries" type="text" name="target_industries" data-chip-input value="{{ (profile.target_industries or [] )|join(', ') }}" placeholder="hotel, event planner, restaurant">
+    </div>
+    <div class="field">
+      <label for="profile-locations">Target locations</label>
+      <input id="profile-locations" type="text" name="target_locations" data-chip-input value="{{ (profile.target_locations or [] )|join(', ') }}" placeholder="city, area, region">
+    </div>
+    <div class="field">
+      <label for="profile-signals">Ideal-client signals</label>
+      <input id="profile-signals" type="text" name="ideal_signals" data-chip-input value="{{ (profile.ideal_signals or [] )|join(', ') }}" placeholder="no website, outdated site, no contact form">
+    </div>
+    <div class="action-group">
+      <button class="btn primary" type="submit">Save profile</button>
+      <button class="btn ghost" type="button" data-panel-close>Cancel</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <div class="panel-section-head">
+    <h3>Discovery</h3>
+  </div>
+  <p class="muted small">Adds businesses matching your industries and locations as <code>new</code>. Runs are queued in the background.</p>
+  <form method="post" action="/settings/profile/discovery/run" class="action-group">
+    {{ csrf_field() }}
+    <button class="btn" type="submit"{% if not (profile.offer and profile.target_industries) %} disabled title="Add your offer and at least one industry first" aria-label="Run discovery (add your offer and at least one industry first)"{% endif %}>Run discovery</button>
+  </form>
+  {% if not (profile.offer and profile.target_industries) %}
+  <p class="muted small">Add an offer and at least one industry to enable discovery.</p>
+  {% endif %}
+
+  {% if discovery_jobs %}
+  <ul class="run-list">
+    {% for job in discovery_jobs %}
+    <li class="run-row">
+      <div class="run-head">
+        <span class="badge stage-{{ job.status|replace('_','-') }}">{{ job.status|replace('_',' ') }}</span>
+        <span class="muted small nowrap">{{ job.created_at }}</span>
+      </div>
+      <div class="run-meta muted small">{{ job.candidates_found }} found · {{ job.prospects_created }} created</div>
+      {% if job.error %}<p class="run-error text-danger small">{{ job.error }}</p>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted small">No discovery runs yet.</p>
+  {% endif %}
+</section>

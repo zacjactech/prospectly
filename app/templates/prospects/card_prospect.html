@@ -1,0 +1,74 @@
+{# Prospect board card (Pipeline Canvas spec §3.1) — rendered inside zone
+   stacks on the canvas. Name + stage tag (top-right) / mono meta / status
+   dot, badges and quick action (the spec's "row 4" rides right on the foot
+   row so CARD_H stays uniform). Nothing here can draft, approve or send: the
+   only outreach control is the existing approved-state Open-WhatsApp button
+   (P1). #}
+{% import "partials/stage_transitions.html" as st %}
+{% set msg = active_messages.get(p.id) %}
+{% set fu_due = p.id in fu_due_ids %}
+{% set dot = 'warn' if fu_due else ('accent' if msg is not none and msg.status == 'pending_review' else none) %}
+{% set dot_title = 'Follow-up due' if dot == 'warn' else ('Awaiting review' if dot == 'accent' else '') %}
+<article class="prospect-card" data-id="{{ p.id }}" data-stage="{{ p.stage }}"
+         data-followup="{{ 'due' if fu_due else '' }}" data-review="{{ 1 if dot == 'accent' else 0 }}"
+         tabindex="0">
+  <h3 class="pc-name-row">
+    <span class="pc-name" title="{{ p.business_name }}">{{ p.business_name }}</span>
+    {% if dot %}<span class="pc-dot pc-dot-compact" data-hot="{{ dot }}" title="{{ dot_title }}" aria-hidden="true"></span>{% endif %}
+    {% if p.stage in ('not_interested', 'do_not_contact', 'archived') %}
+    {# Only the Terminal frame needs the tab · three stages share one zone
+       there; everywhere else the lane header already names the stage (owner:
+       the tag repeated the lane and truncated long stage names). #}
+    <span class="badge pc-stage-tag stage-{{ p.stage|replace('_','-') }}" data-stage-badge title="{{ p.stage|replace('_',' ') }}">{{ p.stage|replace('_',' ') }}</span>
+    {% endif %}
+  </h3>
+  <div class="pc-meta">
+    <span{% if not p.category %} class="subtle"{% endif %}>{{ p.category or "none" }}</span>
+    · <span{% if not (p.location_city or p.location_area) %} class="subtle"{% endif %}>{{ p.location_city or p.location_area or "none" }}</span>
+  </div>
+  <div class="pc-foot">
+    <span class="pc-badges">
+      {% if dot %}<span class="pc-dot" data-hot="{{ dot }}" title="{{ dot_title }}" aria-hidden="true"></span>{% endif %}
+      {% if p.website_status == 'no_website_found' %}
+      {# P6: no website found is info — never red, always a word (not color alone). #}
+      <span class="badge stage-no-website-found">no website found</span>
+      {% elif p.website_status == 'reachable' %}
+      {# Reachable is a compact status dot, not a second stage-like pill; the
+         info hue keeps it distinct from the green researched stage. #}
+      <span class="status-dot status-reachable" title="Website reachable" aria-label="Website reachable" role="img"></span>
+      {% elif p.website_url %}
+      <span class="badge stage-{{ p.website_status|replace('_','-') }}">{{ p.website_status|replace('_',' ') }}</span>
+      {% endif %}
+      {% if p.do_not_contact %}<span class="badge danger">Suppressed</span>{% endif %}
+      {% if p.archived_at %}<span class="badge muted">Archived</span>{% endif %}
+      {% if msg is not none and msg.origin == 'ai' %}<span class="badge stage-ai">ai</span>{% endif %}
+    </span>
+    <span class="pc-side">
+      {% if rel_contact.get(p.id) %}<span>{{ rel_contact.get(p.id) }}</span>{% endif %}
+      {% if rel_fu.get(p.id) %}<span{% if fu_due %} class="due-over"{% endif %}>{{ rel_fu.get(p.id) }}</span>{% endif %}
+      {% if msg is not none and msg.status == 'approved' and (p.phone_e164 or p.phone_raw) %}
+      <form method="post" action="/messages/{{ msg.id }}/open" data-confirm="Open WhatsApp with this message prefilled? You press Send in WhatsApp; the app never sends automatically.">
+        {{ csrf_field() }}
+        <button class="pc-icon-btn" type="submit" title="Open in WhatsApp" aria-label="Open {{ p.business_name }} in WhatsApp">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+        </button>
+      </form>
+      {% endif %}
+      <button class="pc-icon-btn" type="button" data-card-move aria-haspopup="menu"
+              title="Move to another stage" aria-label="Move {{ p.business_name }} to another stage">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+      </button>
+    </span>
+  </div>
+  {# Server-rendered Move-to menu (spec §3.1): same whitelist as the detail
+     select, only server-legal transitions. Re-parented to <body> while open. #}
+  <div class="move-menu" role="menu" aria-label="Move {{ p.business_name }} to stage" hidden data-move-menu>
+    <span class="move-menu-label">Move to</span>
+    {% for t in st.transitions.get(p.stage, []) %}
+    <button type="button" role="menuitem" data-move-to="{{ t }}">{{ t|replace('_',' ') }}</button>
+    {% endfor %}
+    {% if not st.transitions.get(p.stage) %}
+    <button type="button" role="menuitem" disabled>No further transitions</button>
+    {% endif %}
+  </div>
+</article>

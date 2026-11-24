@@ -1,0 +1,107 @@
+{# Usage card panel body (spec §V2.3): provider + AI call accounting,
+   reordered to the pipeline — provider calls → AI tokens → cap status. #}
+<h2 class="panel-heading" data-panel-title>Usage</h2>
+<p class="muted small">Daily totals.</p>
+
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<div class="mini-pipeline">
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">01</span>
+      <h3>Provider calls</h3>
+    </header>
+    <div class="flow-step-body">
+      <section class="card">
+        {% if providers %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Provider</th><th>Kind</th><th>Period</th><th>Calls</th><th>Errors</th><th>Rate limited</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for provider, rows in providers.items() %}
+            {% for row in rows %}
+            <tr>
+              <td data-label="Provider">{{ provider }}</td>
+              <td data-label="Kind">{{ row.kind }}</td>
+              <td data-label="Period">{{ row.period }}</td>
+              <td data-label="Calls">{{ row.calls }}</td>
+              <td data-label="Errors">{{ row.errors }}</td>
+              <td data-label="Rate limited">{{ row.rate_limited }}</td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="muted">No provider usage recorded yet.</p>
+        {% endif %}
+      </section>
+    </div>
+  </section>
+
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">02</span>
+      <h3>AI tokens</h3>
+    </header>
+    <div class="flow-step-body">
+      <section class="card">
+        {% if ai %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Provider / model</th><th>Task</th><th>Period</th><th>Calls</th><th>OK</th><th>Failed</th><th>Prompt tokens</th><th>Completion tokens</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for key, rows in ai.items() %}
+            {% for row in rows %}
+            <tr>
+              <td data-label="Provider / model">{{ key }}</td>
+              <td data-label="Task">{{ row.task }}</td>
+              <td data-label="Period">{{ row.period }}</td>
+              <td data-label="Calls">{{ row.calls }}</td>
+              <td data-label="OK">{{ row.ok_calls }}</td>
+              <td data-label="Failed">{{ row.failed_calls }}</td>
+              <td data-label="Prompt tokens">{{ row.prompt_tokens }}</td>
+              <td data-label="Completion tokens">{{ row.completion_tokens }}</td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="muted">No AI usage recorded yet.</p>
+        {% endif %}
+      </section>
+    </div>
+  </section>
+
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">03</span>
+      <h3>Cap status</h3>
+    </header>
+    <div class="flow-step-body">
+      <section class="card">
+        {% for key, label in [('tavily', 'Tavily'), ('serper', 'Serper'), ('ai', 'AI')] %}
+        {% set u = usage[key] %}
+        {% set pct = (u.used / u.cap) if u.cap else 0 %}
+        <div class="cap-row">
+          <div class="cap-head">
+            <span>{{ label }}</span>
+            <span class="mono">{{ u.used }} / {{ u.cap }}{% if u.reached %} · blocked{% endif %}</span>
+          </div>
+          <progress class="cap-progress{% if u.reached %} danger{% elif pct >= 0.8 %} warn{% endif %}" value="{{ u.used }}" max="{{ u.cap or 1 }}">{{ u.used }} / {{ u.cap }}</progress>
+        </div>
+        {% endfor %}
+        <p class="muted small">A blocked call is counted in “Rate limited” and the research step is reported as skipped.</p>
+      </section>
+    </div>
+  </section>
+</div>

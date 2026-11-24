@@ -257,7 +257,7 @@ def test_not_interested_is_reachable_and_terminal_for_outreach() -> None:
 
 
 def test_suppression_reachable_from_html_detail_page() -> None:
-    """The detail page renders the Do-not-contact / Clear forms (Flow 8 UI)."""
+    """The detail page renders the Block-outreach / Clear forms (Flow 8 UI)."""
     db, path = _make_db()
     try:
         client = _client_with_db(db)
@@ -265,7 +265,10 @@ def test_suppression_reachable_from_html_detail_page() -> None:
         r = client.get(f"/prospects/{p.id}")
         assert r.status_code == 200
         assert f'action="/prospects/{p.id}/do-not-contact"' in r.text
-        assert "Do not contact" in r.text
+        # the block is labelled by its action, not a "Do not contact"
+        # sub-heading (owner removed the heading 2026-11-17)
+        assert ">Block outreach</button>" in r.text
+        assert "<h4>Do not contact</h4>" not in r.text
 
         prospect_service.set_do_not_contact(db, p.id, reason="x")
         db.commit()

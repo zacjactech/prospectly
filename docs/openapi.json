@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Prospectly",
-    "version": "0.1.0a1"
+    "version": "0.2.0"
   },
   "paths": {
     "/healthz": {
@@ -37,8 +37,30 @@
           "pages"
         ],
         "summary": "Index",
-        "description": "Dashboard home page: pipeline strip + operational metrics + quick start.",
+        "description": "The canvas, with the Status card open (§V2.2).",
         "operationId": "index__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/status": {
+      "get": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "Status Card",
+        "description": "Status card as its own address (rail item + `g s`).",
+        "operationId": "status_card_status_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -60,6 +82,140 @@
         ],
         "summary": "Prospects List",
         "operationId": "prospects_list_prospects_get",
+        "parameters": [
+          {
+            "name": "stage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stage"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "location",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Location"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "include_archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Archived"
+            }
+          },
+          {
+            "name": "do_not_contact_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Do Not Contact Only"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/prospects/filters": {
+      "get": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "Prospects Filters",
+        "description": "Filters panel (spec §1.2/§V2.3): a 360px surface, not inline rows.\n\nThe query string carries the current filter state so the panel always\nopens on what the board is showing. HX-Request → panel body fragment.",
+        "operationId": "prospects_filters_prospects_filters_get",
         "parameters": [
           {
             "name": "stage",
@@ -709,7 +865,7 @@
           "pages"
         ],
         "summary": "Usage Page",
-        "description": "Settings → Usage: provider + AI call accounting per day (§2.7).",
+        "description": "Usage card: provider + AI call accounting per day (§2.7).",
         "operationId": "usage_page_settings_usage_get",
         "responses": {
           "200": {
@@ -731,7 +887,7 @@
           "pages"
         ],
         "summary": "Providers Settings Form",
-        "description": "Settings → Providers: configured/enabled status, usage, caps (§2.7).\n\nRead-only by design: keys are never rendered, only presence booleans.",
+        "description": "Providers card: configured/enabled status, usage, caps (§2.7).\n\nRead-only by design: keys are never rendered, only presence booleans.",
         "operationId": "providers_settings_form_settings_providers_get",
         "responses": {
           "200": {
@@ -753,7 +909,7 @@
           "pages"
         ],
         "summary": "General Settings Form",
-        "description": "Settings → General: vocabulary, defaults, caps, backup (§2.7).",
+        "description": "General card: vocabulary, defaults, caps, backup (§2.7).",
         "operationId": "general_settings_form_settings_general_get",
         "responses": {
           "200": {
@@ -814,7 +970,7 @@
           "pages"
         ],
         "summary": "Import Form",
-        "description": "CSV import wizard step 1: upload form.",
+        "description": "CSV import card, step 1: upload form.",
         "operationId": "import_form_settings_import_get",
         "responses": {
           "200": {
@@ -1224,6 +1380,269 @@
             "schema": {
               "type": "integer",
               "title": "Prospect Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/account": {
+      "get": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "Account Page",
+        "description": "Own account: identity, active sessions, change-password (SECURITY §3).",
+        "operationId": "account_page_settings_account_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/account/password": {
+      "post": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "Account Change Password",
+        "description": "Change your own password; every *other* session is revoked (SECURITY §3).",
+        "operationId": "account_change_password_settings_account_password_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_account_change_password_settings_account_password_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/users": {
+      "get": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "Users Page",
+        "description": "User management: accounts, roles, disable/enable (owner only).",
+        "operationId": "users_page_settings_users_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "User Create",
+        "description": "Create an account directly (signup may be env-gated off).",
+        "operationId": "user_create_settings_users_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_user_create_settings_users_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/users/{user_id}/role": {
+      "post": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "User Set Role",
+        "description": "Change a user's role (owner only; self-demotion allowed only with a\nsecond active owner in place).",
+        "operationId": "user_set_role_settings_users__user_id__role_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_user_set_role_settings_users__user_id__role_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/users/{user_id}/toggle": {
+      "post": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "User Toggle",
+        "description": "Disable (revokes every session) or re-enable an account.",
+        "operationId": "user_toggle_settings_users__user_id__toggle_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/users/{user_id}/delete": {
+      "post": {
+        "tags": [
+          "pages"
+        ],
+        "summary": "User Delete",
+        "description": "Delete an account; its prospects become shared (owner_id -> NULL).",
+        "operationId": "user_delete_settings_users__user_id__delete_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
             }
           }
         ],
@@ -2443,7 +2862,7 @@
           "pages"
         ],
         "summary": "Outreach Queue",
-        "description": "Grouped list of messages needing attention: never lose an approved-but-unconfirmed message.",
+        "description": "The canvas, framed on the outreach region (messages in flight).\n\nHX-Request → the outreach region fragment only, so panel actions can\nrefresh the region without a page reload (spec §V2.1/§3.4).",
         "operationId": "outreach_queue_outreach_get",
         "responses": {
           "200": {
@@ -2459,13 +2878,74 @@
         }
       }
     },
+    "/setup": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Setup Form",
+        "description": "Create the owner account (only while the users table is empty).",
+        "operationId": "setup_form_setup_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Setup Submit",
+        "description": "Validate + create the first account as owner, then sign in.",
+        "operationId": "setup_submit_setup_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_setup_submit_setup_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/login": {
       "get": {
         "tags": [
           "auth"
         ],
         "summary": "Login Form",
-        "description": "Render the token form (no-op redirect when the gate is disabled).",
+        "description": "Render the account sign-in form.",
         "operationId": "login_form_login_get",
         "responses": {
           "200": {
@@ -2485,7 +2965,7 @@
           "auth"
         ],
         "summary": "Login Submit",
-        "description": "Validate the token and issue a signed session cookie.",
+        "description": "Authenticate username+password and issue a server-side session.",
         "operationId": "login_submit_login_post",
         "requestBody": {
           "content": {
@@ -2520,14 +3000,216 @@
         }
       }
     },
+    "/signup": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Signup Form",
+        "operationId": "signup_form_signup_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Signup Submit",
+        "description": "Open registration creates a member (ALLOW_SIGNUP=true only).",
+        "operationId": "signup_submit_signup_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_signup_submit_signup_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/forgot-password": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Forgot Password Form",
+        "operationId": "forgot_password_form_forgot_password_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Forgot Password Submit",
+        "description": "Issue a single-use reset token; the local instance shows the link.\n\nNo email service exists in a local-first app (documented tradeoff: the\npage differs only by the link, so usernames are enumerable here — rate\nlimited to 5/hour per client, and the same limit guards /login).",
+        "operationId": "forgot_password_submit_forgot_password_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_forgot_password_submit_forgot_password_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reset-password": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Reset Password Form",
+        "operationId": "reset_password_form_reset_password_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Reset Password Submit",
+        "description": "Consume the reset token, set the password, kill every session.",
+        "operationId": "reset_password_submit_reset_password_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_reset_password_submit_reset_password_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/logout": {
       "post": {
         "tags": [
           "auth"
         ],
         "summary": "Logout",
-        "description": "Drop the session cookie (gated: only an authenticated session gets here).",
+        "description": "Drop the session cookie AND revoke the row (server-side logout).",
         "operationId": "logout_logout_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/logout-all": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Logout All",
+        "description": "Revoke every session of the signed-in user (Account page).",
+        "operationId": "logout_all_logout_all_post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5599,6 +6281,27 @@
         ],
         "title": "ActivityOut"
       },
+      "Body_account_change_password_settings_account_password_post": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "title": "Current Password",
+            "default": ""
+          },
+          "new_password": {
+            "type": "string",
+            "title": "New Password",
+            "default": ""
+          },
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "Body_account_change_password_settings_account_password_post"
+      },
       "Body_approve_message_api_api_v1_messages__message_id__approve_post": {
         "properties": {
           "ungrounded_acknowledgement": {
@@ -5749,6 +6452,17 @@
         "type": "object",
         "title": "Body_follow_up_create_prospects__prospect_id__follow_ups_post"
       },
+      "Body_forgot_password_submit_forgot_password_post": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "Body_forgot_password_submit_forgot_password_post"
+      },
       "Body_general_settings_update_settings_general_post": {
         "properties": {
           "default_follow_up_days": {
@@ -5854,9 +6568,14 @@
       },
       "Body_login_submit_login_post": {
         "properties": {
-          "access_token": {
+          "username": {
             "type": "string",
-            "title": "Access Token",
+            "title": "Username",
+            "default": ""
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
             "default": ""
           },
           "next": {
@@ -6334,6 +7053,27 @@
         ],
         "title": "Body_prospect_update_prospects__prospect_id__edit_post"
       },
+      "Body_reset_password_submit_reset_password_post": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token",
+            "default": ""
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "default": ""
+          },
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "Body_reset_password_submit_reset_password_post"
+      },
       "Body_retention_sweep_run_settings_retention_sweep_post": {
         "properties": {
           "months": {
@@ -6446,6 +7186,53 @@
         ],
         "title": "Body_saved_views_create_settings_saved_views_post"
       },
+      "Body_setup_submit_setup_post": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username",
+            "default": ""
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "default": ""
+          },
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "default": ""
+          },
+          "next": {
+            "type": "string",
+            "title": "Next",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "Body_setup_submit_setup_post"
+      },
+      "Body_signup_submit_signup_post": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username",
+            "default": ""
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "default": ""
+          },
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "Body_signup_submit_signup_post"
+      },
       "Body_submit_message_api_api_v1_messages__message_id__submit_post": {
         "properties": {
           "current_text": {
@@ -6458,6 +7245,45 @@
           "current_text"
         ],
         "title": "Body_submit_message_api_api_v1_messages__message_id__submit_post"
+      },
+      "Body_user_create_settings_users_post": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username",
+            "default": ""
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "default": ""
+          },
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "default": ""
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "default": "member"
+          }
+        },
+        "type": "object",
+        "title": "Body_user_create_settings_users_post"
+      },
+      "Body_user_set_role_settings_users__user_id__role_post": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "Body_user_set_role_settings_users__user_id__role_post"
       },
       "DedupeCheckOut": {
         "properties": {

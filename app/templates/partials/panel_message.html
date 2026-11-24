@@ -1,0 +1,143 @@
+{# Message editor content — the SINGLE source rendered both as the full
+   page (messages/edit.html includes this) and as the slide-over panel
+   fragment (content negotiation on GET/POST /messages/{id}/edit with an
+   HX-Request header, panel_mode=True). Without panel_mode the markup is
+   the plain full page exactly as before (Pipeline Canvas spec §4). #}
+{% set hxpost = 'hx-target="closest .panel-body"' if panel_mode else '' %}
+{% set hxpost_refresh = 'hx-target="closest .panel-body" data-refresh-board' if panel_mode else '' %}
+{% set active_status = message.status|replace('_',' ') %}
+{% set has_phone = prospect.phone_raw or prospect.phone_e164 %}
+<section class="card message-head">
+  <a href="/prospects/{{ prospect.id }}" class="message-back"{% if panel_mode %} data-panel-back="/prospects/{{ prospect.id }}"{% endif %}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    Back to prospect
+  </a>
+  <div class="message-head-title">
+    <h2 class="prospect-name" data-panel-title>{{ prospect.business_name }}</h2>
+    <div class="badge-row">
+      <span class="badge stage-{{ prospect.stage|replace('_','-') }}">{{ prospect.stage|replace('_',' ') }}</span>
+      <span class="badge">{{ active_status }}</span>
+    </div>
+  </div>
+</section>
+
+{% if prospect.do_not_contact %}
+{# Below the sticky head so the header owns the panel's top row. #}
+<div class="banner danger">
+  Suppressed: {{ prospect.do_not_contact_reason or "do not contact" }}. No drafts or outreach actions allowed.
+</div>
+{% endif %}
+
+<section class="card">
+  <p class="muted small">Edits are logged and demote the message back to draft. Approval is invalidated by any change.</p>
+  <form method="post" action="/messages/{{ message.id }}/edit" {% if panel_mode %}hx-post="/messages/{{ message.id }}/edit"{% endif %} {{ hxpost|safe }}>
+    {{ csrf_field() }}
+    <div class="field">
+      <label class="sr-only" for="current_text-{{ message.id }}">Message text</label>
+      <textarea id="current_text-{{ message.id }}" name="current_text" rows="8" placeholder="Write your message…">{{ form.current_text if form else message.current_text }}</textarea>
+      <span class="field-counter">{{ (form.current_text if form else message.current_text)|length }} characters.</span>
+    </div>
+    <div class="action-group">
+      <button class="btn" type="submit">Save text</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  {% if grounded_findings %}
+  <p class="muted small">Findings this draft is based on (AI claims start unverified; verify before relying on them).</p>
+  <ul class="mini-list">
+    {% for f in grounded_findings %}
+    <li>
+      <span class="badge stage-{{ f.origin|replace('_','-') }}">{{ f.origin }}</span>
+      <span class="badge stage-{{ f.verification_status|replace('_','-') }}">{{ f.verification_status }}</span>
+      <span>{{ f.statement }}</span>
+      {% if f.source_url %}<a class="src" href="{{ f.source_url }}" target="_blank" rel="noopener">Source</a>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No grounded findings. You can still approve; you'll accept ungrounded content at approval.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <div class="action-group">
+    {% if message.status == "draft" %}
+    <form method="post" action="/messages/{{ message.id }}/submit" {% if panel_mode %}hx-post="/messages/{{ message.id }}/submit"{% endif %} data-confirm="Submit this draft for review?" {{ hxpost_refresh|safe }}>
+      {{ csrf_field() }}
+      <input type="hidden" name="current_text" value="{{ message.current_text }}">
+      <button class="btn primary" type="submit">Submit for review</button>
+    </form>
+    {% elif message.status == "pending_review" %}
+    <form method="post" action="/messages/{{ message.id }}/approve" class="action-inline" {% if panel_mode %}hx-post="/messages/{{ message.id }}/approve"{% endif %} data-confirm="Approve this draft? Opening WhatsApp is a separate step; you press Send." {{ hxpost_refresh|safe }}>
+      {{ csrf_field() }}
+      {% if not grounded_findings %}
+      <label class="checkbox-line">
+        <input type="checkbox" name="ungrounded_acknowledgement" value="1">
+        I accept ungrounded content
+      </label>
+      {% endif %}
+      <button class="btn primary" type="submit">Approve</button>
+    </form>
+    {% elif message.status == "approved" %}
+    {# P1: unchanged flow — the wa.me handoff stays a real POST, and the
+       answer is the canvas with this panel open (spec §V2.2). #}
+    <form method="post" action="/messages/{{ message.id }}/open" data-confirm="Open WhatsApp with this message prefilled? You press Send; the app never sends automatically.">
+      {{ csrf_field() }}
+      <button class="btn primary" type="submit"{% if not has_phone %} disabled title="Add a phone number first" aria-label="Open in WhatsApp (add a phone number first)"{% endif %}>Open in WhatsApp</button>
+    </form>
+    {% elif message.status == "opened_in_whatsapp" %}
+    <form method="post" action="/messages/{{ message.id }}/confirm-sent" {% if panel_mode %}hx-post="/messages/{{ message.id }}/confirm-sent"{% endif %} data-confirm="Did you send this message? Yes confirms it was sent." {{ hxpost_refresh|safe }}>
+      {{ csrf_field() }}
+      <button class="btn primary" type="submit">I have sent this message</button>
+    </form>
+    <form method="post" action="/messages/{{ message.id }}/not-sent" {% if panel_mode %}hx-post="/messages/{{ message.id }}/not-sent"{% endif %} data-confirm="Return this message to approved (ready to re-open)?" {{ hxpost_refresh|safe }}>
+      {{ csrf_field() }}
+      <button class="btn ghost small" type="submit">Not sent</button>
+    </form>
+    {% elif message.status == "sent_confirmed" %}
+    <form method="post" action="/prospects/{{ prospect.id }}/start-new-outreach" {% if panel_mode %}hx-post="/prospects/{{ prospect.id }}/start-new-outreach"{% endif %} data-confirm="Start a new outreach draft for this prospect?" {{ hxpost_refresh|safe }}>
+      {{ csrf_field() }}
+      <button class="btn primary" type="submit">Start new outreach</button>
+    </form>
+    {% endif %}
+  </div>
+  {% if message.status == "approved" and not has_phone %}
+  <p class="muted small action-hint">Add a phone number to open WhatsApp.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <dl class="history-list">
+    <div>
+      <dt>Origin</dt>
+      <dd><span class="badge stage-{{ message.origin|replace('_','-') }}">{{ message.origin }}</span></dd>
+    </div>
+    <div>
+      <dt>Created</dt>
+      <dd>{{ message.created_at.strftime('%b %d, %H:%M') }}</dd>
+    </div>
+    {% if message.approved_at %}
+    <div>
+      <dt>Approved</dt>
+      <dd>{{ message.approved_at.strftime('%b %d, %H:%M') }}</dd>
+    </div>
+    {% endif %}
+    {% if message.opened_at %}
+    <div>
+      <dt>Opened</dt>
+      <dd>{{ message.opened_at.strftime('%b %d, %H:%M') }}</dd>
+    </div>
+    {% endif %}
+    {% if message.sent_confirmed_at %}
+    <div>
+      <dt>Send confirmed</dt>
+      <dd>{{ message.sent_confirmed_at.strftime('%b %d, %H:%M') }}</dd>
+    </div>
+    {% endif %}
+  </dl>
+  {% if message.origin == 'ai' %}
+  <p class="history-note muted small">AI-generated. Verify every claim before sending.</p>
+  {% endif %}
+</section>

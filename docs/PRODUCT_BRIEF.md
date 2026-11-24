@@ -83,7 +83,7 @@ Single primary user: **the owner** — a solo operator using the platform to fin
 
 - Any automatic sending (WhatsApp, email, SMS).
 - Browser automation of WhatsApp Web or any unofficial WhatsApp library.
-- Multi-user accounts, roles, hosted deployment, billing.
+- Multi-user accounts, roles, hosted deployment, billing. *(Partial owner decision 2026-11-18: local multi-user **accounts + roles** were pulled into the MVP as the auth system — scrypt passwords, owner/admin/member, revocable sessions; still single-tenant/local, no hosted multi-user, no billing.)*
 - Email/SMS channels (architecture keeps a channel boundary for later).
 - Social media APIs (Facebook/Instagram/LinkedIn) — manual link entry only in MVP.
 - Payment tracking/invoicing (conversion is a status, not an invoicing system).

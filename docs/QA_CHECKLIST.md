@@ -1,4 +1,4 @@
-# QA Checklist — living document (last full pass: 2026-11-11)
+# QA Checklist — living document (last full manual pass: 2026-11-11; canvas contract pass: 2026-11-16; Phase B authz browser pass: 2026-11-19)
 
 Full manual walkthrough of the user flows (USER_FLOWS.md). Each flow is
 verified against the running app and backed by regression tests in `tests/`.
@@ -189,16 +189,28 @@ provider key required for live data) · `not implemented` = spec gap.
 | No duplicates | pass (partial unique indexes) |
 | Illegal stage / message transitions | 409 |
 | `sent_confirmed` terminal | pass — edits rejected 409 |
-| Access gate (when `APP_ACCESS_TOKEN` set) | pass — 401 JSON / 302 to `/login`, allowlist `/login` + `/healthz` + `/static/*` only; CSRF on login; 12h sliding session (`tests/test_auth.py`, 36 tests) |
+| Access gate (when `APP_ACCESS_TOKEN` set) | pass — 401 JSON / 302 to `/login`, allowlist = auth pages + `/healthz` + `/static/*`; accounts (scrypt) + roles + revocable DB sessions; CSRF + rate limiting on credential POSTs; 12h sliding session (`tests/test_auth.py`, 47 tests) |
 
 ---
 
 ## Test suite
 
-`uv run pytest` — **330 tests pass, 0 failed** (2026-11-11); `ruff check`,
-`ruff format --check`, `mypy app` all clean.
+`pytest` — **457 tests pass, 0 failed** (2026-11-19); `ruff check`, `ruff format --check`, `mypy app` all clean. The 457 include the
+45-test canvas contract suite below (333 baseline + 45 + 79 auth/authz).
+Dependency audit (`uvx pip-audit`) reported no known vulnerabilities on
+2026-11-17.
 
 Coverage by area (newest first):
+- `test_authz.py` — 30: the Phase B authorization suite — permission matrix
+  (member/admin/owner × settings/danger/users, HTML + JSON, gate on and off),
+  `owner_id` stamping (member vs owner/admin vs gate off), board/API/facet
+  scoping, dashboard `stage_counts`/`total_prospects`/`needs_attention`
+  scoping, outreach-region scoping, hidden ≡ missing byte-identical 404
+  (prospect + child row, HTML + JSON), dedupe scoping, the leak-free
+  duplicate message (identical for visible and hidden conflicts, page and
+  PATCH paths), Account page + change-password (rate limit → 429, other
+  sessions revoked), Users CRUD, self-lockout guards, role-filtered tab strip
+  and setup cluster, gate-bound Account rail link
 - `test_provider_status.py` — 11: Settings → Providers page + JSON twin,
   key values never leak into either surface, Brave reported as config-only,
   `enabled` follows the real factories (only the selected provider reads as
@@ -220,7 +232,7 @@ Coverage by area (newest first):
   reply form + API (D4), merge identical-findings (N1), merge suppression
   propagation (N3), worker claim resilience (N2), **no inline event
   handlers in any template** (CSP — found by the browser pass)
-- `test_auth.py` — 36: login gate, session cookie, redirects, rotation
+- `test_auth.py` — 47: gate on/off, first-run `/setup`, login success/failure/rate-limit/disabled, CSRF + rotation, session revocation (logout / logout-all / disable / reset), sliding expiry, tampered/expired/garbage cookies, allowlist, `next` open-redirect guard, signup gating, forgot/reset flow, users + authz services
 - `test_discovery_and_views.py` — 11: discovery trigger + worker e2e,
   saved views save/apply/whitelist, follow-up idempotency both surfaces
 - `test_suppression_and_stages.py` — 12: suppression round trips both
@@ -248,7 +260,7 @@ Coverage by area (newest first):
 | Saved Views | Save current list filters; Apply from Settings (whitelisted filters) | ✅ Implemented + tested (2026-11-10) |
 | Fuzzy Merge UI | Prefiltered duplicate review + merge (findings collision-safe, suppression propagated) | ✅ Implemented + tested (2026-11-10) |
 | Retention Sweep | Clamp 1..120 months, truthful `skipped`, clear flag | ✅ Implemented + tested (2026-11-10) |
-| Access gate | `APP_ACCESS_TOKEN` login gate with signed sliding sessions | ✅ Implemented + tested (2026-11-10) |
+| Access gate | `APP_ACCESS_TOKEN` gate switch → accounts (scrypt), roles (owner/admin/member), revocable DB sessions | ✅ Implemented + tested (2026-11-18) |
 
 ## Manual QA walkthrough — 2026-11-10 (post-fix re-verification)
 
@@ -287,9 +299,10 @@ First real-browser pass over the previously cookie-jar-only behaviors
      404 silenced with `<link rel="icon" href="data:,">`.
 - Help overlay: `?` opens; Close button and backdrop both close (they
   didn't before this pass).
-- Regression tests added: CSP carries the hash and never `unsafe-inline`
-  (`test_smoke.py`); no template may contain an inline event handler
-  (`test_regressions_round4.py`).
+- Regression tests added: the global app CSP carries the hash and never
+  `unsafe-inline` (the two docs routes' scoped exception is tested separately
+  in `test_ui_polish_round5.py`); no template may contain an inline event
+  handler (`test_regressions_round4.py`).
 
 ## Live smoke — Phase 1, keyless — 2026-11-10
 
@@ -451,8 +464,8 @@ unit test into a live call (AGENTS §7).
 
 ## Known gaps (spec promises not yet built)
 
-Two, both **explicitly deferred with a reason** (recorded here rather than
-silently dropped; the matching spec text now says so):
+Four, all **explicitly recorded rather than silently dropped** (the matching
+spec text now says so):
 
 1. **Providers page affordances** — the status page shipped 2026-11-11
    (read-only; it 404'd before, closing the Phase 2 exit criterion *"Settings
@@ -464,6 +477,26 @@ silently dropped; the matching spec text now says so):
 2. **`GET /settings` index** — API_DESIGN §1 listed a settings index route;
    the nav has always linked straight to the sub-pages, so no index exists.
    Amended in API_DESIGN to say so.
+3. **Prospect erasure route** — `SECURITY_AND_PRIVACY.md` §7 and
+   `DATABASE_DESIGN.md` §3 promise `DELETE /prospects/{id}?confirm=erase`
+   (hard delete, cascade, tombstone audit entry containing no personal data)
+   and API_DESIGN §2.1 lists it, but no such route exists in `app/routes/*`
+   and no service implements it — the only deletion in the product today is
+   `POST /settings/users/{id}/delete` (accounts). Marked unbuilt in
+   API_DESIGN 2026-11-19. **Needs an owner decision** (hard delete vs
+   archive-only is a P5/erasure tradeoff), so it was *not* quietly
+   implemented as part of the auth work. The same pass marked API_DESIGN
+   §2.8's `GET /usage` and `PATCH /settings` rows unbuilt — usage is HTML-only
+   at `GET /settings/usage`.
+4. **Table stacking breakpoint (spec vs CSS, found 2026-11-19):**
+   `UI_UX_SPECIFICATION.md` §7 promises tables stack with `data-label` headers
+   at **768–1023px** and again at **&lt;768px**, but every stacking rule in
+   `app/static/css/app.css` sits in `@media (max-width: 639px)` — so tables
+   only stack at ≤639px, and the 640–767px band shows a normal table. **Needs
+   an owner decision:** either the CSS moves to `max-width: 767px` (closer to
+   the spec, but stacks tables where there is room for real columns) or the
+   spec is amended to 639px. Not changed unilaterally — §7 is a binding
+   design decision (AGENTS.md §2).
 
 Closed earlier and covered by tests: findings evidence CRUD, notes surface
 (Flow 9), HTMX research-progress polling (`test_findings_crud.py`,
@@ -501,10 +534,11 @@ are live, not "not implemented".
 - **Deterministic:** `uv run pytest` 330 passed · `ruff check` / `ruff format
   --check` clean · `mypy app` clean · 61/61 CSS vars defined, 0 orphans ·
   0 old-palette refs, 0 `style=` attrs in templates, no `prefers-color-scheme`.
-- **Owner decisions applied during review:** Docs nav link removed (`/api/docs`
-  is an empty shell under the CSP — Swagger CDN blocked; revisit when a docs
-  surface exists); per-row Merge button uses new `.btn.danger-outline` so solid
-  red stays reserved for delete-grade actions.
+- **Owner decisions applied during review:** Docs nav link removed (since
+  superseded 2026-11-24: `/api/docs` and `/api/redoc` now render from local
+  pinned bundles under a docs-only CSP exception); per-row Merge button uses
+  new `.btn.danger-outline` so solid red stays reserved for delete-grade
+  actions.
 - **Known:** one pre-existing flaky network test
   (`test_safe_fetcher_allows_public_url_validation`, DNS-timing; passes in
   isolation and on re-run). Synthetic verification prospects were created and
@@ -517,3 +551,613 @@ are live, not "not implemented".
   3 synthetic prospects (1 transitioned to `researched` for mixed counts);
   screenshots reviewed, then rows deleted — DB back to `0 prospects`,
   `integrity_check ok`. Spec §2.1 updated in the same change.
+
+## Pipeline Canvas V2 — automated contract pass — 2026-11-16
+
+**Scope:** the canvas-only port specified in `docs/design/pipeline-canvas.md`
+§V2 (owner-approved 2026-11-12). One screen — setup-card cluster, stage board,
+outreach region — replaces the standalone pages; routes remain as deep links.
+Test tracker: `docs/design/canvas-implementation-tasks.md`.
+
+**Automated evidence** (`tests/test_canvas_contract.py`, 43 tests):
+
+| Contract | Check | Status |
+|---|---|---|
+| Deep links (§V2.2) | Every retired setup route (`/`, `/status`, all `/settings/*`, `/merge/duplicates`) returns the canvas shell with the right card pre-opened (`data-panel-open`) | pass |
+| HTMX branch | The same routes with `HX-Request: true` return the panel fragment only (no document/canvas chrome) | pass |
+| Dual render | Plain GET and HX fragment render the same card heading/body (one partial source) | pass |
+| Board fragment | `GET /prospects` + HX returns zones only; plain GET returns the full canvas | pass |
+| Rail v2 | No settings/merge links in the rail; Canvas + Shortcuts/Sign out only | pass |
+| Detail panels | `/prospects/new`, `/prospects/{id}`, `/prospects/{id}/edit`, `/prospects/{id}/research`, `/messages/{id}/edit` open the correct panel and render their content | pass |
+| Saved views toolbar | Picker lists `/prospects/views/{id}/apply`; the filters panel renders the "Save this view" form when filters are active | pass |
+| Filter chips + lens (B3) | Each active filter is a removable link that preserves the others; booleans stay truthy; stage lens renders a single matching zone and exposes **Show all zones**; nothing when unfiltered | pass — 5 tests |
+| Filters panel | `/prospects/filters` opens the 360px panel, HX returns its body only, and the toolbar button carries the current query | pass — `test_filters_panel_and_stage_lens` |
+| Outreach HX + panel posts (B4) | `/outreach` + HX returns the region fragment; panel forms `hx-post` to their own action (no 405 to the page URL); prospect form labels are explicitly associated; redirect `?flash=` confirmations render | pass — 3 tests |
+| Performance | 5,000-prospect canvas render stays under the Phase 5 budget after removing the per-render fuzzy-duplicate scan | pass — `test_phase5_performance.py` |
+
+**Responsive pass — 2026-11-16** (Playwright viewport emulation, local
+screenshots in gitignored `.ui-qa/phase-b/`):
+
+| Width | Evidence |
+|---|---|
+| 375 / 430 | Stacked flow; **119px toolbar**; setup cluster **2-column** (398px; board starts 657px); **68px cards with 12px gaps**, 12px setup gap; full card meta/status rows (mobile is never density-compact); no overflow/console errors |
+| 768 | Stacked flow; **111px toolbar**; setup 348px (board at 547px); 12px card/setup gaps; no overflow |
+| 1280 | One **49px** toolbar row (saved view hidden below 1280, available in Filters); board fit at 93% |
+| 1440 | One **49px** toolbar row; board fit at **100%**; Home fits the whole world at 60% with no wire text; `?stage=` keeps all 10 lanes and dims the non-matching ones (no >125% auto-zoom) |
+
+**Raw screenshots (gitignored):** `.ui-qa/phase-b/1440-filtered.png`,
+`1440-overview.png`, `1440-filters-panel.png`, `1440-lens.png`,
+`1280-filtered.png`, `768-filtered.png`, `430-collapsed.png`,
+`375-collapsed.png`, `375-filters-panel.png`.
+
+**Amendment 2026-11-16:** the stacked flow applies below **1024px** (was
+768px) because the world cannot fit at the 0.5 zoom floor at 768. At phone
+widths the setup cluster is a 2-column grid with **no wire notes**, saved
+views live only in the Filters panel, cards keep full meta/status (never
+density-compact), and the toolbar is 119px; first load fits the **board**
+(Home fits the whole world). **Wire annotations and setup→pipeline connectors
+are removed**; only orthogonal stage-flow connectors remain. Card/setup/
+outreach gaps are 12/16/12px to prevent crowded or overlapping cards. The
+stage lens keeps every lane visible and dims the non-matching ones (no auto-
+zoom above 125%).
+
+**Accessibility evidence — 2026-11-16** (Playwright + axe-core 4.10 + Lighthouse):
+
+| Check | Result |
+|---|---|
+| axe-core WCAG 2.0/2.1 A+AA | **0 violations**, 24–25 passes at 1440 (canvas/chips), 375 (stacked), 375 + filters panel + Add-prospect panel, and `/outreach` + message panel |
+| Lighthouse accessibility | **1.0** (desktop); best-practices 1.0; SEO 0.75 (only missing meta description) |
+| Computed contrast | heading/muted 7.7:1 · subtle 6.03:1 · filter chip 5.47:1 · primary action 6.76:1 · zone title 7.7:1 (all ≥ AA) |
+| Focus trap / Escape / backdrop | panel focus wraps; Escape and backdrop close and restore invoker focus |
+| Dirty-form confirm | cancel keeps the panel + typed value; accept closes |
+| Keyboard map | `?` help, `/` search, `j`/`k` highlight, `Enter` open card, `m` move menu, `g p` 86% / `g o` 100% / `g s` Status panel, `+`/`−`/`0`/`f`; plain wheel zooms at the pointer, Ctrl/Cmd+wheel pans (browser-verified) |
+| Reduced motion | `prefers-reduced-motion: reduce` → 0.01ms transitions/animations |
+| Prospect form labels | 10 fields associated with explicit `for`/`id`; `test_prospect_form_labels_are_associated` |
+
+**Outreach interaction pass — 2026-11-16 (B4):** message card → panel →
+pending approve moved the card to Approved and refreshed the region; the
+approved panel offers only **Open in WhatsApp** (P1 — no auto-send); opened
+message → **Confirm sent** recorded the confirmation and removed it from the
+region. Fixed along the way: pan no longer captures setup/message link clicks;
+panel forms `hx-post` to their own action (previously 405 to the page URL);
+board/outreach regions refresh from HX fragments after panel posts.
+
+**Regression note:** the first canvas pass called `find_fuzzy_duplicates()` on
+every render as part of the setup-card meta line (~99 ms at 5,000 prospects,
+of a 113 ms response). The Merge card now computes pairs when opened; the meta
+line is a static advertisement. The Phase 5 budget is restored.
+
+**Not yet verified (open):**
+- Full manual re-walk of flows 0–11 after the canvas port (services are
+  unchanged and all flow tests pass, but the UI paths moved).
+
+## UX refinement pass — 2026-11-16
+
+- **Canvas at 1280/1440/1920:** no horizontal overflow; board fills the
+  viewport width at a readable 0.97–1.5×; selecting a card keeps it fully
+  visible beside the 560px drawer; no text below 13px body / 12px meta (floor
+  raised 2026-11-24; this pass measured the older 11px floor).
+- **390/768:** stacked canvas, full card meta, no overflow; prospect/settings
+  drawers are full-width (390) or 560px (768) with sticky headers.
+- **Guards browser-verified:** reply hidden without a sent message and for
+  terminal prospects; WhatsApp disabled without a phone; Generate draft
+  disabled without a validated opportunity; View research disabled when no
+  run; stage submit disabled until a transition is chosen.
+- **Consistency:** Flow references removed; “candidates” → “prospects”;
+  Merge node/drawer renamed Duplicates; links blue, filter/phase/region chips
+  neutral, destructive actions outlined.
+
+## Design-skill audit — 2026-11-16
+
+**Impeccable detector** (1440/390; `/prospects`, `/prospects/1`, `/settings/profile`,
+`/outreach`, `/settings/usage`): after fixes, no quality warnings. Remaining
+`nested-cards` warnings are the board's intentional structure (stage lanes
+containing prospect cards), not decorative card stacks.
+
+**Taste Skill browser consistency** (1440/390): fixed the genuine findings —
+clipped prospect meta, flat heading scale, off-screen keyboard focus, run-on
+zone/message headings, missing description/share metadata, and sub-44px mobile
+targets. Remaining FAILs are marketing-page rules that do not apply to a
+full-bleed app canvas and are waived with reasons: container margins,
+hero-screen fold, three intentional button variants, setup-card navigation
+links, lane/card nesting, and "the section needs a visual" (the canvas is the
+visual). Open WARNs: copy length, no marketing moment, logout form status line,
+and label-centre/stranded-action on setup cards.
+
+**Lighthouse after the pass:** accessibility 1.0 · best-practices 1.0 · SEO 1.0.
+
+## Spacing / padding / alignment pass — 2026-11-16
+
+- Adds the `--space-1…7` scale (4/8/12/16/24/32/48), 6/8/12 radii, and
+  32/36px control heights; toolbar, rail, board nodes, cards, zoom controls
+  and drawers use them.
+- Prospect cards: 12px padding, 4px title→meta, 8px meta→footer, no fixed
+  text heights; meta line-height 1.4 with descender padding; 24px pills with
+  8px gaps and 4px wrap gap; 28px menus; wrapped pill rows align the
+  today/menu group to the last row.
+- Board: 24px between nodes, 48px lane rows, 12px label→row; fit-to-view
+  includes Terminal + the full Messages lane with 48px padding; inventory
+  gap is 48px; card focus is capped at 100–110%.
+- Drawers: 16px outer padding, 16px card rhythm, 12px radius, 36px inputs,
+  8px label/helper gaps, 16px field groups, 40px close column with 12px gap,
+  scroll-only header shadow and dynamic scroll-padding; danger zone has a
+  red inset card and aligned 36px controls.
+- Browser-verified at 1280, 1440, 1920 and drawer widths 768/390.
+
+## Card stage tag + header/copy cleanup — 2026-11-16
+
+- Prospect cards: the stage tag moved from the footer pill row to the card's
+  top-right corner as a compact outlined uppercase label in the stage hue
+  (10px, 20px tall, 48% max width, ellipsis + title tooltip). The status dot
+  moved into the footer badge row, vertically centered; compact density keeps
+  a name-row dot copy so the hot signal survives when the footer is hidden.
+  Wrapped pill rows still bottom-align the today/menu group. Card heights
+  stay uniform (103px at 100%).
+- Canvas toolbar: 52px row + hairline (rail head matched), 16px control gaps,
+  title group left and saved-view/primary group right with a 24px gap before
+  Add prospect. Saved view uses an uppercase micro-label; Filters count badge
+  is 20px. Active filters get a full-width darker band with a top hairline,
+  12px vertical padding, 13px/32px chips, and hairline-separated Clear all.
+  Verified at 1470, 1280, 1024, 768 and 390; no horizontal overflow.
+- Region labels are chip + count only ("PIPE · N on the board",
+  "MSG · N in flight") because the toolbar h1 already names the surface.
+- Copy audit removed self-referential panel subtitles (General, Status,
+  Saved views), shortened Import/Usage/Profile/Filters intros, dropped the
+  duplicate Retention section heading and threshold helper, removed the
+  repeated Role column from the Discovery/Search provider tables, renamed
+  the note field to "Note", the reply submit to "Save reply", the research
+  jump link to "Go to research", the finding submit to "Save finding", and
+  dropped the message-history "Status:" prefix (status stays in the sticky
+  header). Retention's flagged-copy now says "longer than the current
+  threshold" instead of the stale 12 months.
+- Gate: 375 tests, ruff, format and mypy clean.
+
+## Setup-panel layout + copy pass — 2026-11-16
+
+- Providers: replaced the four stacked 6/7-column tables with one grouped row
+  list (Discovery / Search / Website fetch / AI drafts). Each row is provider
+  name + configured/enabled flags + one `used today / cap` ratio; last failure
+  only renders when present. Keys/caps note and Advanced moved to a card
+  footer that applies to every group. No horizontal scrolling at 560/390.
+- Saved Views: compact create callout plus a row list (name + created date,
+  filter chips, Load/delete). Removed the "Named views" heading and "Load a
+  view…" helper; per-row Load is a secondary button.
+- Profile: one fields card + one Discovery card; removed the duplicate
+  "Finish your profile" banner and panel subtitle. The prerequisite is stated
+  once beside the disabled Run discovery action. Discovery jobs render as
+  compact run rows instead of a 5-column table.
+- General: Follow-ups + Vocabulary merged into one Defaults card with Save/
+  Cancel inside it; daily caps table drops the duplicated cap column and shows
+  `used / cap` once; Brave reads "unmetered" instead of "key set".
+- Retention: removed the duplicate panel subtitle and added a Sweep threshold
+  heading; flagged table unchanged.
+- Browser-verified at 1440 and 390; 375 tests, ruff, format and mypy clean.
+
+## Message panel arrangement — 2026-11-16
+
+- Header: `← Back to prospect` sits above the prospect name and its
+  stage/message badges; the 40px close column stays clear. Back uses the
+  existing `data-panel-back` behavior in panel mode.
+- Draft editor: the character count moved from below the form to directly
+  under the textarea, right-aligned.
+- Message history: replaced the run-on sentence with label/value rows
+  (Origin, Created, Approved, Opened, Send confirmed); the P5 AI warning is a
+  separate note under the list.
+- Canvas shell flash now renders strings only, so the full-page message deep
+  link no longer prints the `OutreachMessage` ORM repr above the toolbar.
+  Regression test added in `tests/test_canvas_contract.py`.
+- Verified at 1440 and 390; 376 tests, ruff, format and mypy clean.
+
+## Release-readiness pass — 2026-11-17
+
+- Gate on the committed tree: **378 passed / 0 failed**; `ruff check`,
+  `ruff format --check` and `mypy app` clean.
+- Dependency audit: `uvx pip-audit` → **no known vulnerabilities** (2026-11-17).
+- Fresh-install drill: empty SQLite file → `alembic upgrade head` → 20 tables
+  at revision `3b7e5d9a1c42`; app boots against it.
+- Access-gate smoke on the fresh DB with `APP_ACCESS_TOKEN` set:
+  `/healthz` 200, `/login` 200, `/prospects` 302 to login, `/api/docs` 401.
+- Backup drill: `python -m app.cli backup` writes a snapshot to `backups/`.
+- Service packaging: Linux user units for app, worker and a daily backup timer
+  added under `deploy/systemd/` with install/verify/remove instructions.
+- Release process documented in `docs/RELEASE_CHECKLIST.md` (gate, migration
+  and restore drills, doc consistency, tagging, rollback).
+- **Fix: CSV row cap rejected instead of truncated.** `parse_csv` used to stop
+  reading at `csv_max_rows`, so a 10,000-row file produced a preview whose
+  "rows in file" number was wrong and whose overflow rows vanished without a
+  word. It now raises a clear error (400 on both the import page and
+  `/api/v1/imports/preview`), matching the panel hint and SECURITY §1/§9.
+  Covered by `tests/test_csv_import.py::test_parse_csv_rejects_rows_over_the_cap`
+  and `::test_row_cap_rejected_on_both_surfaces`.
+- Docs reconciled: SECURITY §9 all eight abuse cases checked with their
+  owning tests; §10 audit command corrected to `uvx pip-audit`; §4's nonexistent
+  `DEBUG=true` guard removed; §3 now states plainly that the cookie `Secure`
+  flag is hardcoded off and must be flipped for TLS/LAN deployments; test-count
+  strings updated in `QA_CHECKLIST.md` and `design/pipeline-canvas.md`.
+
+## Full browser QA pass — 2026-11-17 (findings + fixes)
+
+Interactive pass over the running app (Chrome desktop + headless sweeps at
+375/768/1024/1280/1320/1440), seeded synthetic DB: dashboard/status, filters
++ chips + saved views, add prospect, detail panel (research → findings →
+reply → notes → suppression round trip), message draft → approve → open chain,
+setup cards (Usage, Providers, Import, General, Retention, Saved views), board
+refresh and error paths. **Six defects found and fixed:**
+
+| # | Finding | Fix | Verified |
+|---|---|---|---|
+| 1 | First-load fit collapsed to the 0.5 floor (50–52% at 375–1440, `density-compact`) — a `8f97c7c` regression against §V2.1 "fits the board **width**, min 0.93, pan instead of shrinking" | `fitBoardReadable()` fits width only, floors at `MIN_READABLE = 0.93`, centres when it fits and flush-mounts at the 48px pad otherwise (`canvas.js`) | Headless: **93% + density-full at 375/768/1280/1320/1440**; pinned by `test_canvas_fit_keeps_the_readable_floor` |
+| 2 | Any HTMX 4xx (e.g. "A reason is required to clear suppression", approval without acknowledgement) **wiped the panel** with a misleading "Couldn't load this panel. Check your connection" + Retry, destroying the form | `htmx:responseError` now leaves the panel alone for HTTP ≥400 — `beforeSwap` already toasted the server's real reason; only transport failures get the retry state | Live: empty-reason clear → toast shows the reason, panel keeps all 5 forms; `test_panel_http_errors_keep_the_form` |
+| 3 | A redirect flash rendered **three times**: shell banner + two identical toasts (`message` and `?flash=` are the same string) | `partials/flashes.html` de-duplicates and skips the message the canvas banner already shows; the banner carries `role="status"` for the announcement | Live: notice count **1**, no toast container on canvas; `test_flash_query_renders_exactly_one_notice` |
+| 4 | After a validation error every optional prospect field showed the literal text **"None"**; the error banner repeated the field name ("business name: business name is required") | Inputs render `… or ''` for `None`; the banner lists each validator message once (they already name their field) | `test_form_values_never_render_python_none`, `test_validation_error_banner_does_not_repeat_the_field`; live re-render clean |
+| 5 | A required `Form(...)` missing from the POST returned a **raw JSON 422** and threw away the canvas (FastAPI rejects before the route's `field_errors` page) | `RequestValidationError` handler renders a readable 400 page (`templates/error.html`) for HTML posts; JSON/API keeps the 422 contract | Live: field removed → styled 400 page + "Back to the pipeline"; `test_missing_required_form_field_returns_readable_html` |
+| 6 | Research panel only polled while `running`, so an open panel froze on **"queued / no findings"** after the worker finished | Polls while `queued` too, adds "waiting for the worker" copy, hides Re-run while queued | `test_queued_run_polls_for_the_worker` (page + fragment) |
+| 7 | htmx settled the `style` attribute on board/outreach region swaps → **CSP violation after every `data-refresh-board` action** (blocked write; layout re-applied by `canvas.js`) | `htmx-config` meta settles `class/width/height` only — no `unsafe-hashes` added to the CSP | Live: reply → board refresh → **0 CSP violations**; CSP directive unchanged |
+
+Also verified in this pass: filter apply/chip-remove/Clear all, saved-view
+apply, add prospect (400 validation → create → `14 on the board` + detail
+panel), reply recording (activity + stage unchanged from `converted`),
+suppression set/clear round trip (guards remove Generate draft/WhatsApp),
+message approve with ungrounded acknowledgement, Usage/Providers/Import/
+General drawers, `.env` line-29 dotenv parse warning fixed, **Lighthouse
+a11y 1.0 / best-practices 1.0 / SEO 1.0 with 0 failures** and **0 console
+errors** on `/`, `/prospects`, `/outreach`, `/prospects/14/research`,
+`/prospects/new`.
+
+Gate: **385 tests**, `ruff check`, `ruff format --check`, `mypy app` clean.
+
+### Known/observed, not defects
+
+- Canvas zoom reached 200% once during the pass and was restored from the
+  saved camera on later loads — 200% is the documented max (wheel/`+`), so this
+  is a user-zoomed view being remembered; no code path was identified writing
+  it, and it did not reproduce.
+- "AI (template) → Configured: **no**" in General → Daily caps is literally
+  correct (template needs no key) but reads oddly next to a working AI floor.
+- Import shows the native file control ("Choose File / No file chosen") inside
+  the drop zone — functional, styled only.
+- "Run research" / "Archive prospect" post as plain forms (full navigation)
+  while every other panel action is HTMX; each lands on a sensible page, so it
+  is an inconsistency rather than a bug.
+- Long stage names truncate on the card tag by design (48% max + title
+  tooltip), e.g. "OPPORTUNITY IDE…".
+
+
+## Borderless + label + motion pass — 2026-11-17 (owner directives)
+
+Seven element comments plus three system directives were taken as one pass:
+
+| Directive | What shipped |
+|---|---|
+| "arrange element properly" — Danger zone | Blocks share one head layout: `h4` + status badge + reason inline (the `Status:` line is gone); fields and actions align the same way in all three blocks |
+| "cleanup" — Activity | `payload\|tojson` replaced by `describe_payload()`: `reason: asked to be removed`, `run id: 5 · status: succeeded · steps: search ok, inspect failed` — never a JSON blob, wrapped on its own line |
+| "cleanup labels … all pages" (decision: **drop them**) | Self-evident card headings removed from detail, message and research panels (Key facts, Research, Opportunities, Outreach, Notes, Activity, Record reply, Follow-ups, Draft editor, Grounding, Send chain, Message history, Research status, Findings). Headings kept only where they group controls (Defaults, Daily caps, Backup, Discovery, Danger zone, Add finding, flow steps) |
+| "arrange element properly" — Outreach | State row (status + origin + grounding) → message preview (left-rule block) → actions; no more badges inside an `action-group` and no `Message` definition row |
+| "fix the ui issue" — suppression banner | Moved **below** the sticky header in detail and message panels, so the header (and close button) own the panel's top row |
+| "arrange element properly" — detail head | One wrapping row: name + badges inline, `Edit details` opposite and centred; head padding tightened. Titles are now `<h2>` (axe `heading-order` back to 1.0) |
+| "too many bright colors in all cards" (decision: **neutral tags, colour = signal**) | Every prospect-card chip neutral (`raised` fill + muted text); red only for suppression/failure, amber for `check failed`; tints brightened so borderless chips still read as blocks |
+| "another design entirely for the tags that bends with the card" (decision: **edge-fused tab**) | Stage pill → sunken corner tab: negative margins pull it onto the card edge, radius `0 8px 0 6px` matches the card, no outline; `do not contact` keeps the danger tint |
+| "remove the border outline from all elements, use shade contrast" | Full borderless pass: cards, zones, panels, drawers, badges, chips, buttons, inputs, banners, tooltips, menus, tables are fill-only. Ladder `#090a0c → #171a20 → #1f232a → #292d35` + `--color-field #0e1014`; `--color-border` demoted to dividers (no `border: 1px solid var(--color-border)` box survives in either stylesheet — pinned by a test); focus rings and error borders untouched (≥3:1) |
+| "some of the canvas is too fast, make it smooth" | `--dur-base` 150→200ms, new `--dur-slow` 320ms + `--ease-out` decelerating curve; drawer slide and sidenav use slow, card snap-back uses base, toast slide eases; `prefers-reduced-motion` zeroes the new token too. Pan/zoom stays untransitioned (direct manipulation, §2.1) |
+
+Also fixed while verifying: research findings tables squeezed their statement
+column into a ribbon — statement cells now hold a 240px measure and the table
+scrolls (`.panel-body` min-width 680px).
+
+**Verification:** headless captures at 1440 (board, suppressed detail 3000px
+tall, settings, research) and 390; Lighthouse **a11y/best-practices/SEO 1.0
+with 0 failures on both `/prospects` and `/prospects/11`**; 0 console errors
+on `/`, `/prospects`, `/prospects/11`, `/prospects/14/research`,
+`/settings/general`, `/outreach`, `/prospects?category=hotel`; gate **392
+tests**, ruff/format/mypy clean. Contract tests added: dropped labels, `<h2>`
+titles, human payloads, neutral-vs-signal chips, fused stage tab, no box
+outlines, smooth motion.
+
+
+## Canvas usability pass (owner directives) — 2026-11-17 (part 2)
+
+| Directive | Shipped |
+|---|---|
+| "remove all em dashes between text" | Every rendered route checked: `/prospects`, `/prospects/11`, `/settings/general`, `/settings/providers`, `/outreach`, `/settings/import`, `/settings/usage`, `/prospects/14/research` return **0 em dashes**. Templates, JS strings, service/route messages and the QA DB's provider statements converted (`·` for separators, `.`/`;` for clauses). Python/JS/template *comments* keep them (never rendered); pinned by `test_rendered_pages_carry_no_em_dashes` |
+| "btn that properly arranges the elements when they are scattered" | New **Arrange** control (`data-canvas="tidy"`) beside zoom/fit: clears saved zone positions → default layout → fit the world. `PlCanvas.tidy` exported; pinned by `test_arrange_control_and_layout_reset` |
+| "resize to mobile and back → connecting lines scattered, no reset" | `canvas.js` now listens to `resize`: wires always redraw (rAF), and crossing the 1024px stacked/wide breakpoint drops the saved coordinates (they only fit the layout they were dragged in), re-runs `applyDefaultLayout()` and fits. No viewport-resize tool exists in this browser harness, so the fix is pinned at source level (same test) and should get one manual desktop check |
+| "make the cards on canvas bigger with more spacing in and out" | `--card-h` 72→**84px**, `--card-gap` 12→**16px**, `--zone-pad` 8→**12px**, `--zone-w` 264→**288px** (JS `ZONE_W` mirrored), card inset token `--card-pad` (16px, 12px compact — the fused stage tab follows it), message cards 16px padding, setup grid 248px columns with 24px gaps. `test_cards_have_more_room` |
+| "remove unnecessary texts e.g. No notes yet." | Dropped: `No notes yet.`, `No activity yet.` (card renders only with activity), `No findings yet. Run research…`, `Generate draft is disabled…` (the disabled button's title/aria says it), `Not researched yet. Use Run research above…`, the whole send-chain paragraph (the confirm dialog carries the warning), the `—` placeholder cell in Import |
+| "clean up the Danger zone text" | `Reason (required)`; stage label removed (placeholder `Move to…`), button `Move`; `Archive` (was "Archive prospect"); `Block outreach` (was a second "Do not contact"); status stays inline in the block head. `test_danger_zone_copy_is_not_repetitive` |
+| "remove unnecessary text / labels / elements project-wide" | Sweep: providers notes → `·`, usage `· blocked`, filters/import/general copy rewritten, spec jargon `(P4)`/`(P5)` dropped from user-facing sentences, activity payloads already human, message panel hint placed **outside** the button row, message panel now disables Open-in-WhatsApp without a phone (it was the only surface letting the click fail server-side) |
+| "sidebar: proper grouping and separation" | Drawer gained a **Session** group label with one hairline above it (`.rail-foot` border always on; removed the double rule inside the Sign-out form). `test_nav_marks_the_current_screen` |
+| "active state is not working, only hover styling" | Server marks `Home` active on `/` + `/prospects` and `Messages` on `/outreach` (Status already); canvas view clicks sync `.active` across the rail/drawer |
+| "setup card: no underline on hover, add hover states" | `.canvas-screen a:hover { text-decoration: none }` + setup card = fill step + 1px lift + `--shadow-1`; message cards gained the same fill hover |
+| "filter bar overlapping the top bar" | The active-filter band is now a **sibling row below** the toolbar (was a flex child with `order:10`), verified at 390/768/900/1280/1440. `test_active_filter_band_sits_outside_the_toolbar` |
+| "message head: arrange + tag design (and everywhere else)" | Both heads: name left, **tags riding the right edge**, actions beside them (`.badge-row { margin-left: auto }`), back link on its own line |
+
+Verification: headless captures at 1440 (board, filtered band, 2400px detail,
+message) and 390; gate **398 passed** (64 in the canvas contract suite),
+ruff/format/mypy clean. Manual checks still open: Arrange click
+and the mobile→desktop resize need a real viewport (no resize tool in this
+harness).
+
+
+## Critique fixes (impeccable pass) — 2026-11-17
+
+Source: `.impeccable/critique/2026-11-17T11-58-49Z__127-0-0-1-prospects.md`
+(dual-agent, 32/40; detector: 4 warnings → 2 unique, both adjudicated false
+positives). Owner answered: fix all five priority issues in order, stage tab
+only where it carries information, sync URL + aria-current.
+
+| Priority issue | Fix | Verified |
+|---|---|---|
+| P1 · research table scrolls Verification/Actions out of reach | Findings restacked into rows: statement on its own line, then kind/verification/confidence/origin + source + Verify/Edit/Delete (`.finding-list`) | Screenshot: Verify visible without horizontal scroll; contract tests green |
+| P1 · approval queue clipped from the default fit | Toolbar carries `Pending review · N` with a warn dot; clicking it pans to the messages region (`data-canvas-view="outreach"`) (2026-11-24 follow-up: the default fit now frames the pending zone itself) | `test_toolbar_surfaces_the_approval_queue`; chip renders `· 1` live on every canvas page |
+| P1 · "you are here" disagreed with itself | SSR marks exactly one view (`/`→Home, `/prospects*`→Board, `/outreach`→Messages) with `aria-current`; view clicks now move `.active` **and** `aria-current`, update the `h1`, and `history.replaceState` the path (query preserved) | Live: `/`→Home, `/prospects`→Board, `/outreach`→Messages with h1 "Message pipeline", one `aria-current` per page, 0 console errors on 6 routes; `test_nav_marks_the_current_screen` |
+| P2 · approval copy contradicted P1 and differed per panel | Both panels confirm with *"Approve this draft? Opening WhatsApp is a separate step; you press Send."*; the ungrounded acknowledgement renders **only** when the draft has no grounding | `test_approval_gate_copy_and_ack_follow_grounding` (both surfaces, both states) |
+| P2 · suppressed prospect said "you can't" three times | Banner keeps the reason + gains **`Undo: Clear suppression`** beside it; the two muted restatements are gone; the Opportunities and Outreach cards (whose only content was the restatement) are skipped while suppressed, and the Outreach tab is hidden so no anchor dangles | Live screenshot + `test_danger_zone_copy_is_not_repetitive` |
+| Owner decision · stage tab | Renders only in the Terminal frame | `test_stage_tab_only_where_stages_share_a_frame` (terminal has it, lane card doesn't) |
+
+Bonus fix found while testing: the detail panel never received
+`grounded_findings` (only the message routes computed it), so "Grounded in"
+was dead there and the acknowledgement condition could not work — the detail
+route now queries it from `active_message.grounding`.
+
+Gate: **400 tests**, ruff/format/mypy clean; 0 console errors on 6 routes.
+
+
+### Owner follow-up directives — 2026-11-17 (post-critique panel polish)
+
+| Directive | Change | Verified |
+|---|---|---|
+| "remove Do not contact" | The `h4` sub-heading is gone; the block reads by its status badge + action (Danger zone frame carries the section) | Live panel + `test_danger_zone_copy_is_not_repetitive` |
+| explanation "should be above the btn" | "Blocks drafts, approvals and WhatsApp actions. Clearing requires a reason." moved inside the form, directly above `Block outreach` | Live panel + contract assert (paragraph index < button index) |
+| "Archive the btn should be in front not under" | Archive/Restore form now rides the `.danger-block-head` row beside the heading (flex row; head h4 margin zeroed so the pair centers) | Regex assert: button inside the head div; live panel |
+| ""Not suppressed" in front not above Reason (optional)" | Badge moved onto the label row: `Reason (optional) [Not suppressed]` (head exists only while suppressed) | Exact-string assert; live panel |
+| "rmove this Overview Research Outreach Activity" | `.detail-tabs` nav removed from the template and its CSS rules deleted; sections reached by scrolling | `assert "detail-tabs" not in html`; live panel |
+| Gate after pass | 401 tests, ruff/format/mypy clean, assets `?v=61` | full suite |
+
+
+## Critique run 2 fixes (impeccable pass) — 2026-11-18
+
+Source: `.impeccable/critique/2026-11-18T05-13-18Z__127-0-0-1-prospects.md`
+(dual-agent, 30/40; trend 32 → 30; detector 4 warnings, all adjudicated false
+positives/defensible). Owner pre-authorized: "proceed wit th fix" — all five
+priority issues in order, no question round.
+
+| Priority issue | Fix | Verified |
+|---|---|---|
+| P1 · `.pending-chip` rendered as a raw UA button (run-1 regression: markup without CSS) | Token styles in canvas.css (field fill, radius-md, control-h-md, mono label, 7px warn dot, accent focus-visible) | CDP computed style: mono 13px, field bg, radius 8, dot 7×7 warn; contract test |
+| P1 · one zoom-out click stripped every safety badge (0.93/1.25 = 0.744 < floor) | `density-compact` hides only `.pc-meta`; the status foot (badges + due text) stays; compensating name-row dot rule removed; spec §2.5 amended | CDP at 74%: foot display=flex, "check failed" badge visible, meta none; `test_compact_density_never_hides_status_foot` |
+| P1 · default framing sliced the pending card at the edge / cut regions with no affordance | `.world-edges` overlay: 64px gradient to bg on each overflowing edge, classes from the content union (world box is 0×0 — absolute children). Interim: 2026-11-24 changed the fit to include the pending zone so that right edge is no longer sliced; the overlay still marks the remaining cuts | CDP: `has-edge-t/r/b` set, `l` correctly off; pixel-probed right edge 31,35,42 → 9,10,12 over exactly 64px; `test_world_edge_fades_mark_cuts` |
+| P2 · documented `/` shortcut dead on the canvas | Falls through to clicking `.filter-open`, then focuses `#panel-root input[name=q]` when the HTMX body lands (poll ≤2s); help row now says "opens Filters" | CDP: keydown `/` → panel open, activeElement=`fp-q`, Escape closes; `test_slash_shortcut_opens_filters_panel` |
+| P2 · chip count stale after approval (outside both swap targets) | Chip always rendered (`hidden` at 0) + `syncPendingChip()` on every outreach swap recounts zone cards, updates text/aria/hidden | CDP real flow: approve pending message → PlBoard.refresh → chip hidden, count 0, zone 0; `test_pending_chip_is_token_styled_and_live` |
+| Heuristic-3 · Arrange discarded manual layouts with no confirm | `data-confirm` on the tidy button + capture-phase click handler for non-form controls (forms keep submit confirm; in-form controls skipped — no double prompts) | Contract test; existing confirms audited (all in-form, unaffected) |
+| Heuristic-10 · gestures absent from help | Help table gains Wheel (zoom / Ctrl+wheel pans) and Drag background rows | `test_help_table_documents_gestures_and_search` |
+| Minors | `.canvas-screen` gets `role="region" aria-label="Pipeline canvas"` (spec §6.3); dead `<g data-system-wires>` + 8 `data-wire-target` attrs + "wired to the region it feeds" comments removed; h1 CSS comment rewritten to match the sans rule; zone-title spec drift recorded in §3.2 | Contract tests |
+
+Corrected during adjudication: A's "`Generate draft` has no stated reason"
+— verified live, `title="Validate at least one opportunity first"` is
+present (tooltip, hover-only). Not a defect.
+
+Gate: full suite + ruff/format/mypy; detector re-run over changed templates.
+
+
+## Responsive layout system (adapt pass) — 2026-11-18
+
+Owner brief: "no UI consistencies, not proper spacing, hierarchy is poor,
+everything competing for attention… make it tab-based on the views that have
+no canvas as default view." Built in three phases, all shipped together.
+
+| Phase | Change | Verified |
+|---|---|---|
+| 1 · Retired views → tab pages | `/settings/*` + `/merge/duplicates` = one settings tab page (8 tabs, deep link = active); `/prospects/{id}` = detail tab page (page head owns name/badges/Edit, `#detail-*` anchor tabs, Outreach tab hides when suppressed); `/status`, edit, research, message = generic standalone pages. Home stays canvas + Status card; Filters + Add prospect stay canvas action panels. Card click / `g s` / rail Status navigate; view buttons navigate when no canvas; HX fragments kept for parity | Contract tests (`test_retired_routes_render_standalone_pages`, settings/detail tab tests, nav-source pins); live: card click → `/prospects/12` with tabs, rail Status → `/status`, Board button → canvas, Filters panel opens, 0 console errors |
+| 2 · Phone triage mode | Work-first order (`applyStackOrder`, DOM follows visual, wide restores); Add prospect → 44px header icon, toolbar two rows, header title deduped; touch floor 44px (`pointer:coarse` or <768) incl. panel list rows + nav-close/panel-close; 16px gutters, zone gaps 12px, sticky zone heads; every panel table carries `data-label` (the <640 transform existed but no table had labels) | CDP 390: first zone y **813 → 281** (work at 33% of viewport), setup last, toolbar 2 rows, header-add 44×44, **0 under-44 targets on /prospects**, 1 remaining = inline prose link (WCAG exception), no h-scroll |
+| 3 · Tablet grid | 768–1023: rail + board as 2-column zone grid, bands span both columns, grid gap owns spacing | CDP 768: zone tops pair (2 cols), rail visible, toolbar keeps Add, no h-scroll |
+
+Geometry/ASCII verified at 390 / 768 / 1440 (wide order restored: setup →
+board → messages). Detector: same 4 adjudicated warnings, none new.
+Gate: 413 tests, ruff/format/mypy/node --check clean, assets `?v=64`.
+Docs: pipeline-canvas (§V2.2 contract, §4 panels, §5 mapping, §6.1, §1.3),
+API_DESIGN (two route families), UI spec (deep links, tree, §2.3, §7),
+USER_FLOWS wording, canvas-implementation-tasks amendment.
+
+- **Scroll fix (2026-11-18):** stacked views (<1024) no longer bind the wide
+  wheel/pan/zoom-key gestures — wheel scrolls the page (measured: wheel no
+  longer canceled at 760/390, zoom/density stay 93%/full, cards stop
+  expand/collapsing); wide ≥1024 keeps wheel-zoom (owner spec, measured
+  93%→58% density flip); stacked card drag still moves stages (new → replied
+  at 390, seed restored); mode-crossing fit runs wide-only so stacked entry
+  can't overwrite the stored wide view. Test: test_stacked_view_scrolls_instead_of_zooming.
+
+- **Element-comment batch (2026-11-18):** Stage override heading moved into
+  the control row (heading + Move to… + Move on one line) · Filters panel URL
+  explainer removed · board PIPE region label (chip + hint) removed and
+  applyStackOrder re-anchored to #board-root (work-first verified: setup last
+  at 390, canonical order at 1440) · detail outreach groups get 16px vertical
+  gaps (measured 38/35px between group starts) · reply helper copy sits after
+  its label (LABEL>P>TEXTAREA) · danger heading rides the block head in both
+  states (in front of the status/label text, #danger-zone id kept) · Block
+  outreach right-aligned (btnRight == formRight) · terminal sub-stage badges
+  became a "Filter stage" dropdown linking the three stage lenses · message
+  approve checkbox + button on one line (scoped `.action-inline`; blanket
+  `.action-group form` rule collided with the existing `display: inline` —
+  repaired the corrupted `.empty .action-group` selector in the same pass) ·
+  Sign out pinned to the nav bottom (foot bottom + 16px padding == nav bottom
+  at 1440/760/390) · phase tabs: 4 tabs, 1 visible group at 390, all 4 at 1440.
+  Test: test_panel_directive_batch_2026_11_18.
+
+- **Phase-tabs round 2 (2026-11-18):** Messages + Setup joined the strip as
+  tabs M/S (wrappers outside #board-root; media-scoped hiding keeps the wide
+  canvas identical — setup/msg rects match the pre-wrapper baseline at 1440),
+  tab gap 4→12px, and the stacked compact card became content-driven
+  (`height: auto` + `min-height`): the fixed 84px height pushed the
+  `check failed` badge 9px out of the card at the owner's stored 50% zoom —
+  verified gone in their own tab (compactOverflow []), each of the6 tabs shows
+  exactly its own panel at 390/760, strip hidden + all6 groups visible at
+  1440, 0 console errors. Test: test_phase_tabs_group_the_stacked_board.
+
+- **Card click → side panel on desktop (2026-11-18):** owner "when i click on
+  card on canvas it opening the panel in full screen for desktop instead of
+  the side panel". board.js now opens the detail as the 560px slide-over when
+  `innerWidth >= 768` (with the card panned into view via focusCard) and only
+  navigates to the full-screen detail page on the phone. Verified by CDP:
+  1431px → panel w560 sideSheet (canvas intact, URL unchanged), 768px → same,
+  390px → PlPanel.open NOT called (navigate branch). Deep links still land on
+  the detail tab page at any width.
+
+## Phase B — accounts, roles & row visibility (2026-11-19)
+
+**Deterministic:** `pytest` **457 passed / 0 failed**, 0 `SAWarning`;
+`ruff check`, `ruff format --check`, `mypy app` all clean.
+
+Automated coverage (`tests/test_authz.py`, 30 tests, gate on unless stated):
+
+- [x] Permission matrix — member 403 on every `settings`/`danger`/`users`
+      surface (HTML error page *and* JSON `{"detail"}`), admin passes
+      settings/danger but not users, owner passes all; gate off → every
+      permission dependency passes through while `/settings/account` and
+      `/settings/users` redirect `303 /` and their tabs disappear.
+- [x] `owner_id` stamping — member create → own id; owner/admin/gate-off
+      create → `NULL` (shared), on both the JSON and HTML create paths.
+- [x] Scoping — board HTML, `/api/v1/prospects`, filter facets,
+      `stage_counts` / `total_prospects` / `needs_attention`, and the outreach
+      region never surface another member's rows (owner/admin see all three).
+- [x] Row-visibility guard — a member's hidden prospect and a hidden child
+      row answer byte-identically to a missing id, HTML (`Accept: text/html`)
+      and JSON; owner/admin get 200.
+- [x] Dedupe — `check_duplicates` scoped for members, unscoped for owners;
+      the duplicate message is **identical** for a visible and a hidden
+      conflict (create + PATCH) and never names the row for a scoped caller.
+- [x] Account — page renders for all three roles; change password keeps this
+      device and revokes every other session (old password then fails login);
+      5 wrong current passwords → `429`.
+- [x] Users — create / promote / disable / enable / delete round trip; delete
+      hands the user's prospects to the shared pool (`owner_id → NULL`);
+      self-lockout guards refuse self-disable, self-delete and last-owner
+      demote (allowed once a second owner exists).
+- [x] Navigation — role-filtered settings tab strip, `can_settings`-wrapped
+      setup cluster, gate-bound Account rail link.
+
+**Manual walkthrough — 2026-11-19 (Playwright, headless Chromium, gate on,
+seeded DB `sqlite:////tmp/opencode/canvas-responsive.db`):**
+
+- [x] **First run** → `/setup` creates the owner and lands on the canvas;
+      `GET /` with no users answers `302 → /setup`, `/healthz` stays `200`.
+- [x] **Owner canvas** — rail carries **Account**; all 9 setup cards present;
+      0 console errors.
+- [x] **Account page** — *Signed in* (username + `owner` badge), *Active
+      sessions* with a single `this device` row, *Change password*, *Sign out
+      everywhere*. Wrong current password → inline alert "Current password is
+      incorrect."; success → toast **"Password updated"** + `?flash=…`, this
+      device still signed in, and the **new** password then signs in while the
+      old one does not. 6 wrong attempts → plain-text **"Too many attempts.
+      Wait a minute and try again."** at `429`.
+- [x] **Users page** — role select defaults to `member`; creating `crew` →
+      `?flash=User crew created`; delete shows the native confirm
+      **"Delete crew? Their prospects become shared."** and, on accept,
+      `?flash=User crew deleted` with the row gone.
+- [x] **Member canvas** — setup cluster collapses to `status` + `saved_views`
+      only (all 7 settings cards hidden); rail keeps Account (self-service);
+      settings tab strip is `["/settings/saved-views", "/settings/account"]`
+      (no General/Providers/Import/Retention/Usage/Duplicates/Users); the strip
+      is `overflow-x: auto` so the remaining tabs stay reachable; `/settings/general`
+      and `/settings/users` render the real error page — **"Not allowed"** +
+      *"Settings changes require an admin or owner account."* / *"Only the
+      owner can manage users."* (HTML, not raw JSON); 0 console errors.
+- [x] **Responsive** — no horizontal page scroll on `/settings/account`,
+      `/settings/users` or `/settings/usage` at 360 / 390 / 640 / 700 / 767 /
+      768 / 769 / 800 / 1024 / 1440 (`documentElement.scrollWidth ==
+      innerWidth` everywhere), no element inside `main` overflowing its box,
+      tables still stack with `data-label` headers below 640px.
+
+**Finding fixed during the pass:** `table.data-table { min-width: 640px }` was
+unconditional, so Settings → Usage (pre-existing), Account and Users rendered
+685–709px wide at a 390px viewport and scrolled the whole page sideways. The
+floor is now `min(640px, 100%)` — it keeps the 640px minimum wherever the
+container has room and drops it when it does not. Verified 360→1440 with zero
+overflow; `app/static/css/app.css` asset ref bumped `?v=69` → `?v=70`.
+
+Not exercised in the browser (covered by `tests/test_authz.py`): the JSON 403
+matrix, byte-identical hidden≡missing 404, duplicate-message parity,
+`owner_id` stamping/scoping, self-lockout guards, and the gate-off pass-through.
+
+## Dark-UI polish pass — 2026-11-24
+
+Manual browser walk (headless Chromium, gate off, synthetic local DB) plus the
+regressions in `tests/test_ui_polish_round5.py`:
+
+- [x] **API docs render:** Swagger UI at `/api/docs` (127 `.opblock` entries)
+  and ReDoc at `/api/redoc` both render fully with **0 console errors**. Assets
+  are pinned local bundles (`app/static/vendor/docs/`, Swagger UI 5.36.0 /
+  ReDoc 2.5.4); ReDoc's CDN logo was replaced with a local SVG. No CDN request
+  remains and there are no inline scripts.
+- [x] **CSP stays scoped:** global headers are unchanged
+  (`style-src 'self' <one htmx hash>`, no `unsafe-inline`, no `worker-src`);
+  only the two docs routes send `style-src 'self' 'unsafe-inline'` and
+  `worker-src blob:`.
+- [x] **Mismatch warning:** one `.banner.warn` on the prospect detail page —
+  amber left border (3px `rgb(251,191,36)`), tinted background, icon,
+  `role="status"` — with a single short correction instruction; the two grey
+  "no findings / no opportunities" notes are gone.
+- [x] **Focus:** `:focus-visible` draws a 2px accent outline; mouse focus and
+  page-load autofocus paint none. The autofocused field keeps `.autofocused`
+  until blur, after which keyboard focus shows the ring. No orange glow ring.
+- [x] **Type/contrast:** rendered body 15px, labels 13px, meta/small 12px,
+  `--color-text-subtle: #9ba0a8` (AA on all shades). No 9–11px font sizes or
+  `--focus-ring` token remain in either stylesheet.
+- [x] **Pending review card:** `fitBoardReadable()` now frames the board plus
+  the Pending review zone; the right edge lands 8px inside the viewport at
+  1024, 1280 and 1440 (no clipping). At 1280 the board starts off-canvas by
+  design, so all four zones remain reachable; `/outreach` frames the full lane.
+- [x] **Gate:** `ruff check`, `ruff format --check`, `mypy app` and the full
+  pytest suite clean; asset refs bumped `?v=76` → `?v=78` (Canvas + auth CSS/JS)
+  and vendored docs assets use `?v=1`.
+
+## Design-system extraction — 2026-11-24
+
+Automated gate: `uv run --frozen ruff check .`, `ruff format --check .`, `mypy app`
+and the full pytest suite (including `tests/test_design_system.py`) all pass.
+
+Manual browser walk (headless Chromium, local server with `APP_ACCESS_TOKEN`
+overridden to empty, synthetic local DB):
+
+- [x] `/dev/styleguide` renders 200 with normal auth, no nav link, no OpenAPI
+  entry, and 0 console errors. All four production stylesheets load in order
+  (`tokens → components → app → canvas`) plus the page-only `styleguide.css`.
+- [x] Computed tokens on the styleguide: `--space-2 = 8px`, `--type-13 =
+  0.8125rem`, `--accent = #ff6b1a`; primary button `rgb(255,107,26)` on
+  `rgb(20,13,7)`, secondary `rgb(14,16,20)`, ghost transparent, danger tint
+  `rgb(58,29,23)`, link `rgb(122,162,255)`, chips `999px` radius.
+- [x] Open/closed drawer states differ in opacity (`1` vs `0.55`); the empty
+  table row, all four toast variants, tabs, fields (including `aria-invalid`)
+  and card header/action slots are present.
+- [x] Visual parity on `/prospects`: body `rgb(9,10,12)` at 15px, incumbent
+  primary button unchanged at `rgb(255,107,26)` / 13px, zone width `288px`,
+  card height `84px` (84.25px with border), card inset `12px`, link
+  `rgb(122,162,255)`, 0 console errors. No incumbent markup changed.
+- [x] Standalone/auth page entry points link `tokens.css` before `app.css`
+  (asserted by test); login under the gate-off server redirects to `/` as
+  before, with `rgb(9,10,12)` body and unchanged primary button.
+
+### Token exceptions (intentional, no visual change)
+
+- `app/templates/base.html` `<meta name="theme-color" content="#0b0c0e">` —
+  an HTML attribute, not a CSS declaration; `var()` cannot be used there.
+- `app.css` auth-photo gradients keep `rgba(var(--surface-0-rgb), …)` and
+  `rgba(var(--surface-ambient-rgb), …)` — alpha stops need channels, so the
+  RGB triplets are tokens and the alpha values stay literal.
+- `app.css` / `canvas.css` optical sub-scale spacing (1/2/3/5/6/7/9/10/14/18px),
+  hairline borders (`1px`, `1.5px`), negative overlay offsets (`-1px`,
+  `-3.5px`, `-5px`), off-screen guides (`±2000px`), fixed offsets (toast
+  `top: 60px`, panel `scroll-padding-top: 72px`, `52px` header reservation,
+  `44px` action chevron space) and pill/circle radii (`999px`, `50%`) remain
+  raw. Forcing them onto the 4/8/12/16/24/32/48 scale would shift the dense
+  incumbent layout, which this pass explicitly forbids.
+- `canvas.js` / `board.js` geometry constants and `style.left/top/width/height`
+  writes are runtime layout under the hash-only CSP, not design tokens; their
+  mirrored CSS constants (`--zone-w`, `--card-h`, `--card-pad`, …) are tokens
+  where they map to the scale.
+- `app.css` `--sp-8` remains an alias of `--space-6` (32px) for legacy rules;
+  there is no `--sp-7`. Canonical components use `--space-*` directly.
+- `tokens.css` keeps incumbent optical type steps 15/17/18/21/22/28 alongside
+  the requested 12/13/14/16/20/24/32 scale so existing font sizes do not move.
+- `.ds-*` primitives are additive and unused by incumbent templates. Migrating
+  existing markup is a separate owner-approved change; this pass only makes
+  them available and catalogues them on `/dev/styleguide`.

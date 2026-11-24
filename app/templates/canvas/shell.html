@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{# THE app screen (spec §V2.1): one canvas world holding the setup-card
+   cluster, the prospect stage board and the outreach region. Stage zones are
+   joined by read-only stage arrows; the setup→board connectors were removed
+   by the 2026-11-16 amendment (their contract comments and data-wire-target
+   attrs were dead — removed 2026-11-18, critique run 2). Every retired page
+   route renders this shell with its card pre-opened (§V2.2), so deep links
+   land on the canvas. #}
+{% block content %}
+{# Redirect confirmations arrive as a popup toast only (owner 2026-11-17:
+   "should be a popup or tooltips and not green blend with the design") —
+   partials/flashes.html renders them with aria-live; no banner here. #}
+
+<div class="canvas-screen density-full{% if current_stage %} board-lens{% endif %}" id="canvas-screen"
+     role="region" aria-label="Pipeline canvas">
+  <div class="canvas-toolbar">
+    {# Accessible page heading (spec §1.2): the canvas has no other h1. #}
+    <h1>{% if request.url.path == '/outreach' %}Message pipeline{% else %}Prospect pipeline{% endif %}</h1>
+    <a class="btn filter-open" href="{{ filters_href }}" data-panel-href="{{ filters_href }}" data-panel-width="360" aria-label="Open filters{% if active_filters %} ({{ active_filters|length }} active){% endif %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z"></path></svg>
+      <span>Filters</span>
+      {% if active_filters %}<span class="filter-count" aria-hidden="true">{{ active_filters|length }}</span>{% endif %}
+    </a>
+    {% set pending_count = outreach_groups.get('pending_review', [])|length %}
+    {# The queue sits off the default fit (P1): a toolbar chip that reaches it.
+       Always rendered (hidden at 0) because the chip lives outside both swap
+       targets — the outreach refresh recounts it client-side (critique P2:
+       "Pending review · 1" survived approving the last message). #}
+    <button type="button" class="pending-chip" data-canvas-view="outreach" data-pending-chip
+            title="Messages awaiting approval: pans to the messages region"
+            aria-label="Pending review · {{ pending_count }}: {{ pending_count }} awaiting approval, show the messages region"
+            {% if not pending_count %}hidden{% endif %}>
+      <span class="pending-dot" aria-hidden="true"></span>
+      <span>Pending review · <span class="pending-count">{{ pending_count }}</span></span>
+    </button>
+
+    <span class="toolbar-spacer" aria-hidden="true"></span>
+
+    {# Saved views (spec §1.2 toolbar / §V2.7 A3): native select applies an
+       existing view through the 303 endpoint, JS navigates (CSP-safe). #}
+    {% if saved_views %}
+    <label class="views-picker">
+      <span>Saved view</span>
+      <select data-saved-view aria-label="Apply a saved view">
+        <option value="">Apply a view…</option>
+        {% for view in saved_views %}
+        <option value="/prospects/views/{{ view.id }}/apply">{{ view.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <a href="/settings/saved-views" class="btn ghost small views-manage">Manage</a>
+    {% endif %}
+
+    <a href="/prospects/new" class="btn primary" data-panel-href="/prospects/new" data-panel-width="560" data-panel-dirty="1">Add prospect</a>
+  </div>
+
+{# Active-filter band is a sibling of the toolbar, never a flex
+     child of it, so it can never overlap the toolbar row (owner 2026-11-17). #}
+    {% if active_filters %}
+  <div class="filter-summary" role="group" aria-label="Active filters">
+    <span class="filter-summary-label">Active</span>
+    {% for f in active_filters %}
+    <a class="filter-pill" href="{{ f.url }}">
+      <span class="sr-only">Remove filter: </span>
+      <span class="filter-pill-text">{{ f.label }}</span>
+    </a>
+    {% endfor %}
+    {% if stage_lens_clear_url %}
+    <a class="filter-pill-clear" href="{{ stage_lens_clear_url }}">Show all zones</a>
+    {% endif %}
+    {% if active_filters|length > 1 %}
+    <a class="filter-pill-clear" href="/prospects">Clear all</a>
+    {% endif %}
+
+  </div>
+  {% endif %}
+
+  <div class="canvas-viewport" data-canvas-viewport>
+    <div class="canvas-world" data-canvas-world>
+      {# Paint order: wires (presentation, aria-hidden) → region labels →
+         setup cards → board zones → outreach region. #}
+      <svg class="canvas-wires" aria-hidden="true" focusable="false">
+        <defs>
+          <marker id="pl-wire-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4"
+                  orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M0 0 L8 4 L0 8 Z"></path>
+          </marker>
+        </defs>
+        <g data-wire-lines></g>
+      </svg>
+
+      {# Setup and Messages join the phase tabs below 1024 (owner: "only show
+         the content of that tab"); the wrappers are inert on the wide canvas
+         (media-scoped hiding) and keep absolute children world-positioned. #}
+      <div class="phase-group" data-phase="S" id="phase-S"
+           role="tabpanel" aria-labelledby="phase-tab-S">
+        {% include "partials/canvas_setup_cluster.html" %}
+      </div>
+
+      <div id="board-root" data-board-root data-region="board">
+        {% include "partials/board_zones.html" %}
+      </div>
+
+      <div class="phase-group" data-phase="M" id="phase-M"
+           role="tabpanel" aria-labelledby="phase-tab-M">
+        {% include "partials/canvas_outreach_region.html" %}
+      </div>
+    </div>
+
+    {# Overflow fades (critique P1 run 2): the world is bigger than the
+       viewport at the readable floor, so every edge cuts something — the
+       fade marks "more this way" (setup above, terminal below, messages
+       right) instead of a sliced card reading as a rendering bug. #}
+    <div class="world-edges" aria-hidden="true"></div>
+
+    <div class="canvas-controls" role="group" aria-label="Canvas zoom">
+      <button type="button" data-canvas="out" aria-label="Zoom out">−</button>
+      <button type="button" data-canvas="reset" aria-label="Reset zoom to 100 percent (currently 100%)" data-canvas-zoom>100%</button>
+      <button type="button" data-canvas="in" aria-label="Zoom in">+</button>
+      <button type="button" data-canvas="tidy" title="Arrange"
+              data-confirm="Arrange resets every manually placed zone to the default layout. Your arrangement will be lost. Continue?"
+              aria-label="Arrange the canvas layout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>
+      </button>
+      <button type="button" data-canvas="fit" aria-label="Fit the board to view">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path></svg>
+      </button>
+    </div>
+
+    <div class="flash error canvas-error" data-board-error hidden role="alert"></div>
+    <p class="canvas-status" data-board-status aria-live="polite">
+      {{ prospects|length }} prospect{{ 's' if prospects|length != 1 else '' }} · {{ outreach_total }} message{{ 's' if outreach_total != 1 else '' }} in flight
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{# Deep link (§V2.2): the route pre-renders the card's panel, already open.
+   panel.js adopts this node so focus trap, Escape and close behave exactly
+   like a JS-opened panel — and no-JS users can still read the content. #}
+{% block panels %}
+{% if panel_body_template %}
+<div class="panel-backdrop" data-panel-close></div>
+<div class="panel open panel--server" role="dialog" aria-modal="true"
+     data-panel-open="{{ open_card }}">
+  <div class="panel-body" data-panel-body>
+    {% include panel_body_template %}
+  </div>
+  <button class="panel-close" type="button" data-panel-close aria-label="Close panel">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+  </button>
+</div>
+{% endif %}
+{% endblock %}

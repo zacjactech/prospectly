@@ -1,0 +1,80 @@
+{# Account panel: identity + active sessions + change password (SECURITY §3).
+   Self-service — every signed-in role reaches it; no admin power here. #}
+<h2 class="panel-heading" data-panel-title>Account</h2>
+
+{% if error %}
+<div class="flash error" role="alert">{{ error }}</div>
+{% endif %}
+
+<section class="card">
+  <h3>Signed in</h3>
+  <table class="data-table">
+    <tbody>
+      <tr><td data-label="Username">Username</td><td><strong>{{ account.username }}</strong></td></tr>
+      <tr><td data-label="Role">Role</td><td><span class="badge">{{ account.role }}</span></td></tr>
+    </tbody>
+  </table>
+  <p class="muted small">Roles decide what you can open: members run the canvas,
+    admins also configure settings, owners additionally manage users.</p>
+</section>
+
+<section class="card">
+  <h3>Active sessions</h3>
+  {% if sessions %}
+  <table class="data-table">
+    <thead>
+      <tr><th>Started</th><th>Expires</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for s in sessions %}
+      <tr>
+        <td data-label="Started">{{ s.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td data-label="Expires">{{ s.expires_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>{% if s.token == current_token %}<span class="badge">this device</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted small">Sessions are revocable server-side: signing out or
+    changing your password ends them wherever they run.</p>
+  {% else %}
+  <p class="muted">No other active sessions.</p>
+  {% endif %}
+</section>
+
+<form method="post" action="/settings/account/password">
+  {{ csrf_field() }}
+  <section class="card">
+    <h3>Change password</h3>
+    <div class="field">
+      <label for="current-password">Current password</label>
+      <input id="current-password" type="password" name="current_password"
+             autocomplete="current-password" required>
+    </div>
+    <div class="field">
+      <label for="new-password">New password</label>
+      <input id="new-password" type="password" name="new_password"
+             autocomplete="new-password" required>
+      <span class="muted small">At least 8 characters. Every other session is signed out.</span>
+    </div>
+    <div class="field">
+      <label for="confirm-password">Confirm new password</label>
+      <input id="confirm-password" type="password" name="confirm"
+             autocomplete="new-password" required>
+    </div>
+    <div class="action-group">
+      <button class="btn primary" type="submit">Update password</button>
+    </div>
+  </section>
+</form>
+
+<form method="post" action="/logout-all" class="rail-form">
+  {{ csrf_field() }}
+  <section class="card">
+    <h3>Sign out everywhere</h3>
+    <p class="muted small">Ends every session of this account, on every device, including this one.</p>
+    <div class="action-group">
+      <button class="btn danger" type="submit">Log out of all sessions</button>
+    </div>
+  </section>
+</form>

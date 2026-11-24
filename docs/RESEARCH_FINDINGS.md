@@ -172,3 +172,23 @@ Normalize phone → E.164 → build `wa.me` URL → open via OS default handler 
 4. Website inspection: our own httpx-based checker; no paid tech-intel APIs in MVP.
 5. AI: interface-first; Gemini free tier default, Groq/OpenRouter alternates, template mode as no-AI floor.
 6. WhatsApp: click-to-chat only; Cloud API deferred; unofficial automation permanently out.
+
+---
+
+## 9. Self-hosted API documentation assets (verified 2026-11-24)
+
+FastAPI's default `/api/docs` and `/api/redoc` load CDN bundles and embed an
+inline init script, both blocked by the app's strict CSP. The docs pages now
+serve pinned local copies instead (no CDN, no inline script); the two routes
+alone get a scoped CSP exception for runtime-injected styles and ReDoc's search
+worker.
+
+| Asset | Pinned version | Source (verified 2026-11-24) | License |
+|---|---|---|---|
+| Swagger UI bundle + CSS | 5.36.0 | [`swagger-ui-dist@5.36.0`](https://unpkg.com/swagger-ui-dist@5.36.0/package.json) → `swagger-ui-bundle.js`, `swagger-ui.css` | Apache-2.0 |
+| ReDoc standalone bundle | 2.5.4 | [`redoc@2.5.4`](https://unpkg.com/redoc@2.5.4/package.json) → `bundles/redoc.standalone.js` | MIT |
+
+ReDoc's hardcoded `https://cdn.redoc.ly/redoc/logo-mini.svg` reference in the
+bundle was replaced with a local SVG (`app/static/vendor/docs/redoc-logo.svg`);
+no other vendor source was modified. Version strings inside both bundles were
+checked against the package metadata above.

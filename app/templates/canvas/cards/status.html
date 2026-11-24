@@ -1,0 +1,119 @@
+{# Status card panel body (spec §V2.3): was the dashboard page. The 01→03
+   pipeline strip is dropped — the canvas board carries phase chips and counts.
+   Needs attention, metrics and quick start move into numbered steps. #}
+<h2 class="panel-heading" data-panel-title>Status</h2>
+
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<div class="mini-pipeline">
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">01</span>
+      <h3>Needs attention</h3>
+    </header>
+    <div class="flow-step-body">
+      {% if total_prospects %}
+        {% if needs_attention %}
+        <section class="card">
+          <ul class="mini-list">
+            {% for item in needs_attention %}
+            <li>
+              <span class="badge">{{ item.count }}</span>
+              <a href="{{ item.href }}">{{ item.label }}</a>
+            </li>
+            {% endfor %}
+          </ul>
+        </section>
+        {% else %}
+        <p class="muted">Nothing needs attention. ✓</p>
+        {% endif %}
+      {% else %}
+      <div class="empty">
+        <p>No prospects yet. Add one to start building your pipeline.</p>
+        <div class="action-group">
+          <a href="/prospects/new" class="btn primary">Add your first prospect</a>
+          <a href="/settings/profile" class="btn">Set up profile</a>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">02</span>
+      <h3>Pipeline metrics</h3>
+    </header>
+    <div class="flow-step-body">
+      {% if total_prospects %}
+      <div class="metric-groups">
+        <div class="metric-group">
+          <span class="metric-group-label">Pipeline</span>
+          <div class="metric-row">
+            <span class="metric-label">Total</span>
+            <span class="metric-count{% if not metrics.total_prospects %} zero{% endif %}">{{ metrics.total_prospects }}</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Researched</span>
+            <span class="metric-count{% if not metrics.researched %} zero{% endif %}">{{ metrics.researched }}</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Requires review</span>
+            <span class="metric-count{% if metrics.requires_review %} hot{% elif not metrics.requires_review %} zero{% endif %}">{{ metrics.requires_review }}</span>
+          </div>
+        </div>
+
+        <div class="metric-group">
+          <span class="metric-group-label">Outreach</span>
+          <div class="metric-row">
+            <span class="metric-label">Approved</span>
+            <span class="metric-count{% if not metrics.approved_messages %} zero{% endif %}">{{ metrics.approved_messages }}</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Sent</span>
+            <span class="metric-count{% if not metrics.sent_confirmed %} zero{% endif %}">{{ metrics.sent_confirmed }}</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Replies</span>
+            <span class="metric-count{% if not metrics.replies %} zero{% endif %}">{{ metrics.replies }}</span>
+          </div>
+        </div>
+
+        <div class="metric-group">
+          <span class="metric-group-label">Results</span>
+          <div class="metric-row">
+            <span class="metric-label">Interested</span>
+            <span class="metric-count{% if not metrics.interested %} zero{% endif %}">{{ metrics.interested }}</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Follow-ups due</span>
+            <span class="metric-count{% if metrics.follow_ups_due %} hot{% else %} zero{% endif %}">{{ metrics.follow_ups_due }}</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Converted</span>
+            <span class="metric-count{% if not metrics.converted %} zero{% endif %}">{{ metrics.converted }}</span>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">03</span>
+      <h3>Quick start</h3>
+    </header>
+    <div class="flow-step-body">
+      <section class="card">
+        <ul class="spaced">
+          <li><a href="/settings/profile">1. Set your profile</a> <span class="muted">What you offer, who you target, where.</span></li>
+          <li><a href="/prospects/new">2. Add a prospect</a> <span class="muted">Or <a href="/settings/profile">run automated discovery</a> from your profile.</span></li>
+          <li><a href="/prospects">3. Browse your pipeline</a> <span class="muted">Filter by stage, tag, category, location.</span></li>
+        </ul>
+      </section>
+    </div>
+  </section>
+</div>

@@ -1,0 +1,155 @@
+{# Import card panel body (spec §V2.3): upload → preview → commit. The
+   wizard's step state is unchanged — only the active step renders its body,
+   the numbered heads stay visible so the pipeline reads as progress. #}
+<h2 class="panel-heading" data-panel-title>Import prospects from CSV</h2>
+<p class="muted small">One row per prospect.</p>
+
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<div class="mini-pipeline import-panel">
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">01</span>
+      <h3>Upload</h3>
+    </header>
+    <div class="flow-step-body">
+      {% if step == 1 %}
+      <p class="muted small">CSV only. Max {{ (settings.csv_max_bytes / 1048576)|round(0)|int }} MB, {{ settings.csv_max_rows }} rows.</p>
+      <div class="card">
+        <form method="post" action="/settings/import" enctype="multipart/form-data">
+          {{ csrf_field() }}
+          <label class="dropzone">
+            <input type="file" name="file" accept=".csv" required>
+            <span class="dropzone-title">Drop a CSV here or choose a file</span>
+            <span class="muted small">Required column: business name (name, company, business or business_name). Phones are normalized to E.164.</span>
+          </label>
+          <div class="action-group">
+            <button class="btn primary" type="submit">Next: preview</button>
+            <a href="/static/sample-prospects.csv" class="btn ghost" download>Download sample CSV</a>
+            <button class="btn ghost" type="button" data-panel-close>Cancel</button>
+          </div>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="flow-step{% if step < 2 %} is-future{% endif %}">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">02</span>
+      <h3>Preview</h3>
+    </header>
+    <div class="flow-step-body">
+      {% if step == 2 %}
+      <div class="card">
+        <div class="header-row">
+          <div class="grow">
+            <p class="muted small">{{ total_rows }} rows detected · {{ valid_count }} valid · {{ duplicate_count }} duplicates · {{ error_count }} errors</p>
+          </div>
+        </div>
+
+        <div class="muted small">Detected columns: {{ columns_detected | join(', ') }}</div>
+
+        <form method="post" action="/settings/import/commit">
+          {{ csrf_field() }}
+          <input type="hidden" name="import_token" value="{{ import_token }}">
+
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="col-narrow">✓</th>
+                <th>Business name</th>
+                <th>Category</th>
+                <th>City</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Website</th>
+                <th>Status</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rows %}
+              <tr class="{% if row.status == 'error' %}row-error{% elif row.status == 'duplicate' %}row-dup{% elif row.fuzzy %}row-fuzzy{% endif %}">
+                <td>
+                  {% if row.status == 'valid' %}
+                  <input type="checkbox" name="row_indices" value="{{ row.index }}" checked>
+                  {% endif %}
+                </td>
+                <td data-label="Business name"><strong>{{ row.business_name }}</strong></td>
+                <td data-label="Category">{{ row.category }}</td>
+                <td data-label="City">{{ row.location_city }}</td>
+                <td data-label="Phone">{{ row.phone_e164 or row.phone_raw }}</td>
+                <td data-label="Email">{{ row.email }}</td>
+                <td data-label="Website">{{ row.website_url }}</td>
+                <td data-label="Status">
+                  {% if row.status == 'valid' and row.fuzzy %}
+                  <span class="badge stage-warn">possible duplicate</span>
+                  {% elif row.status == 'valid' %}
+                  <span class="badge stage-success">valid</span>
+                  {% elif row.status == 'duplicate' %}
+                  <span class="badge stage-danger">duplicate</span>
+                  {% else %}
+                  <span class="badge stage-muted">error</span>
+                  {% endif %}
+                </td>
+                <td class="muted small" data-label="Reason">{{ row.reason or row.matched_prospect_name }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          <div class="action-group">
+            <button class="btn primary" type="submit"{% if not valid_count %} disabled title="No valid rows to import"{% endif %}>Commit {{ valid_count }} row(s)</button>
+            <a href="/settings/import" class="btn ghost">Re-upload</a>
+          </div>
+        </form>
+      </div>
+      {% elif step == 1 %}
+      <p class="muted small">Preview appears after a file is uploaded.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="flow-step{% if step < 3 %} is-future{% endif %}">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">03</span>
+      <h3>Commit</h3>
+    </header>
+    <div class="flow-step-body">
+      {% if step == 3 %}
+      <div class="card">
+        <div class="header-row">
+          <div class="grow">
+            <h3>Import complete</h3>
+            <p class="muted small">{{ result.created }} prospect(s) imported. You can now research them from the Prospects list.</p>
+          </div>
+        </div>
+
+        <table class="data-table">
+          <thead>
+            <tr><th>Metric</th><th>Count</th></tr>
+          </thead>
+          <tbody>
+            <tr><td data-label="Metric">Rows in file</td><td data-label="Count">{{ total_rows }}</td></tr>
+            <tr><td class="text-ok" data-label="Metric">Created</td><td class="text-ok" data-label="Count">{{ result.created }}</td></tr>
+            <tr><td class="text-muted" data-label="Metric">Skipped (duplicates)</td><td data-label="Count">{{ result.skipped_duplicates }}</td></tr>
+            <tr><td class="text-warn" data-label="Metric">Flagged for review</td><td data-label="Count">{{ result.flagged_for_review }}</td></tr>
+            <tr><td class="text-danger" data-label="Metric">Errors</td><td data-label="Count">{{ result.errors }}</td></tr>
+          </tbody>
+        </table>
+
+        {% if result.created_ids %}
+        <div class="muted small">Created prospect IDs: {{ result.created_ids | join(', ') }}</div>
+        {% endif %}
+
+        <div class="muted small">All imported prospects are tagged with source <code>csv_import</code>. Fuzzy matches carry the <code>possible-duplicate</code> tag.</div>
+      </div>
+      {% elif step == 2 %}
+      <p class="muted small">Commit is available after the preview is reviewed.</p>
+      {% endif %}
+    </div>
+  </section>
+</div>

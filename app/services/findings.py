@@ -33,7 +33,7 @@ from app.services.research import _finding_key
 MAX_KIND = 40
 MAX_STATEMENT = 500
 DUPLICATE_ERROR = "identical finding already exists"
-LINKED_ERROR = "linked to an opportunity — evidence must stand behind it"
+LINKED_ERROR = "linked to an opportunity: evidence must stand behind it"
 
 
 def _now() -> datetime:

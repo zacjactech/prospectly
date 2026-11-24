@@ -11,9 +11,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import Prospect, Source, Tag
+from app.services import authz
 from app.services.activity import log_activity
 
 # Allowed stage transitions (SYSTEM_ARCHITECTURE §3.2).
@@ -103,28 +105,47 @@ def check_duplicates(
     website_url: str | None = None,
     location_city: str | None = None,
     exclude_id: int | None = None,
+    visible_to: authz.Identity | None = None,
 ) -> dict[str, Any]:
     """Return dedupe assessment: exact match (block) or fuzzy flags (warn).
 
     Never silently merges. Caller decides whether to block or proceed.
+
+    ``visible_to`` scopes the candidate pool to what that user may see
+    (authz.scope_criterion) — a member's dupe check must not reveal, or be
+    blocked by, another member's private row.
     """
     normalized_name = _normalize_name(business_name)
     exact: Prospect | None = None
+    exact_field: str | None = None
     fuzzy: list[Prospect] = []
 
     q = db.query(Prospect).filter(Prospect.archived_at.is_(None))
     if exclude_id is not None:
         q = q.filter(Prospect.id != exclude_id)
+    scope = authz.scope_criterion(visible_to)
+    if scope is not None:
+        q = q.filter(scope)
 
-    # Exact key matches.
+    # Exact key matches (order matters: it mirrors which partial unique index
+    # would reject the write, so `exact_field` names the same key the
+    # IntegrityError backstop reports).
     if phone_e164:
         exact = q.filter(Prospect.phone_e164 == phone_e164).first()
+        if exact is not None:
+            exact_field = "phone_e164"
     if exact is None and email:
         exact = q.filter(Prospect.email == email.lower()).first()
+        if exact is not None:
+            exact_field = "email"
     if exact is None and website_url:
         exact = q.filter(Prospect.website_url == website_url).first()
+        if exact is not None:
+            exact_field = "website_url"
     if exact is None and normalized_name:
         exact = q.filter(Prospect.normalized_name == normalized_name).first()
+        if exact is not None:
+            exact_field = "normalized_name"
 
     # Fuzzy: same city + high name overlap.
     if location_city and normalized_name:
@@ -135,9 +156,55 @@ def check_duplicates(
 
     return {
         "exact": exact,
+        "exact_field": exact_field,
         "fuzzy": fuzzy,
         "normalized_name": normalized_name,
     }
+
+
+#: Unique-index columns on `prospects` (§2.2) -> human label for the
+#: conflict message. The scoped dupe check cannot see other members' private
+#: rows, but the *global* partial unique indexes still reject the write; the
+#: backstop turns that rejection into a leak-free message (never names the
+#: invisible row).
+_IDENTITY_COLUMNS: dict[str, str] = {
+    "phone_e164": "phone number",
+    "email": "email address",
+    "website_url": "website",
+    "normalized_name": "business name",
+}
+
+
+def _identity_conflict_message(exc: IntegrityError) -> str | None:
+    """Map a unique-index violation to a leak-free duplicate message.
+
+    Returns ``None`` for anything that is NOT an identity-key collision — an
+    unexpected constraint failure must surface as a 500, not masquerade as a
+    duplicate (fail closed).
+    """
+    text = str(getattr(exc, "orig", exc))
+    for column, label in _IDENTITY_COLUMNS.items():
+        if f"prospects.{column}" in text:
+            return f"A prospect with this {label} already exists."
+    return None
+
+
+def _conflict_message(
+    dupe: dict[str, Any], *, visible_to: authz.Identity | None, detail: str
+) -> str:
+    """Duplicate message for a pre-check hit, safe for a scoped caller.
+
+    An unscoped caller (owner/admin, gate off) sees every row, so naming the
+    conflicting row is safe and useful. A scoped caller (member) sees only
+    *some* rows: if this path named the row while the unique-index backstop
+    cannot, the difference would tell a member "this conflict exists but is
+    hidden from you" — an existence oracle. Scoped callers therefore always
+    get the backstop's leak-free copy: same field label, never the row.
+    """
+    if authz.scope_criterion(visible_to) is None:
+        return detail
+    label = _IDENTITY_COLUMNS.get(dupe.get("exact_field") or "", "business name")
+    return f"A prospect with this {label} already exists."
 
 
 def create_prospect(
@@ -158,8 +225,15 @@ def create_prospect(
     social_links: dict | None = None,
     actor: str = "user",
     skip_dupe_check: bool = False,
+    owner_id: int | None = None,
+    visible_to: authz.Identity | None = None,
 ) -> tuple[Prospect | None, str | None]:
-    """Create a prospect. Blocks on exact dupe match; flags fuzzy via returned error message."""
+    """Create a prospect. Blocks on exact dupe match; flags fuzzy via returned error message.
+
+    ``owner_id`` stamps prospect ownership for member-created rows (authz
+    scoping; ``None`` = shared). ``visible_to`` scopes the dupe check to the
+    creator's visible set.
+    """
     dupe = check_duplicates(
         db,
         business_name=business_name,
@@ -167,34 +241,57 @@ def create_prospect(
         email=email,
         website_url=website_url,
         location_city=location_city,
+        visible_to=visible_to,
     )
     if dupe["exact"] is not None and not skip_dupe_check:
-        return None, (
-            f"Duplicate prospect already exists: {dupe['exact'].business_name} "
-            f"(id={dupe['exact'].id})"
+        return None, _conflict_message(
+            dupe,
+            visible_to=visible_to,
+            detail=(
+                f"Duplicate prospect already exists: {dupe['exact'].business_name} "
+                f"(id={dupe['exact'].id})"
+            ),
         )
 
-    prospect = Prospect(
-        business_name=business_name,
-        normalized_name=dupe["normalized_name"],
-        category=category,
-        location_area=location_area,
-        location_city=location_city,
-        location_state=location_state,
-        location_country=location_country,
-        address=address,
-        phone_e164=phone_e164,
-        phone_raw=phone_raw,
-        email=email.lower() if email else None,
-        website_url=website_url,
-        social_links=social_links,
-        stage="new",
-        website_status="unknown",
-        source=source,
-        do_not_contact=False,
-    )
-    db.add(prospect)
-    db.flush()
+    try:
+        # Savepoint: the scoped dupe check above cannot see other members'
+        # private rows, so an exact cross-member match reaches the global
+        # unique index (§2.2). Roll back only this insert — earlier flushed
+        # work in the caller's transaction (e.g. the import loop) survives.
+        #
+        # The row is also *constructed* inside the savepoint: building it
+        # outside appends the transient prospect to the persistent
+        # Source.prospects collection, which the savepoint snapshot does not
+        # cover and SQLAlchemy warns about ("add operation ... will not
+        # proceed") at flush time.
+        with db.begin_nested():
+            prospect = Prospect(
+                business_name=business_name,
+                normalized_name=dupe["normalized_name"],
+                category=category,
+                location_area=location_area,
+                location_city=location_city,
+                location_state=location_state,
+                location_country=location_country,
+                address=address,
+                phone_e164=phone_e164,
+                phone_raw=phone_raw,
+                email=email.lower() if email else None,
+                website_url=website_url,
+                social_links=social_links,
+                stage="new",
+                website_status="unknown",
+                source=source,
+                do_not_contact=False,
+                owner_id=owner_id,
+            )
+            db.add(prospect)
+            db.flush()
+    except IntegrityError as exc:
+        message = _identity_conflict_message(exc)
+        if message is None:
+            raise
+        return None, message
 
     log_activity(
         db,
@@ -216,9 +313,14 @@ def update_prospect(
     prospect_id: int,
     *,
     actor: str = "user",
+    visible_to: authz.Identity | None = None,
     **fields: Any,
 ) -> tuple[Prospect | None, str | None]:
-    """Update scalar fields on a prospect. Re-checks dedupe on key fields."""
+    """Update scalar fields on a prospect. Re-checks dedupe on key fields.
+
+    ``visible_to`` scopes the dedupe re-check so the error message can never
+    name a row the caller may not see.
+    """
     prospect = db.get(Prospect, prospect_id)
     if prospect is None:
         return None, "Prospect not found"
@@ -229,6 +331,14 @@ def update_prospect(
             return None, f"Unknown field: {name}"
         if getattr(prospect, name) != value:
             changed[name] = value
+
+    # Keep the dedupe key in step with the name. Without this the partial
+    # unique index never fires on a rename: a scoped caller could rename into
+    # another member's exact match (the scoped pre-check cannot see it and
+    # `normalized_name` stayed stale), and the old key stayed behind forever
+    # blocking a name nobody holds any more.
+    if "business_name" in changed:
+        changed["normalized_name"] = _normalize_name(changed["business_name"])
 
     # Re-run dedupe if identity keys changed.
     if any(
@@ -242,20 +352,35 @@ def update_prospect(
             email=changed.get("email", prospect.email),
             website_url=changed.get("website_url", prospect.website_url),
             location_city=changed.get("location_city", prospect.location_city),
+            visible_to=visible_to,
             exclude_id=prospect.id,
         )
         if dupe["exact"] is not None:
-            return None, (
-                f"Would duplicate existing prospect: {dupe['exact'].business_name} "
-                f"(id={dupe['exact'].id})"
+            return None, _conflict_message(
+                dupe,
+                visible_to=visible_to,
+                detail=(
+                    f"Would duplicate existing prospect: {dupe['exact'].business_name} "
+                    f"(id={dupe['exact'].id})"
+                ),
             )
         if dupe["fuzzy"]:
             changed["_fuzzy_flags"] = [p.id for p in dupe["fuzzy"]]
 
-    for name, value in changed.items():
-        setattr(prospect, name, value)
+    try:
+        # Savepoint (see create_prospect): a cross-member exact match the
+        # scoped check could not see still hits the global unique index.
+        # Rolling back restores the pre-edit attribute values.
+        with db.begin_nested():
+            for name, value in changed.items():
+                setattr(prospect, name, value)
+            db.flush()
+    except IntegrityError as exc:
+        message = _identity_conflict_message(exc)
+        if message is None:
+            raise
+        return None, message
 
-    db.flush()
     log_activity(
         db,
         prospect_id=prospect.id,
@@ -282,7 +407,13 @@ def archive_prospect(db: Session, prospect_id: int, *, actor: str = "user") -> b
     return True
 
 
-def unarchive_prospect(db: Session, prospect_id: int, *, actor: str = "user") -> bool:
+def unarchive_prospect(
+    db: Session,
+    prospect_id: int,
+    *,
+    actor: str = "user",
+    visible_to: authz.Identity | None = None,
+) -> bool:
     """Restore an archived prospect (re-checks dedupe against live rows)."""
     prospect = db.get(Prospect, prospect_id)
     if prospect is None:
@@ -295,12 +426,22 @@ def unarchive_prospect(db: Session, prospect_id: int, *, actor: str = "user") ->
         email=prospect.email,
         website_url=prospect.website_url,
         location_city=prospect.location_city,
+        visible_to=visible_to,
         exclude_id=prospect.id,
     )
     if dupe["exact"] is not None:
         return False  # caller translates to 409
-    prospect.archived_at = None
-    db.flush()
+    try:
+        # Savepoint (see create_prospect): re-adding the row to the partial
+        # unique indexes can collide with a row the scoped check could not
+        # see. Rollback restores archived_at; caller translates to 409.
+        with db.begin_nested():
+            prospect.archived_at = None
+            db.flush()
+    except IntegrityError as exc:
+        if _identity_conflict_message(exc) is None:
+            raise
+        return False  # caller translates to 409
     log_activity(
         db,
         prospect_id=prospect.id,
@@ -503,11 +644,18 @@ def list_prospects(
     do_not_contact_only: bool = False,
     limit: int = 50,
     offset: int = 0,
+    visible_to: authz.Identity | None = None,
 ) -> list[Prospect]:
-    """Filtered prospect list (used by both pages and API)."""
+    """Filtered prospect list (used by both pages and API).
+
+    ``visible_to`` applies the ownership scope (members see shared + own).
+    """
     query = db.query(Prospect).options(selectinload(Prospect.tags))
     if not include_archived:
         query = query.filter(Prospect.archived_at.is_(None))
+    scope = authz.scope_criterion(visible_to)
+    if scope is not None:
+        query = query.filter(scope)
     if stage:
         query = query.filter(Prospect.stage == stage)
     if do_not_contact_only:

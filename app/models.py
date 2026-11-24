@@ -106,7 +106,9 @@ class Prospect(Base):
     source_id: Mapped[int | None] = mapped_column(
         ForeignKey("sources.id", ondelete="NO ACTION"), nullable=True, index=True
     )
-    owner_id: Mapped[str | None] = mapped_column(Text, nullable=True)  # Phase 6+
+    owner_id: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, index=True
+    )  # users.id (auth, 2026-11-18); NULL = shared/legacy
     research_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_contacted_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -587,3 +589,60 @@ class SavedView(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+
+class User(Base):
+    """Account for the authenticated app (SECURITY_AND_PRIVACY §3).
+
+    Full accounts + roles, owner decision 2026-11-18: scrypt-hashed password
+    (stdlib, no new dependency), ``role`` gates settings/danger/users surfaces
+    (app/services/authz.py), ``disabled`` kills every session at the next
+    request, and the reset-token hash backs the local forgot-password flow
+    (no email service in a local-first app — the link is shown on screen).
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(80), nullable=False, unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'member'"))
+    disabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("'0'"))
+    reset_token_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reset_expires_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    sessions: Mapped[list[UserSession]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class UserSession(Base):
+    """Revocable server-side session (opaque cookie value -> row).
+
+    Replaces the stateless HMAC cookie: logout, logout-all, disable-user and
+    password-reset all revoke server-side, and the row carries the sliding
+    idle expiry (12h, re-issued on authenticated responses).
+    """
+
+    __tablename__ = "user_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    token: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped[User] = relationship(back_populates="sessions")

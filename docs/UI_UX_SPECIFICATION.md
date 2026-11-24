@@ -1,6 +1,6 @@
 # UI/UX Specification
 
-Design direction: **"charcoal + signal orange" operations console** — near-black charcoal surfaces (`#0b0c0e`–`#1f2126`) with 1px hairline borders, one vivid orange accent (`#ff6b1a` family) reserved for primary actions, active states, focus and running/`hot` statuses, and monospace micro-typography (uppercase group labels, tabular numeric readouts, log-style timestamps) against a system sans body. Influences: Nexus Pipeline dark dashboard (surfaces, accent discipline, numbered stages, pipeline-log type), evo-team/Academy grouped sidebars, oNeX line icons, the black+orange MARKETING poster (one loud orange element per screen). Dark-only — no `prefers-color-scheme` variant. Explicitly *not*: HUD/gauge decoration, gradients, glassmorphism, animated counters, color-coded-everything.
+Design direction: **"charcoal + signal orange" operations console** — a charcoal shade ladder (`#090a0c` → `#292d35`) where **levels come from fill contrast and element outlines are gone** (borderless pass 2026-11-17), one vivid orange accent (`#ff6b1a` family) reserved for primary actions, active states, focus and running/`hot` statuses, and monospace micro-typography (uppercase group labels, tabular numeric readouts, log-style timestamps) against a system sans body. Influences: Nexus Pipeline dark dashboard (surfaces, accent discipline, numbered stages, pipeline-log type), evo-team/Academy grouped sidebars, oNeX line icons, the black+orange MARKETING poster (one loud orange element per screen). Dark-only — no `prefers-color-scheme` variant. Explicitly *not*: HUD/gauge decoration, gradients, glassmorphism, animated counters, color-coded-everything.
 
 Influences researched (2026): CRM UX best-practice literature (aufaitux, eseospace, designstudiouiux) emphasizing density + clarity over visual flourish; practitioner HTMX-vs-React write-ups confirming server-rendered CRUD patterns; Linear/Notion-style restraint (compact tables, keyboard-friendly filters, inline editing).
 
@@ -8,13 +8,90 @@ Influences researched (2026): CRM UX best-practice literature (aufaitux, eseospa
 
 ## 1. Information architecture & navigation
 
-**Amendment (2026-11-11):** the app now ships a **grouped left sidebar** (WORK / SETTINGS), replacing the 2026-11-07 persistent top bar. Rationale: the live nav carries **10 sections** — past the ~8-section threshold this spec itself set for when a sidebar "pays for itself"; §7's responsive table already specified sidebar behavior (persistent ≥1200px, 56px icon rail 768–1199px, hamburger drawer <768px), so the top bar contradicted the spec's own responsive plan; and the moodboard-driven "charcoal + signal orange" redesign (see the opening) makes the grouped sidebar the strongest identity element while the dense table keeps ~all of its width. The IA tree below is what the sidebar renders, grouped.
+> **Superseded by Amendment V2 (2026-11-12) — canvas-only.** The grouped
+> sidebar IA below is retired from the *experience* (routes and deep links
+> survive). Read §V2 first; the rest of this section documents the pre-canvas
+> tree that the canvas replaced.
+
+### V2. Canvas-only IA (2026-11-12) — current
+
+The app has **one screen**: the Pipeline Canvas
+(`docs/design/pipeline-canvas.md` §V2 — binding contract). Three regions on a
+single pan/zoom world, joined by a fixed, read-only wire layer that explains
+what feeds what:
+
+```
+Pipeline Canvas (GET /prospects — the default surface)
+├── SETUP region — 9 cards, 3 × 3 (each links to its standalone settings/status page; 2026-11-18)
+│     Status · Profile · Providers · Import · Saved views · Retention
+│     Merge · Usage · General
+│     (the old setup→board wires were removed with the 2026-11-16 amendment —
+│      cards link straight to their pages; Usage → Providers etc. is data
+│      dependency, not a drawn connector)
+├── Board region — the stage board (phase bands + zones + cards; the PIPE chip label + hint removed 2026-11-18)
+│     zones are the real stages from SYSTEM_ARCHITECTURE §3.2; drag = a
+│     server-validated stage transition only (409 on illegal, P1-safe)
+└── MSG region — the outreach region (pending_review → approved → opened)
+      wires ← board ("messages in flight")
+```
+
+**First paint & setup disclosure (§V2 amendment, owner-approved 2026-11-19).**
+Two changes to what Home shows, both from the design critique:
+
+- **The Status panel owns the first screen.** `GET /` still opens the Status
+  card (`data-panel-open="status"` is unchanged), but the canvas world is
+  `visibility: hidden` behind it and is **revealed when the panel closes**.
+  The world is hidden rather than removed so fit-to-view still measures it
+  and nothing jumps on reveal. Only `/` does this — `/prospects`, `/outreach`
+  and deep links render the canvas as before.
+- **The setup cluster discloses.** Nine cards at once was the largest decision
+  point on the canvas. Cards in a `warn` state (Status, Profile when no offer,
+  Retention when rows are flagged) stay out; the rest sit behind one labelled
+  **All setup** control (`aria-expanded`, chevron rotates). Cards stay in the
+  DOM — `display: none` only takes them out of the grid and the tab order —
+  and Profile/Retention now actually surface the warn state their
+  `card_states` already carried.
+
+**Rail (left):** Canvas group — Home / Board / Outreach / Status — then
+**Account** (added 2026-11-19; self-service, any role — identity, active
+sessions, change password; rendered only while the gate is on, since there are
+no identities without it), then Shortcuts and Sign out. The settings tree is
+gone from the rail: the setup cluster *is* the index.
+
+**Every setup has its own card that opens its own pipeline.** A card click
+loads `GET <route>` over HTMX into a slide-over panel whose body is a numbered
+mini-pipeline (`01 … 0n` steps, arrows drawn by CSS) holding the *same real
+forms/fields/tables* as the retired page — nothing was simplified, only
+re-framed. Panels are modal at every breakpoint (focus trap, Escape, backdrop,
+dirty-form confirm, 2-level stacking ≥1400px).
+
+**Deep links (§V2.2, amended 2026-11-18):** retired views no longer open as
+panels over the canvas — they are standalone pages (owner: "views without the
+canvas become tab-based"): `/settings/*` + `/merge/duplicates` share one
+settings **tab page** (tab strip = navigation, deep link = active tab),
+`/prospects/{id}` is a detail **tab page** (`#detail-*` anchor tabs under a
+sticky strip), and `/status`, edit, research and message routes are generic
+standalone pages. `HX-Request` still returns the same body fragment (panel
+parity). Canvas routes (`/`, `/prospects`, `/outreach`) keep the shell; `/`
+still lands with the Status card open, and the canvas Filters + Add-prospect
+action panels still open over it.
+
+**Mobile (<768px, §V2.6):** no transform layer — the world stacks vertically
+in canonical order (setup cards → board bands/zones → outreach zones); wires
+and zoom controls are hidden.
+
+**Rail chords:** `g h` fit world · `g p` fit board · `g o` fit outreach ·
+`g s` open Status · `?` help.
+
+---
+
+**Amendment (2026-11-11) — retired sidebar:** the app now ships a **grouped left sidebar** (WORK / SETTINGS), replacing the 2026-11-07 persistent top bar. Rationale: the live nav carries **10 sections** — past the ~8-section threshold this spec itself set for when a sidebar "pays for itself"; §7's responsive table already specified sidebar behavior (persistent ≥1200px, 56px icon rail 768–1199px, hamburger drawer <768px), so the top bar contradicted the spec's own responsive plan; and the moodboard-driven "charcoal + signal orange" redesign (see the opening) makes the grouped sidebar the strongest identity element while the dense table keeps ~all of its width. The IA tree below is what the sidebar renders, grouped.
 
 ```
 Prospectly
 ├── Dashboard            (pipeline strip + "needs attention" queue)
 ├── Prospects            (list = home base; filters, saved views)
-│     └── Prospect detail (tabs: Overview · Research · Opportunities · Outreach · Activity)
+│     └── Prospect detail → standalone tab page (Overview · Research · Outreach · Activity tabs; sections scroll within)
 ├── Follow-ups           (due / overdue / upcoming)
 ├── Outreach             (message queue by status: pending_review → approved → opened_in_whatsapp)
 ├── Settings
@@ -23,22 +100,31 @@ Prospectly
 │     ├── Providers      (keys/status, feature flags)
 │     ├── Usage          (provider + AI usage, errors, rate limits)
 │     └── General        (vocabulary, defaults, backup)
-└── Docs (target state only — not in the sidebar; a docs surface must exist first, and Swagger at /api/docs renders as an empty shell under the CSP)
+└── API docs (not in the sidebar; /api/docs and /api/redoc render from pinned self-hosted bundles under a docs-only CSP exception)
 ```
 
 **Design rule:** the pipeline is never more than two clicks deep; every list page has one dominant primary action in the header (Add prospect / Import / Run research / Generate draft).
 
-**Design system:** `app/static/css/app.css` is the single source of visual truth — dark charcoal surfaces with 1px hairline borders, orange primary button, orange reserved for accent roles only (actions, active nav, focus, running/hot statuses, AI-origin badges), compact 13px table rows, mono uppercase section labels and mono tabular numerals for all readouts, semantic badges as dark tint + colored text + colored border (icon/word always present — never color alone). Behaviors live in `app/static/js/app.js` (CSP forbids inline handlers): mobile nav drawer, `data-confirm` prompts, whole-row navigation.
+**Design system:** `app/static/css/app.css` is the single source of visual truth — a dark charcoal **shade ladder** (`bg → surface → hover/card → raised → field`) where every container, chip and control reads by fill level instead of an outline; `--color-border` survives only on **internal dividers** (rows, tabs, regions) and `--color-border-strong` only on focus/error boundaries (≥3:1, WCAG 1.4.11). Orange primary button, orange reserved for accent roles only (actions, active nav, focus, running/hot statuses, AI-origin badges), compact 13px table rows, mono uppercase micro-labels **for data groups only** (card section headings were dropped 2026-11-17 — content speaks for itself; headings remain where they group controls) and mono tabular numerals for all readouts, semantic badges as dark tint + colored text (icon/word always present — never color alone). Behaviors live in `app/static/js/app.js` (CSP forbids inline handlers): mobile nav drawer, `data-confirm` prompts, whole-row navigation.
 
 ## 2. Pages & responsibilities
+
+> **V2 (2026-11-12):** each "page" below is now a **card body** rendered inside
+> the card's mini-pipeline panel on the canvas (`app/templates/canvas/cards/*`
+> for the nine setup cards; `partials/panel_*` for prospect/message/research
+> detail). Responsibilities, fields and flows are unchanged — only the surface
+> moved from a full page to a panel. Section 2.4 (Outreach queue) is the
+> outreach *region* on the canvas; 2.5 (Follow-ups) is reached from the
+> Status card's attention queue; 2.1's pipeline strip is dropped (the board
+> carries stage counts with phase chips).
 
 ### 2.1 Dashboard
 - **Responsibility:** answer "what do I do next today?" — not analytics theater.
 - **Sections:**
   1. *Needs attention* queue (overdue follow-ups, drafts pending review, research runs failed, findings unverified) — the primary block, sorted by urgency. Empty state: "Nothing needs attention. ✓"
-  2. *Pipeline strip*: counts for every stage, grouped into three labelled display phases so the numbers read as a progression — **Qualify** (new, researched, opportunity, ready) · **Outreach** (contacted, replied, follow-up) · **Convert** (interested, converted). Each phase is its own bordered card of stage cells (not a funnel chart, not a single undifferentiated row); since the 2026-11-11 pipeline-style refresh the cards are numbered **01–03** with a phase-total in the header and joined by orange flow arrows (presentation-only decoration — the numbers carry the order, so nothing depends on color or arrow direction). Phase grouping is presentation-only: stage order and semantics come from `SYSTEM_ARCHITECTURE.md` §3.2 and are unchanged.
+  2. *Pipeline strip*: counts for every stage, grouped into three labelled display phases so the numbers read as a progression — **Qualify** (new, researched, opportunity, ready) · **Outreach** (contacted, replied, follow-up) · **Convert** (interested, converted). Each phase is its own shaded card of stage cells (not a funnel chart, not a single undifferentiated row); since the 2026-11-11 pipeline-style refresh the cards are numbered **01–03** with a phase-total in the header and joined by orange flow arrows (presentation-only decoration — the numbers carry the order, so nothing depends on color or arrow direction). Phase grouping is presentation-only: stage order and semantics come from `SYSTEM_ARCHITECTURE.md` §3.2 and are unchanged.
   3. *Today*: follow-ups due today + recently replied.
-  4. *Metrics groups*: the nine operational metrics (`PRODUCT_BRIEF §8`) arranged as **three themed cards** — **Pipeline** (Total, Researched, Requires review) · **Outreach** (Approved, Sent, Replies) · **Results** (Interested, Follow-ups due, Converted). Each card is a bordered surface with an uppercase mono group label and left-label / right-value rows (tabular numerals). Empty values are dimmed; actionable backlogs (Requires review > 0, Follow-ups due > 0) read in the accent (`hot` role, redesign 2026-11-11). Cards sit in one column on mobile, three columns from 640px. Grouping is presentation-only: the metric definitions come from `app/services/dashboard.py` and are unchanged.
+  4. *Metrics groups*: the nine operational metrics (`PRODUCT_BRIEF §8`) arranged as **three themed cards** — **Pipeline** (Total, Researched, Requires review) · **Outreach** (Approved, Sent, Replies) · **Results** (Interested, Follow-ups due, Converted). Each card is a shaded surface with an uppercase mono group label and left-label / right-value rows (tabular numerals). Empty values are dimmed; actionable backlogs (Requires review > 0, Follow-ups due > 0) read in the accent (`hot` role, redesign 2026-11-11). Cards sit in one column on mobile, three columns from 640px. Grouping is presentation-only: the metric definitions come from `app/services/dashboard.py` and are unchanged.
 - All numbers link to the pre-filtered Prospects list.
 
 **Status (Phase 5):** the **pipeline strip** and all **nine metrics groups** are built and rendered honestly — real per-stage counts of non-archived prospects (`app/services/dashboard.py`, whose `PIPELINE_PHASES` defines the stage grouping and derives `PIPELINE_STAGES`), zero-filled and grayed when empty, every pipeline cell linking to `/prospects?stage=…`. The "Needs attention" queue is live. Empty dashboard: one sentence + Add prospect / Set up profile.
@@ -47,20 +133,27 @@ Prospectly
 - **Responsibility:** scan, filter, triage.
 - Dense table (rows ~40px): Name · Category · Location · Website status · Stage · Last contact · Next follow-up · Flags (duplicate? suppressed? unverified?).
   **Status (Phase 2):** Next follow-up and the "requires review" flag are Phase 4 columns and are not rendered yet (showing a permanent "none" column would be a lie); the rest are live. Website status and stage badges use `stage-<value>` color mappings, where `no_website_found` reads as neutral **info**, never as an error (P6).
-- Filter bar: stage, category, tag, location, "requires review", archived toggle, free-text search. Filter state persists in URL (shareable/back-button safe). When any filter is active, an inline **Save current view** form (name + save) appears beside the bar; saved views apply from Settings → Saved views (`GET /prospects/views/{id}/apply` redirects onto the list with the view's whitelisted filters).
+- Filter bar: stage, category, tag, location, "requires review", archived toggle, free-text search. Filter state persists in URL (shareable/back-button safe). When any filter is active, an inline **Save current view** form (name + save) appears beside the bar; saved views apply from Settings → Saved views (`GET /prospects/views/{id}/apply` redirects onto the list with the view's whitelisted filters). **Canvas V2:** active filters also render as removable chips under the toolbar — each chip is a plain link preserving every other filter, and a stage filter exposes **Show all zones**; below 768px the filter form collapses behind a **Filters** toggle and chips wrap.
 - Row click → detail. Hover reveals quick actions (Run research, Open WhatsApp — only when state allows).
 - Bulk selection limited to safe ops: add tag, archive, change source. **No bulk outreach actions exist anywhere** (P1).
 - Empty state: "No prospects yet — configure your Profile, run automated Discovery, or Add manually" + two buttons.
 
-### 2.3 Prospect detail
+### 2.3 Prospect detail (standalone tab page, 2026-11-18)
+Rendered as its own page (no canvas behind): page head = name + stage/category
+tags + Edit details; a sticky tab strip (Overview · Research · Outreach ·
+Activity) jumps to the shared sections (active state follows the hash; the
+Outreach tab hides while suppressed). The shared partial keeps its panel head
+in the DOM for fragment parity — page CSS hides it so the name renders once.
+
+### 2.3.1 Sections
 - **Header:** name, stage badge, key facts (phone with copy, email, website with "open" + status chip), suppression warning banner if `do_not_contact`.
 - **Stage card:** allowed-next-transitions select only (canonical steps + `not_interested` from post-contact stages); anything else is rejected server-side with 409.
-- **Suppression card:** when not suppressed — "Do not contact" button with optional reason input (confirm dialog names the prospect); when suppressed — reason + last-suppression context and a "Clear suppression" form with a **required** reason (Flow 8: clearing is explicit and audit-logged).
-- **Tab: Overview** — profile fields (inline edit), source, tags, notes (add/edit), next follow-up, primary actions (Run research / Generate draft / stage transitions).
-- **Tab: Research** — findings grouped by kind; each finding row: statement · origin badge (`human`/`provider`/`ai`) · verification badge · confidence · source link (opens in new tab) · retrieved date · actions (Verify/Edit/Delete). Website check history sub-panel with outcome + signals. "Add finding" form.
-- **Tab: Opportunities** — cards *only here* (each is an evidence object): type, summary, rationale, linked evidence chips (click → jump to finding), Validate/Dismiss. Empty state explains the rule engine runs after research.
-- **Tab: Outreach** — message versions list (status timeline), current draft editor with character/line guidance, grounding panel (findings used), the gated action chain as **one primary button whose label reflects the next legal step**: `Submit for review → Approve → Open in WhatsApp → I have sent this message`. Secondary: edit, return to draft, start new outreach (guarded). After open: an explicit confirmation prompt "Did you send it?" with Yes/No — No returns to `approved`. AI-generated drafts carry an `ai` origin badge plus "verify every claim before sending" (P5); template drafts show `template`.
-- **Tab: Activity** — append-only timeline (icon, actor, description, timestamp; payload details expandable).
+- **Suppression block (Danger zone):** no sub-heading (the Danger zone frame + status badge carry it). When not suppressed — "Block outreach" button with an optional reason input, and the explanation ("Blocks drafts, approvals and WhatsApp actions. Clearing requires a reason.") rendered **above the button** (confirm dialog names the prospect); when suppressed — reason + last-suppression context and a "Clear suppression" form with a **required** reason (Flow 8: clearing is explicit and audit-logged).
+- **Section: Overview** — profile fields (inline edit), source, tags, notes (add/edit), next follow-up, primary actions (Run research / Generate draft / stage transitions).
+- **Section: Research** — findings restacked as rows (2026-11-17; the panel is 560px, so no column ever scrolls horizontally out of reach): line 1 = statement (full width), line 2 = kind · verification · confidence · origin badges, source link (opens in new tab), and actions (Verify/Edit/Delete) right-aligned. Website check history sub-panel with outcome + signals. "Add finding" form.
+- **Section: Opportunities** — cards *only here* (each is an evidence object): type, summary, rationale, linked evidence chips (click → jump to finding), Validate/Dismiss. Empty state explains the rule engine runs after research.
+- **Section: Outreach** — message versions list (status timeline), current draft editor with character/line guidance, grounding panel (findings used), the gated action chain as **one primary button whose label reflects the next legal step**: `Submit for review → Approve → Open in WhatsApp → I have sent this message`. Secondary: edit, return to draft, start new outreach (guarded). After open: an explicit confirmation prompt "Did you send it?" with Yes/No — No returns to `approved`. AI-generated drafts carry an `ai` origin badge plus "verify every claim before sending" (P5); template drafts show `template`.
+- **Section: Activity** — append-only timeline (icon, actor, description, timestamp; payload details expandable).
 
 ### 2.4 Outreach queue
 - Kanban-free **grouped list** by message status: `pending_review` (needs me) → `approved` (ready to send) → `opened_in_whatsapp` (did I send?). Each row: prospect, first line of message, age, actions (Review / Open / Confirm sent). Purpose: never lose an approved-but-unconfirmed message.
@@ -79,9 +172,21 @@ Moved under Settings because CSV is not the default discovery path. 3-step wizar
 - **Usage:** table of provider calls/errors/rate-limits per day + AI calls/tokens per day, with a daily-cap strip (used / cap, "blocked" when reached). Simple table, no charts.
 - **General:** category vocabulary editor, default follow-up days, daily caps with **used-today and a "cap reached — calls blocked" badge**, backup button + last-backup timestamp.
 - **Import (CSV):** secondary utility — Upload → Preview → Commit. Not the default discovery path.
+- **Account** (`/settings/account`, any signed-in role; added 2026-11-19): *Signed in* table (username + role badge), *Active sessions* table with a `this device` badge, and a *Change password* form whose helper copy states "Every other session is signed out." Rate-limited on the current-password field (429 plain-text copy, not an error page).
+- **Users** (`/settings/users`, owner only; added 2026-11-19): *Add user* form (username / password / confirm / role select) above an *Accounts* table (username · role · status badge · created · actions: role select, disable/enable, delete). Self-lockout refusals arrive as an error flash on the same page, never a dead end.
+- **Role-filtered chrome (2026-11-19):** the settings **tab strip** only renders tabs the viewer may open (`_visible_tabs`) — a member sees *Saved views* + *Account* only, and with the gate off the two identity tabs disappear entirely; the canvas **setup cluster** wraps its settings-linked cards in `can_settings` so a member is never shown a card that would 403. These are visibility rules only — every route still enforces its permission.
 
-### 2.8 Login (only when `APP_ACCESS_TOKEN` is set)
-- Standalone page (does not extend the app chrome — nothing to leak behind a gate): one password-style token field + Sign in, `next` carried as a hidden local path. Wrong token re-renders with an inline error (401); success sets the session, rotates the CSRF cookie and redirects to `next`. Every other page/API redirects here (HTML) or returns 401 (JSON) until signed in. `POST /logout` (CSRF-protected) ends the session.
+### 2.8 Auth pages (only when `APP_ACCESS_TOKEN` is set; amended 2026-11-18)
+- All auth pages are standalone (`.auth-shell` — no app chrome; nothing to leak behind a gate) and share one layout: `Sign in`, `Set up` (first run), `Create account`, `Reset password`, `Choose a new password` and the signed-out landing.
+- **Framed card (amended 2026-11-20, owner reference):** every auth page renders one rounded card floating on the page ground (`.auth-shell` → `.auth-frame`: `--radius-lg` + `--shadow-2`, offset and blurred), split into two columns.
+- **The photograph carries content** (`.auth-visual` → `partials/auth_visual.html`): wordmark top-left, a "Back to …" link top-right, and the product one-liner bottom-left over a legibility scrim (dark at the top and bottom, clear through the middle). Because it holds a focusable link and readable text it is **not** `aria-hidden` — only the `<img>` is decorative (`alt=""`) — and there is still **no caption under it**.
+- **The form half** carries the page heading, an `.auth-alt` alternate action beside it (rather than buried under the form), the fields, and `auth-links` below. Password fields carry a **44×44 visibility toggle** (`data-pw-toggle` → `app/static/js/auth.js`): the auth pages are standalone and never load `app.js`, which carries canvas-only shortcuts (j/k, g-chords, `/`) that have no business firing on a sign-in form; CSP forbids an inline script.
+- Below **768px** (the system's own breakpoint, UI spec §7) the photograph becomes a band above the form, so it renders at every width instead of vanishing. Provenance is recorded in the partial: a **stand-in** from a live Wikimedia Commons search, *"Quezon City skyline at night 10Sep2025"* by RFNirmala, **CC0 / public domain** — swap `src`/`srcset` for the client's own photograph when one exists.
+- **Sign in:** username + password fields, `next` carried as a hidden local path; failures re-render with inline error copy (401 invalid credentials — same copy for unknown user and wrong password; 403 disabled; 429 rate-limited); success sets the session cookie, rotates the CSRF cookie and redirects to `next`. Secondary links under a divider (`.auth-links`): *Forgot password?* and — when `ALLOW_SIGNUP=true` — *Create an account*.
+- **Set up (first run):** while the `users` table is empty every path funnels here; creates the **owner** account (username + password + confirm), then signs in. Once any account exists it redirects to `/login`.
+- **Forgot password (local-first):** submits a username; the single-use reset link (30-min TTL) is rendered on the page — no email service exists. **Reset password:** new + confirm password, then every session is revoked and the login page shows a success notice (`?reason=reset`).
+- **Landing page** (`GET /`, gate on + signed out; added 2026-11-19 on owner decision): the front door the app never had. Reuses the `.auth-shell` / `.auth-card` chrome — brand lockup, one sentence of copy, a primary **Sign in**, and *Forgot password?* / *Create an account* under a divider. It is rendered by `AuthMiddleware` **before any route runs**, which is what makes it safe: no query, no count, no prospect name may ever appear in it. `Accept: application/json` still gets `401 {"detail": …}`; first run still funnels to `/setup`; a dead cookie still redirects so the `?reason=` copy survives.
+- Session expiry and disabled-account states return to Sign in with `?reason=expired` / `?reason=disabled` notice copy. `POST /logout` / `POST /logout-all` (CSRF-protected) end one/all sessions.
 
 ## 3. Main user journeys (screen-level)
 
@@ -99,7 +204,7 @@ Moved under Settings because CSV is not the default discovery path. 3-step wizar
 | Component | Usage |
 |---|---|
 | `DataTable` | sortable, filterable, URL-state, row actions; used by prospects, outreach, follow-ups, usage |
-| `FilterBar` | chips + selects + search; one implementation, URL-synced |
+| `FilterBar` | chips + selects + search; one implementation, URL-synced; removable active-filter chips (plain links) + mobile Filters drawer |
 | `StatusBadge` | stage / message status / verification / origin — one vocabulary, consistent colors (see tokens) |
 | `EvidenceChip` | source URL chip with favicon-less external-link icon + tooltip (type + retrieved date) |
 | `PrimaryActionButton` | context-aware label (see outreach chain); never renders when state forbids (disabled + tooltip reason instead) |
@@ -113,55 +218,93 @@ Moved under Settings because CSV is not the default discovery path. 3-step wizar
 | `CopyButton` | phone/URL copy affordance |
 | `WaLinkButton` | renders only when message `approved`; includes status tooltip |
 
+The canonical implementations are the `.ds-*` classes in `app/static/css/components.css` (see §5 amendment). Incumbent classes in `app.css`/`canvas.css` remain in use on working screens; new views should compose the `.ds-*` primitives instead of adding parallel one-off rules.
+
 ## 5. Design tokens
 
-Defined once in `app/static/css/app.css` `:root` (plain CSS custom properties; no framework). Pre-composited solid hex for every tint — never `rgba(…)` overlays of the semantic hues, or the contrast table stops holding:
+Canonical tokens live in `app/static/css/tokens.css` `:root` (plain CSS custom properties; no framework). `app.css` keeps the incumbent `--color-*` / `--fs-*` / `--sp-*` names as **aliases only** so existing screens keep their exact computed values. Pre-composited solid hex for every tint — never `rgba(…)` overlays of the semantic hues, or the contrast table stops holding.
 
 ```css
-/* Surfaces & borders — charcoal stack, hairline structure
-   (text 15.08:1, muted 7.70:1 on surface) */
---color-bg:#0b0c0e; --color-surface:#14161a; --color-surface-hover:#1b1e24;
---color-surface-raised:#1f2126;      /* dialogs, tooltips, dropdowns, toasts */
---color-border:#26292f; --color-border-strong:#6a7280;  /* control boundaries ≥3:1 (WCAG 1.4.11) */
---shadow-1:0 1px 2px rgba(0,0,0,.4); --shadow-2:0 8px 24px rgba(0,0,0,.5);
+/* Surfaces — charcoal shade ladder, NO element outlines (2026-11-17) */
+--surface-0:#090a0c;              /* page */
+--surface-1:#1f232a;              /* cards, rows, hover */
+--surface-2:#292d35;              /* raised: menus, toasts, chips, active tiles, secondary buttons */
+--surface-2-hover:#33373f;        /* hover on a raised control */
+--surface-panel:#171a20;          /* containers: zones, panels, sections */
+--surface-field:#0e1014;          /* sunken control fill: inputs only (not buttons, 2026-11-24) */
+--border:#33373f;                 /* INTERNAL DIVIDERS only — never boxes */
+--border-strong:#6a7280;          /* focus/error boundary ≥3:1 (WCAG 1.4.11) */
 
-/* Text — warm-tinted white (15.08 / 7.70 / 5.58:1 on surface) */
---color-text:#eceae6; --color-text-muted:#a6a9b0; --color-text-subtle:#8b8f97;
+/* Text — warm-tinted white; primary/secondary/muted all pass AA on every
+   surface in the ladder (16.48/8.42/7.53:1 on surface-0). */
+--text-primary:#eceae6; --text-secondary:#a6a9b0; --text-muted:#9ba0a8;
+--text-on-accent:#140d07;         /* 6.76:1 on accent */
 
-/* Single accent — primary actions, active nav, focus, running/hot, AI origin */
---color-accent:#ff6b1a; --color-accent-hover:#ff8340;   /* hover lightens on dark */
---color-accent-light:#30201a;    /* pre-composited 12% orange over surface */
---color-accent-border:#7a3d1c;   /* pre-composited 35% orange over surface */
---glow-accent:0 0 20px rgba(255,107,26,.12);  /* CTA hover + active nav + focus rings */
---color-link:#ff8a3d;            /* same family, one hue lighter (7.72:1) */
---focus-ring:rgba(255,107,26,.28);
+/* Single accent + one link colour, never UA blue */
+--accent:#ff6b1a; --accent-hover:#ff8340; --accent-subtle:#3d271d;
+--accent-border:#7a3d1c; --link:#7aa2ff;
+--glow-accent:0 0 20px rgba(255,107,26,.12);  /* CTA hover + active nav only */
 
-/* Semantic — dark tint bg + colored text + colored border (word/icon always
-   present, never color alone) */
---color-success:#4cc38a; --color-success-light:#122a1d; --color-success-border:#1e5c3a;
---color-danger:#f87171;  --color-danger-light:#2b1512;  --color-danger-border:#6e2f28;
---color-warn:#fbbf24;    --color-warn-light:#2a2110;    --color-warn-border:#7a5a18;
---color-info:#56b8d8;    --color-info-light:#10262c;    --color-info-border:#1d5563;
+/* Semantic — tint bg + coloured text (word/icon always present, never colour
+   alone; the *-border tokens remain for focused states only, not chip outlines) */
+--success:#4cc38a; --success-subtle:#173b2b; --success-border:#1e5c3a;
+--warning:#fbbf24; --warning-subtle:#3a2f17; --warning-border:#7a5a18;
+--danger:#f87171;  --danger-subtle:#3a1d17;  --danger-border:#6e2f28;
+--danger-hover:#4a211b;          /* destructive button hover */
+--info:#56b8d8;    --info-subtle:#153440;    --info-border:#1d5563;
 
-/* Type — system sans body + mono micro-typography; tabular numerals for data */
+/* Type — requested scale 12/13/14/16/20/24/32 with paired line heights.
+   Incumbent optical steps 15/17/18/21/22/28 are tokenised too, so no screen
+   shifts. Mono is reserved for small uppercase labels and tabular readouts. */
 --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
---tracking-label:.08em;            /* uppercase mono group/column labels */
---fs-xs:11px; --fs-sm:13px; --fs-base:15px; --fs-lg:17px; --fs-xl:18px; --fs-3xl:28px;
---fw-medium:500; --fw-semibold:600;
---lh-tight:1.3; --lh-normal:1.5;
+--type-12:0.75rem; --type-12-lh:1.4;   --type-13:0.8125rem; --type-13-lh:1.4;
+--type-14:0.875rem; --type-14-lh:1.5; --type-16:1rem;      --type-16-lh:1.5;
+--type-20:1.25rem; --type-20-lh:1.3;  --type-24:1.5rem;    --type-24-lh:1.25;
+--type-32:2rem;    --type-32-lh:1.2;
+--weight-regular:400; --weight-medium:500; --weight-semibold:600;
+--tracking-label:.08em;
 
-/* Space & shape — 4px base */
---sp-1:4px … --sp-8:32px;
---radius-sm:4px; --radius-md:6px; --radius-lg:8px;
---control-h:44px mobile / 36px ≥640px; --row-h:40px  /* row floor, rendered as td height (not a custom property) */;
+/* Space & shape — 4/8/12/16/24/32/48; radii 6/8/12; three elevations */
+--space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+--space-5:24px; --space-6:32px; --space-7:48px;
+--radius-sm:6px; --radius-md:8px; --radius-lg:12px;
+--shadow-1:0 1px 2px rgba(0,0,0,.4); --shadow-2:0 8px 24px rgba(0,0,0,.5);
+--shadow-3:0 16px 40px rgba(0,0,0,.58);
+--control-h-sm:32px; --control-h-md:36px; --control-h:var(--control-h-md);
 
 /* Layout — grouped sidebar (spec §1 amendment 2026-11-11, §7) */
---nav-w:15rem; --topbar-h:52px; --max-w:960px;
+--nav-w:15rem; --topbar-h:52px; --max-w:60rem;
 
-/* Motion — functional only, ≤150ms; prefers-reduced-motion → 0ms / static */
---dur-fast:120ms; --dur-base:150ms;
+/* Motion — functional only; fast/base for micro-interactions, slow for the
+   drawer class; decelerating ease, never a snap. prefers-reduced-motion → 0ms. */
+--dur-fast:120ms; --dur-base:200ms; --dur-slow:320ms;
+--ease-out:cubic-bezier(0.22, 1, 0.36, 1);
 ```
+
+**Amendment — design system (2026-11-24):**
+
+- Load order is `tokens.css → components.css → app.css → canvas.css` in `base.html` and every standalone auth/error page. `app.css` must never redeclare a canonical token: a custom property cannot reference itself (`--space-1: var(--space-1)` is invalid).
+- Reusable primitives live in `app/static/css/components.css` with a `.ds-*` prefix: `Button`, `Input`/`Select`/`Textarea`, `Card`, `Badge`/`Chip`, `Tabs`, `Drawer`, `EmptyState`, `DataTable`, `Toast`, `PageHeader`, plus `.ds-link` and `.ds-eyebrow`. They are opt-in, **except buttons**: the legacy `.btn` classes are grouped into the same `.ds-btn` rules (`.btn`=secondary, `.btn.primary`, `.btn.ghost`, `.btn.danger`/`.danger-outline`, `.btn.small`), so there is one button implementation and `app.css` keeps only placement rules for `.btn`.
+- **Button rule:** exactly one orange primary per view, secondary for routine actions, ghost for tertiary, danger only for destructive confirmation. Secondary is a raised `--surface-2` fill (never the sunken input fill, which read as a field); inside a raised container (`.ds-card--raised`, toasts, `.help-panel`, `.sub-filter-menu`, `.flow-step`) secondary and ghost-hover step up to `--surface-2-hover`. While a slide-over panel is open its action is the view's primary, so the page-level **Add prospect** renders as secondary (`body.panel-open`). Icon buttons follow the same rule: shell toggles are secondary, the row-level remove icon is a ghost (red on hover). The styleguide shows every state, including forced `.is-hover`/`.is-focus` hooks that share the real `:hover`/`:focus-visible` rules.
+- **Links:** one themed token (`--link`, 6.3–7.0:1 on panels/cards), never default UA blue; hover keeps the colour and only underlines (orange stays an action/state signal).
+- **Spacing:** every padding/margin/gap uses the 4–48 scale. Off-scale values were snapped to the nearest step, ties rounded up (6→8, 10→12, 14→16, 18→16). Remaining raw px are geometry, not spacing: 1–3px optical/hairline nudges, `-1px` bleeds, slider-thumb centring, and reservations beside fixed overlay controls (52px panel heading beside the 40px close button, 44px password field beside its toggle). Pills use `--radius-pill`; circles stay `50%`.
+- `/dev/styleguide` is the hidden, unlinked reference page. It uses the normal auth gate, is excluded from OpenAPI, and loads `styleguide.css` only via `head_extra` so demo styles never ship to working screens.
+
+**Amendment — borderless pass (2026-11-17, owner directives):**
+1. **No element outlines.** Cards, zones, panels, drawers, badges, chips, buttons, inputs, banners, tooltips, menus and tables are fill-only; levels come from the shade ladder above. `--color-border` is dividers only (row rules, tab underline, region edges); `--color-border-strong` stays for focus rings and error borders. Focus outlines (`:focus-visible`, 2px accent) are untouched — they are state, not decoration.
+2. **Stage tab.** The prospect card's stage pill became a **sunken corner tab** welded into the card's top-right edge: negative margins pull it onto the edge, its top-right radius matches the card's (`0 var(--radius-md) 0 var(--radius-sm)`), no border. Neutral fill by default; only an opt-out stage (`do not contact`) keeps the danger tint.
+3. **Colour = signal.** On prospect cards every chip is neutral (`raised` fill, muted text); red survives for suppression/failure and amber for `check failed`/overdue. Semantic tints were brightened so chips still read as blocks without borders.
+4. **Labels.** Card section headings that only restated their content (Key facts, Research, Opportunities, Outreach, Notes, Activity, Draft editor, Grounding, Send chain, Message history, Research status, Findings) are **removed**; headings remain only where they group many controls (Defaults, Daily caps, Backup, Discovery, Danger zone, Add finding). Panel titles are real `<h2>` so the outline never skips a level (axe `heading-order`).
+5. **Panel arrangement.** The suppression banner sits *below* the sticky header; the head is one row (name + badges inline, actions opposite); danger-zone blocks carry their status in the block head instead of a `Status:` line; Outreach shows a state row + message preview; activity payloads render as readable text (`describe_payload`) — never JSON.
+
+**Amendment — dark-UI polish (2026-11-24):**
+
+- **API docs:** `/api/docs` (Swagger UI) and `/api/redoc` load pinned local bundles; the route-scoped CSP adds `style-src 'unsafe-inline'` (runtime-injected styles) and `worker-src blob:` (ReDoc search worker). The global hash-only CSP is unchanged; no CDN scripts, styles or logos.
+- **Warning banners:** `.banner.warn` is an amber-tinted callout with a 3px left border, icon and `role="status"`. The prospect-detail stage/data mismatch is one short sentence, not two grey notes.
+- **Focus:** a single 2px `:focus-visible` outline (no glow, no mouse focus ring). Page-load autofocus is quiet until blur, so it never paints a thick ring on first paint.
+- **Type/contrast:** 13px body copy and control labels, 12px meta/readouts; `--color-text-subtle` is `#9ba0a8` (WCAG AA on every shade).
+- **Canvas fit:** `fitBoardReadable()` frames the board plus the first Pending review zone; the two later outreach zones stay reachable through `/outreach`.
 
 Typography: two families, strict role split — system sans for body/table/form text, mono for uppercase group labels, numeric readouts and log-style timestamps. Data tables use `font-variant-numeric: tabular-nums`. Hierarchy comes from weight/spacing/size, not color.
 
@@ -177,17 +320,21 @@ Typography: two families, strict role split — system sans for body/table/form 
 
 | Breakpoint | Behavior |
 |---|---|
-| ≥1200px | Sidebar + wide tables (all columns) |
-| 768–1199px | Sidebar collapses to icons; tables drop low-priority columns into row expand |
-| <768px | Top hamburger nav; tables → stacked cards *of rows* (still dense, not decorative); prospect detail tabs scroll horizontally; primary actions become sticky bottom bar |
+| ≥1024px | Full canvas (transform layer); rail + wide tables (all columns) |
+| 768–1023px | Rail + stacked flow as a **2-column zone grid** (mini-kanban); sticky zone heads; tables stack with `data-label` headers |
+| <768px | Header + drawer; canvas in stacked **work-first order** (setup cluster last, DOM follows visual); toolbar = two rows with Add prospect as a 44px header icon; standalone pages get a sticky scrollable tab strip; tables → stacked rows *with data-label headers* (dense, not decorative) |
 
-Touch targets ≥40px on mobile. The mobile experience is **review/light-triage quality** (approve, confirm, follow-up); heavy CSV work is desktop-oriented but not blocked.
+Touch targets **44px** on `pointer: coarse` and <768px (raised from 40: buttons
+were 36px, dashboard list links 20px; inline prose links keep the WCAG inline
+exception). Spacing rhythm on phone: 16px gutters, 12px between stacked zones,
+24px between sections. The mobile experience is **review/light-triage quality**
+(approve, confirm, follow-up); heavy CSV work is desktop-oriented but not blocked.
 
 ## 8. Accessibility
 
 - Semantic HTML first (server-rendered helps): landmarks, real `<table>`, real `<button>`/`<a>`.
-- Keyboard: visible focus rings (2px accent outline), full table navigation, `?` opens shortcut help (j/k row nav, `/` search, `g d` dashboard — progressive enhancement).
-- Contrast: token pairs meet WCAG AA (muted text ≥4.5:1 on surface).
+- Keyboard: visible 2px accent ring on `:focus-visible` only (autofocus stays quiet until blur), full table navigation, `?` opens shortcut help (j/k row nav, `/` search, `g d` dashboard — progressive enhancement).
+- Contrast: token pairs meet WCAG AA (muted text ≥4.5:1 on surface); body/labels ≥13px, meta ≥12px.
 - Badges/icons always paired with text; status changes announced via `aria-live="polite"` on toasts.
 - Forms: labels tied to inputs, errors with `aria-describedby`, focus moved to first invalid field.
 

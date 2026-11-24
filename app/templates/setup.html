@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Set up · {{ app_name }}</title>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="/static/js/auth.js" defer></script>
+</head>
+<body>
+  <!-- First run with the gate on: create the owner account (users empty). -->
+  {% set auth_back_href = "/" %}
+  {% set auth_back_label = "Back to Prospectly" %}
+  <main class="auth-shell">
+    <div class="auth-frame">
+    <div class="auth-card">
+      <h1>Set up {{ app_name }}</h1>
+      <p class="muted">Create the owner account. It can do everything, including managing other users.</p>
+
+      {% if error %}
+      <div class="flash error" role="alert">{{ error }}</div>
+      {% endif %}
+
+      <form method="post" action="/setup">
+        {{ csrf_field() }}
+        <input type="hidden" name="next" value="{{ next or '/' }}">
+        <div class="form-section full-width">
+          <div class="field full">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username"
+                   autocomplete="username" autofocus required>
+          </div>
+          <div class="field full">
+            <label for="password">Password</label>
+                        <div class="pw-wrap">
+              <input type="password" id="password" name="password"
+              autocomplete="new-password" required>
+              <button class="pw-toggle" type="button" data-pw-toggle
+                      aria-controls="password" aria-label="Show password">
+                <svg class="pw-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                <svg class="pw-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 5.2A11 11 0 0 1 12 5.5c6.4 0 10 6.5 10 6.5a18.6 18.6 0 0 1-3.1 3.9"></path><path d="M6.5 6.7A18.4 18.4 0 0 0 2 12s3.6 6.5 10 6.5a10.6 10.6 0 0 0 3.9-.7"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>
+              </button>
+            </div>
+          </div>
+          <div class="field full">
+            <label for="confirm">Confirm password</label>
+                        <div class="pw-wrap">
+              <input type="password" id="confirm" name="confirm"
+              autocomplete="new-password" required>
+              <button class="pw-toggle" type="button" data-pw-toggle
+                      aria-controls="confirm" aria-label="Show password">
+                <svg class="pw-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                <svg class="pw-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 5.2A11 11 0 0 1 12 5.5c6.4 0 10 6.5 10 6.5a18.6 18.6 0 0 1-3.1 3.9"></path><path d="M6.5 6.7A18.4 18.4 0 0 0 2 12s3.6 6.5 10 6.5a10.6 10.6 0 0 0 3.9-.7"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="action-group">
+          <button class="btn primary" type="submit">Create owner account</button>
+        </div>
+      </form>
+    </div>
+    {% include "partials/auth_visual.html" %}
+    </div>
+  </main>
+</body>
+</html>

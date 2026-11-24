@@ -140,7 +140,7 @@ def test_detail_page_has_notes_card_and_empty_state() -> None:
         r = client.get(f"/prospects/{prospect.id}")
         assert r.status_code == 200
         assert "Notes" in r.text
-        assert "No notes yet." in r.text
+        assert "Add note" in r.text  # empty-state copy removed (owner 2026-11-17)
         assert f'action="/prospects/{prospect.id}/notes"' in r.text
     finally:
         _cleanup(db, path)

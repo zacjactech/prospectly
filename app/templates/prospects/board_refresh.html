@@ -1,0 +1,5 @@
+{# HX-Request representation of the board region (content negotiation,
+   pages.py): flashes + a fresh board fragment for in-place refreshes —
+   never rendered as a full page. #}
+{% include "partials/flashes.html" %}
+{% include "partials/board_zones.html" %}

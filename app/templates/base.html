@@ -3,31 +3,62 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {# CSRF for JS-initiated POSTs (board stage moves): double-submit cookie is
+     HttpOnly, so the token must travel in the page (spec §8.1 risk 3). The
+     middleware accepts it back as the X-CSRF-Token header (app/csrf.py). #}
+  <meta name="csrf-token" content="{{ csrf_token(request) }}">
+  <meta name="description" content="Prospectly · a local-first prospect pipeline and WhatsApp outreach workspace.">
+  <meta property="og:title" content="{{ app_name }} · prospect pipeline">
+  <meta property="og:description" content="Discover, research, draft and approve WhatsApp outreach in one local-first workspace.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="/static/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="/static/og.png">
+  {# Literal by necessity: meta tags cannot read CSS variables. Mirrors --surface-0 in tokens.css. #}
+  <meta name="theme-color" content="#090a0c">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/css/tokens.css?v=81">
+  <link rel="stylesheet" href="/static/css/components.css?v=81">
+  <link rel="stylesheet" href="/static/css/app.css?v=81">
+  <link rel="stylesheet" href="/static/css/canvas.css?v=81">
+  {# htmx settles class/width/height across element-replacing swaps. It also
+     settles `style` by default, which is a style-attribute write that our
+     hash-only style-src CSP blocks (it surfaced as a console violation after
+     every board refresh, and canvas.js re-applies layout anyway) so the
+     style attribute is excluded here rather than whitelisting the hash. #}
+  <meta name="htmx-config" content='{"attributesToSettle":["class","width","height"]}'>
   <script src="/static/js/htmx.min.js" defer></script>
-  <script src="/static/js/app.js" defer></script>
+  <script src="/static/js/app.js?v=81" defer></script>
+  <script src="/static/js/panel.js?v=81" defer></script>
+  <script src="/static/js/canvas.js?v=81" defer></script>
+  <script src="/static/js/board.js?v=81" defer></script>
+  {% block head_extra %}{% endblock %}
 </head>
 {# Slim mobile header title, derived from the path so no content template
    needs a new block (spec §1 amendment 2026-11-11). #}
 {% macro page_title() -%}
   {%- set p = request.url.path -%}
-  {%- if p == '/' -%}Dashboard
-  {%- elif p.startswith('/prospects') -%}Prospects
-  {%- elif p == '/merge/duplicates' -%}Merge Duplicates
+  {%- if p == '/' -%}Status
+  {%- elif p == '/status' -%}Status
+  {%- elif p == '/outreach' -%}Messages
+  {%- elif p.startswith('/prospects') -%}Pipeline
+  {%- elif p == '/merge/duplicates' -%}Duplicates
   {%- elif p.startswith('/settings/profile') -%}Profile
   {%- elif p.startswith('/settings/providers') -%}Providers
   {%- elif p == '/settings/usage' -%}Usage
   {%- elif p == '/settings/general' -%}General
   {%- elif p == '/settings/import' -%}Import
-  {%- elif p == '/settings/saved-views' -%}Saved Views
+  {%- elif p == '/settings/saved-views' -%}Saved views
   {%- elif p == '/settings/retention' -%}Retention
-  {%- elif p.startswith('/messages') -%}Edit Message
-  {%- elif p.startswith('/outreach') -%}Outreach
+  {%- elif p.startswith('/settings/account') -%}Account
+  {%- elif p.startswith('/settings/users') -%}Users
+  {%- elif p.startswith('/messages') -%}Message
   {%- else -%}{{ app_name }}{%- endif -%}
 {%- endmacro %}
-<body>
+<body{% if first_paint %} class="first-paint"{% endif %}>
   <a class="skip-link" href="#main-content">Skip to content</a>
   <div class="app-shell">
 
@@ -42,18 +73,28 @@
           <line x1="3" y1="18" x2="21" y2="18"></line>
         </svg>
       </button>
-      <a href="/" class="brand"><span class="brand-dot" aria-hidden="true"></span><span class="brand-text">{{ app_name }}</span></a>
+      <a href="/" class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2.5"></circle><circle cx="19" cy="6" r="2.5"></circle><circle cx="19" cy="18" r="2.5"></circle><path d="M7.4 11 16.6 6.9M7.4 13 16.6 17.1"></path></svg></span><span class="brand-text">{{ app_name }}</span></a>
       <span class="app-header-title">{{ page_title() }}</span>
+      {# The one accent action on phone lives in the header (owner 2026-11-18):
+         the toolbar's full-width Add prospect competed with everything; hidden
+         >=768 where the toolbar owns it. #}
+      <a href="/prospects/new" class="btn primary header-add"
+         data-panel-href="/prospects/new" data-panel-width="560" data-panel-dirty="1"
+         aria-label="Add prospect" title="Add prospect">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      </a>
     </header>
 
-    <!-- Grouped sidebar (evo-team pattern): off-canvas drawer <768px,
-         56px icon rail 768–1199px, full labels >=1200px (spec §7).
-         Icons: 16px stroke glyphs on the 24px grid, currentColor
-         (Lucide-derived, ISC — see README). Active state preserves the
-         exact request.url.path conditions of the old top bar. -->
+    <!-- App navigation (Pipeline Canvas spec §1.1): 56px icon rail >=768px
+         (icons + title/[data-tip] tooltips, group hairlines, Shortcuts and
+         Sign out pinned at the bottom); off-canvas drawer with text labels
+         <768px (existing app.js drawer logic untouched). Active-state exact
+         request.url.path conditions preserved verbatim from the grouped
+         sidebar. Icons: 16px stroke glyphs on the 24px grid, currentColor
+         (Lucide-derived, ISC; see README). -->
     <aside class="sidenav" id="sidenav" aria-label="Main navigation">
       <div class="sidenav-head">
-        <a href="/" class="brand"><span class="brand-dot" aria-hidden="true"></span><span class="brand-text">{{ app_name }}</span></a>
+        <a href="/" class="brand" aria-label="{{ app_name }} · home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2.5"></circle><circle cx="19" cy="6" r="2.5"></circle><circle cx="19" cy="18" r="2.5"></circle><path d="M7.4 11 16.6 6.9M7.4 13 16.6 17.1"></path></svg></span><span class="brand-text">{{ app_name }}</span></a>
         <button class="nav-close" type="button" aria-label="Close navigation" data-nav-close>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -65,58 +106,56 @@
 
       <nav class="sidenav-nav" aria-label="Sections">
         <div class="nav-group">
-          <span class="nav-group-label">Work</span>
-          <a href="/" class="nav-link{% if request.url.path == '/' %} active{% endif %}" title="Dashboard" aria-label="Dashboard">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>
-            <span class="nav-text">Dashboard</span>
-          </a>
-          <a href="/prospects" class="nav-link{% if request.url.path == '/prospects' or request.url.path.startswith('/prospects/') %} active{% endif %}" title="Prospects" aria-label="Prospects">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            <span class="nav-text">Prospects</span>
-          </a>
-          <a href="/merge/duplicates" class="nav-link{% if request.url.path == '/merge/duplicates' %} active{% endif %}" title="Merge Duplicates" aria-label="Merge Duplicates">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M6 21V9a9 9 0 0 0 9 9"></path></svg>
-            <span class="nav-text">Merge Duplicates</span>
+          <div class="rail-divider" title="CANVAS" aria-hidden="true"></div>
+          <span class="nav-group-label">Canvas</span>
+          <button type="button" class="nav-link{% if request.url.path == '/' %} active{% endif %}"{% if request.url.path == '/' %} aria-current="true"{% endif %} data-canvas-view="world" title="Home · whole canvas" aria-label="Home · fit the whole canvas" data-tip="Home">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <span class="nav-text">Home</span>
+          </button>
+          <button type="button" class="nav-link{% if request.url.path.startswith('/prospects') %} active{% endif %}"{% if request.url.path.startswith('/prospects') %} aria-current="true"{% endif %} data-canvas-view="board" title="Stage board" aria-label="Fit the stage board" data-tip="Board">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path><path d="M15 3v18"></path></svg>
+            <span class="nav-text">Board</span>
+          </button>
+          <button type="button" class="nav-link{% if request.url.path == '/outreach' %} active{% endif %}"{% if request.url.path == '/outreach' %} aria-current="true"{% endif %} data-canvas-view="outreach" title="Messages region" aria-label="Fit the messages region" data-tip="Messages">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>
+            <span class="nav-text">Messages</span>
+          </button>
+          <a href="/status" class="nav-link{% if request.url.path == '/status' %} active{% endif %}" title="Status" aria-label="Open the status card" data-tip="Status">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+            <span class="nav-text">Status</span>
           </a>
         </div>
 
-        <div class="nav-group">
-          <span class="nav-group-label">Settings</span>
-          <a href="/settings/profile" class="nav-link{% if request.url.path.startswith('/settings/profile') %} active{% endif %}" title="Profile" aria-label="Profile">
+        <!-- Pinned foot (spec §1.1): shortcuts help + sign out (POST, csrf). -->
+        <div class="rail-foot">
+          <span class="nav-group-label">Session</span>
+          {% if gate_enabled() %}
+          <a href="/settings/account" class="nav-link" title="Account" aria-label="Account" data-tip="Account">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-            <span class="nav-text">Profile</span>
+            <span class="nav-text">Account</span>
           </a>
-          <a href="/settings/providers" class="nav-link{% if request.url.path.startswith('/settings/providers') %} active{% endif %}" title="Providers" aria-label="Providers">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"></rect><rect width="20" height="8" x="2" y="14" rx="2" ry="2"></rect><line x1="6" x2="6.01" y1="6" y2="6"></line><line x1="6" x2="6.01" y1="18" y2="18"></line></svg>
-            <span class="nav-text">Providers</span>
-          </a>
-          <a href="/settings/usage" class="nav-link{% if request.url.path == '/settings/usage' %} active{% endif %}" title="Usage" aria-label="Usage">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-            <span class="nav-text">Usage</span>
-          </a>
-          <a href="/settings/general" class="nav-link{% if request.url.path == '/settings/general' %} active{% endif %}" title="General" aria-label="General">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="21" x2="14" y1="4" y2="4"></line><line x1="10" x2="3" y1="4" y2="4"></line><line x1="21" x2="12" y1="12" y2="12"></line><line x1="8" x2="3" y1="12" y2="12"></line><line x1="21" x2="16" y1="20" y2="20"></line><line x1="12" x2="3" y1="20" y2="20"></line><line x1="14" x2="14" y1="2" y2="6"></line><line x1="8" x2="8" y1="10" y2="14"></line><line x1="16" x2="16" y1="18" y2="22"></line></svg>
-            <span class="nav-text">General</span>
-          </a>
-          <a href="/settings/import" class="nav-link{% if request.url.path == '/settings/import' %} active{% endif %}" title="Import" aria-label="Import">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg>
-            <span class="nav-text">Import</span>
-          </a>
-          <a href="/settings/saved-views" class="nav-link{% if request.url.path == '/settings/saved-views' %} active{% endif %}" title="Saved Views" aria-label="Saved Views">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-            <span class="nav-text">Saved Views</span>
-          </a>
-          <a href="/settings/retention" class="nav-link{% if request.url.path == '/settings/retention' %} active{% endif %}" title="Retention" aria-label="Retention">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="5" x="2" y="3" rx="1"></rect><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"></path><path d="M10 12h4"></path></svg>
-            <span class="nav-text">Retention</span>
-          </a>
+          {% endif %}
+          <button class="nav-link" type="button" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" data-tip="Keyboard shortcuts" data-show-help>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="M6 8h.01"></path><path d="M10 8h.01"></path><path d="M14 8h.01"></path><path d="M18 8h.01"></path><path d="M8 12h.01"></path><path d="M12 12h.01"></path><path d="M16 12h.01"></path><path d="M7 16h10"></path></svg>
+            <span class="nav-text">Shortcuts</span>
+          </button>
+          <form method="post" action="/logout" class="rail-form">
+            {{ csrf_field() }}
+            <button class="nav-link" type="submit" title="Sign out" aria-label="Sign out" data-tip="Sign out">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
+              <span class="nav-text">Sign out</span>
+            </button>
+          </form>
         </div>
       </nav>
     </aside>
     <div class="nav-backdrop" data-nav-close></div>
 
-    <main class="main" id="main-content">
-      <div class="page">
+    {# Every working surface is the canvas (spec §V2.1): full-bleed main, no
+       page max-width. `canvas_mode` is set by the route, so login/error
+       pages keep the conventional chrome. #}
+    <main class="main{% if canvas_mode %} main--canvas{% endif %}" id="main-content">
+      <div class="page{% if canvas_mode %} page--canvas{% endif %}">
         {% include "partials/flashes.html" %}
         {% block content %}{% endblock %}
       </div>
@@ -129,20 +168,34 @@
             <thead><tr><th>Key</th><th>Action</th></tr></thead>
             <tbody>
               <tr><td><kbd>?</kbd></td><td>Show / hide this help</td></tr>
-              <tr><td><kbd>/</kbd></td><td>Focus search</td></tr>
-              <tr><td><kbd>j</kbd> / <kbd>k</kbd></td><td>Move highlight down / up in lists</td></tr>
-              <tr><td><kbd>g</kbd> then <kbd>d</kbd></td><td>Go to dashboard</td></tr>
-              <tr><td><kbd>Escape</kbd></td><td>Close help / close nav menu</td></tr>
+              <tr><td><kbd>/</kbd></td><td>Focus search (opens Filters)</td></tr>
+              <tr><td>Wheel</td><td>Zoom the canvas at the pointer · Ctrl+wheel pans</td></tr>
+              <tr><td>Drag background</td><td>Pan the canvas · drag a zone to rearrange</td></tr>
+              <tr><td><kbd>j</kbd> / <kbd>k</kbd></td><td>Move highlight down / up in lists and on the board</td></tr>
+              <tr><td><kbd>Enter</kbd></td><td>Open the highlighted board card</td></tr>
+              <tr><td><kbd>m</kbd></td><td>Move-to stage menu for the highlighted card</td></tr>
+              <tr><td><kbd>+</kbd> / <kbd>−</kbd></td><td>Zoom the canvas in / out</td></tr>
+              <tr><td><kbd>0</kbd> / <kbd>f</kbd></td><td>Reset zoom to 100% · fit the board to view</td></tr>
+              <tr><td><kbd>g</kbd> then <kbd>h</kbd></td><td>Home · fit the whole canvas</td></tr>
+              <tr><td><kbd>g</kbd> then <kbd>p</kbd></td><td>Fit the prospect board</td></tr>
+              <tr><td><kbd>g</kbd> then <kbd>o</kbd></td><td>Fit the messages region</td></tr>
+              <tr><td><kbd>g</kbd> then <kbd>s</kbd></td><td>Open the Status card</td></tr>
+              <tr><td><kbd>Escape</kbd></td><td>Close panel, move menu, help or nav menu</td></tr>
             </tbody>
           </table>
           <button class="btn" data-hide="shortcuts-help">Close</button>
         </div>
         {# No inline handlers (CSP script-src 'self'). data-hide adds .hidden
-           (the class the help overlay uses); data-dismiss is toast-only —
+           (the class the help overlay uses); data-dismiss is toast-only;
            it adds .dismiss, which is a no-op outside .toast. #}
         <div class="help-backdrop" data-hide="shortcuts-help"></div>
       </div>
     </main>
+
+    <!-- Slide-over panels (spec §4) mount here; panel.js builds the dialog,
+         backdrop and focus trap. A route may pre-render an open panel (deep
+         link contract §V2.2); panel.js adopts it on load. -->
+    <div id="panel-root">{% block panels %}{% endblock %}</div>
   </div>
 </body>
 </html>

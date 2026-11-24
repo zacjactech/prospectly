@@ -1,0 +1,75 @@
+{# Board region: phase bands, stage zones and prospect cards (spec §2.3/§3).
+   Included by canvas/shell.html (canvas) and by board_refresh.html (HTMX
+   swap of #board-root). Zones are absolutely positioned by canvas.js —
+   CSP forbids inline style attributes, so no coordinates here. DOM order is
+   canonical stage order (j/k and no-JS reading order depend on it). #}
+{# Phase tabs (owner 2026-11-18: "instead of displaying all the content at
+   once can you make it into tab"): stacked flow (<1024) shows one phase at a
+   time; the media-scoped CSS hides the strip and reveals every group on the
+   wide canvas, so this markup is inert there. First group is active
+   server-side (no flash); sessionStorage remembers the last choice; a lens
+   auto-selects its own phase (JS). #}
+<nav class="phase-tabs" role="tablist" aria-label="Pipeline phases">
+  {% for band in bands %}
+  <button type="button" role="tab" id="phase-tab-{{ band.key }}"
+          aria-controls="phase-{{ band.key }}" data-phase="{{ band.key }}"
+          {% if loop.first %}aria-selected="true"{% endif %}>{{ band.label }}</button>
+  {% endfor %}
+  <button type="button" role="tab" id="phase-tab-M"
+          aria-controls="phase-M" data-phase="M">Messages</button>
+  <button type="button" role="tab" id="phase-tab-S"
+          aria-controls="phase-S" data-phase="S">Setup</button>
+</nav>
+
+{% for band in bands %}
+<div class="phase-group{% if loop.first %} phase-active{% endif %}"
+     data-phase="{{ band.key }}" id="phase-{{ band.key }}"
+     role="tabpanel" aria-labelledby="phase-tab-{{ band.key }}">
+<div class="band-label" data-band="{{ band.key }}">
+  <span class="phase-chip" aria-hidden="true">{{ band.key }}</span>
+  <span class="band-name">{{ band.label }}</span>
+</div>
+
+{% for zone in band.zones %}
+{% set zcards = zone_cards.get(zone.key, []) %}
+{% set is_lens = lens_stage and lens_stage in zone.stages %}
+<section class="canvas-zone{% if is_lens %} lens-match{% endif %}" data-zone="{{ zone.key }}"
+         data-stages="{{ zone.stages|join(' ') }}"
+         data-band="{{ band.key }}"
+         data-drop-stage="{{ zone.stages[0] }}"
+         aria-labelledby="zone-title-{{ zone.key }}">
+  <header class="zone-head">
+    <h2 class="zone-title" id="zone-title-{{ zone.key }}">{{ zone.label }}
+      <span class="zone-count" data-zone-count{% if zone_hot.get(zone.key) %} data-hot="{{ zone_hot.get(zone.key) }}"{% endif %}>
+        <span class="zone-sep" aria-hidden="true">·</span><span data-count>{{ zcards|length }}</span><span class="sr-only"> prospects</span>
+      </span>
+    </h2>
+  </header>
+  {% if zone.sub_badges %}
+  {# Sub-stage counts became a filter dropdown (owner 2026-11-18: "make this
+     into a filter dropdown btn"): each entry links to that stage's lens. #}
+  <details class="sub-filter">
+    <summary>
+      <span>Filter stage</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+    </summary>
+    <div class="sub-filter-menu">
+      {% for sub in zone.stages %}
+      <a href="/prospects?stage={{ sub }}">{{ sub|replace('_',' ') }}
+        <span class="badge stage-{{ sub|replace('_','-') }}" data-sub-stage="{{ sub }}">{{ zone_sub_counts.get(sub, 0) }}</span></a>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+  <div class="drop-label" aria-hidden="true"></div>
+  <div class="zone-body" data-zone-body>
+    <div class="zone-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
+    {% for p in zcards %}
+    {% include "prospects/card_prospect.html" %}
+    {% endfor %}
+    {% if not zcards %}<p class="zone-empty">· none</p>{% endif %}
+  </div>
+</section>
+{% endfor %}
+</div>
+{% endfor %}

@@ -1,0 +1,70 @@
+{# "Open in WhatsApp" confirmation as a canvas panel body (spec §V2.2).
+   P1/P4: the app builds the wa.me link, the human presses Send — nothing
+   here can send. Same three blocks as the retired page, re-framed. #}
+<h2 class="panel-heading" data-panel-title>Open in WhatsApp</h2>
+<p class="muted small">The app builds a wa.me link and pre-fills your message. You press Send in WhatsApp; the app never sends automatically.</p>
+
+{% set active_status = message.status|replace('_',' ') %}
+
+{% if prospect.do_not_contact %}
+<div class="banner danger">
+  Suppressed: {{ prospect.do_not_contact_reason or "do not contact" }}. No WhatsApp actions allowed.
+</div>
+{% endif %}
+
+<div class="badge-row">
+  <span class="badge stage-{{ prospect.stage|replace('_','-') }}">{{ prospect.stage|replace('_',' ') }}</span>
+  <span class="badge">{{ active_status }}</span>
+</div>
+
+<div class="mini-pipeline">
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">01</span>
+      <h3>Message</h3>
+    </header>
+    <div class="flow-step-body">
+      <dl class="facts">
+        <dt>To</dt><dd>{{ prospect.phone_raw or prospect.phone_e164 or "none" }}</dd>
+        <dt>Message</dt><dd class="muted small">{{ message.current_text }}</dd>
+      </dl>
+      <div class="action-group">
+        <a href="{{ wa_me_url }}" target="_blank" rel="noopener" class="btn">Open WhatsApp</a>
+      </div>
+      <p class="flow-step-note">After you send in WhatsApp, come back and confirm in step 03.</p>
+    </div>
+  </section>
+
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">02</span>
+      <h3>Press send</h3>
+    </header>
+    <div class="flow-step-body">
+      <p class="muted small">WhatsApp opens with the message prefilled. Nothing is sent until you press Send there.</p>
+      <dl class="facts">
+        <dt>Prospect</dt><dd>{{ prospect.business_name }}</dd>
+        <dt>Stage</dt><dd>{{ prospect.stage|replace('_',' ') }}</dd>
+      </dl>
+    </div>
+  </section>
+
+  <section class="flow-step">
+    <header class="flow-step-head">
+      <span class="flow-step-num" aria-hidden="true">03</span>
+      <h3>Confirm</h3>
+    </header>
+    <div class="flow-step-body">
+      <div class="action-group">
+        <form method="post" action="/messages/{{ message.id }}/confirm-sent" data-confirm="Did you send this message? Yes confirms it was sent.">
+          {{ csrf_field() }}
+          <button class="btn primary" type="submit">I have sent this message</button>
+        </form>
+        <form method="post" action="/messages/{{ message.id }}/not-sent" data-confirm="Return this message to approved (ready to re-open)?">
+          {{ csrf_field() }}
+          <button class="btn ghost small" type="submit">Not sent</button>
+        </form>
+      </div>
+    </div>
+  </section>
+</div>

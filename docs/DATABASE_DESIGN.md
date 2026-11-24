@@ -187,6 +187,38 @@ Drives automated discovery (who to look for, where) and personalizes outreach dr
 | started_at / finished_at | |
 | created_at | |
 
+### 2.17 `users` — accounts + roles (auth, 2026-11-18)
+| Column | Notes |
+|---|---|
+| id | PK |
+| username | VARCHAR(80) UNIQUE, lowercased `^[a-z0-9][a-z0-9_.-]{2,39}$` |
+| password_hash | TEXT — stdlib scrypt store string `scrypt$n$r$p$salt$hash` (never plaintext, never logged) |
+| role | `owner` \| `admin` \| `member`, default `member` (policy: `app/services/authz.py`) |
+| disabled | BOOL default false — disables login and kills sessions at next request |
+| reset_token_hash | TEXT NULL — SHA-256 of the single-use reset token |
+| reset_expires_at | DATETIME NULL — 30-minute TTL |
+| created_at | DATETIME |
+
+**Ownership stamping (`prospects.owner_id`, Phase B).** One rule, one writer:
+`authz.stamp_owner()` returns the caller's id **only for a `member`** — an
+`owner`/`admin` create (or any create while the gate is off) leaves `NULL`,
+because the owner's pipeline is the team's pipeline and only a member's work
+is theirs alone. Visibility then follows from that single column: `NULL` is
+seen by every role, a set id by its owner plus all admins/owners.
+`disabled`/`role` are plain column updates; disabling additionally deletes
+that user's `user_sessions` rows in the same transaction (see §2.18).
+
+### 2.18 `user_sessions` — revocable server-side sessions
+| Column | Notes |
+|---|---|
+| id | PK |
+| token | VARCHAR(64) UNIQUE — opaque cookie value (`secrets.token_urlsafe(32)`), no claims |
+| user_id FK → users | CASCADE (deleting a user drops their sessions) |
+| expires_at | DATETIME — 12h **sliding** idle expiry, extended on authenticated requests when <1h remains |
+| created_at | DATETIME |
+
+Revocation = row deletion: logout (own), logout-all, disable-user and password reset all delete rows server-side. Purge of expired rows happens lazily on lookup.
+
 ### 2.12 `jobs` (D5)
 `id, type ('research','discover','followup_sweep','provider_probe'), payload JSON, status ('queued','running','succeeded','failed','cancelled'), run_after DATETIME, attempts INT, max_attempts default 3, locked_at, last_error, created_at, updated_at`.
 
@@ -201,9 +233,11 @@ Drives automated discovery (who to look for, where) and personalizes outreach dr
 | research_runs → findings | 1 : N | SET NULL on run deletion (manual runs keep evidence) |
 | opportunities ↔ findings | M : N | CASCADE join rows |
 | prospects ↔ tags | M : N | CASCADE join rows |
+| users → user_sessions | 1 : N | CASCADE |
+| prospects.owner_id → users | 1 : N (nullable) | `NULL` = shared/legacy row visible to every role. **Not a database FK** — `owner_id` is a plain indexed `Integer`, so the hand-off is done in application code: `POST /settings/users/{id}/delete` rewrites `prospects.owner_id → NULL` for that user *inside the same transaction as the delete*, so deleting an account never orphans its private rows behind an id nobody can resolve |
 | outreach_messages → activities | via payload reference | — |
 
-**Retention note:** deletion of a prospect is allowed only via an explicit "delete personal data" action, which cascades findings/activities and writes a tombstone `settings` audit entry (what was deleted, when, by whom) containing no personal data.
+**Retention note:** deletion of a prospect is allowed only via an explicit "delete personal data" action, which cascades findings/activities and writes a tombstone `settings` audit entry (what was deleted, when, by whom) containing no personal data. **Not built** — no such route exists yet (QA checklist §Known gaps #3, owner decision pending); today the only deletion path in the product is `POST /settings/users/{id}/delete`, which hands the user's prospects to the shared pool instead of erasing them.
 
 ## 4. Indexes (query-driven)
 
@@ -217,12 +251,15 @@ Drives automated discovery (who to look for, where) and personalizes outreach dr
 | Findings by prospect | `findings(prospect_id, kind)` |
 | Activity timeline | `activities(prospect_id, created_at)` |
 | Message guard | partial unique `outreach_messages(prospect_id) WHERE active = 1` |
+| Login lookup | unique `users(username)` |
+| Session lookup / revocation | unique `user_sessions(token)`; `user_sessions(user_id)` (logout-all) |
+| Member prospect scoping | `prospects(owner_id)` |
 
 ## 5. Migration strategy
 
 1. **MVP:** Alembic scripts generated from ORM metadata; `alembic upgrade head` on startup command (manual step documented in README, not automatic).
 2. **SQLite → PostgreSQL (Phase 6+, deferred):** (a) freeze writes; (b) `alembic upgrade head` against PG (scripts written dialect-portable); (c) export data via ORM-level dump script (not `sqlite3 .dump` — avoids type mismatches); (d) swap `DATABASE_URL`; (e) run smoke suite. Procedure gets a dedicated checklist in `IMPLEMENTATION_ROADMAP.md` Phase 6.
-3. Reserved column: `prospects.owner_id` (already present, unused) — avoids a painful later migration.
+3. `prospects.owner_id`: Phase-6 placeholder (Text, always NULL) retyped to `Integer` in migration `d8f21c9a7e3b` (auth) so it can reference `users.id`; still nullable — `NULL` means shared/legacy, no backfill needed.
 
 ## 6. Backup
 

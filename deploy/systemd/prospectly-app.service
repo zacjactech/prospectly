@@ -1,0 +1,20 @@
+[Unit]
+Description=Prospectly web app (loopback)
+Documentation=file:///path/to/prospectly/deploy/systemd/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/prospectly
+ExecStart=/path/to/prospectly/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=default.target

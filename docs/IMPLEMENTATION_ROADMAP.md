@@ -68,13 +68,40 @@ Phased plan with **testable exit criteria** per milestone. Each phase ends with:
 
 **Exit criteria:** all §9 checklist items green; fresh-machine setup verified; docs consistency review signed off.
 
+## Post-release — Pipeline Canvas V2 (UI, after `v0.1.0`)
+
+Owner-approved 2026-11-12 (`docs/design/pipeline-canvas.md` §V2): replace the
+multi-page UI with one canvas — setup-card cluster, stage board, outreach
+region, slide-over panels. Routes and services are unchanged (deep links
+still work); this is a presentation-layer milestone, not a product-scope
+change. Execution tracker: `docs/design/canvas-implementation-tasks.md`.
+
+- [x] A1–A2 — restore the test gate against the new contract; add canvas
+  contract tests (deep links, HTMX fragments, dual render, rail v2).
+- [x] A3 — saved-views toolbar restored (save-current-view + picker) and the
+  per-render fuzzy-duplicate scan removed from the canvas path (5,000-row
+  budget restored).
+- [x] B3 — Filters panel (360px) + removable chips (URL-only links, stage
+  lens as a single zone with **Show all zones**) and the responsive toolbar:
+  49px row at 1280/1440, stacked flow below 1024 (amendment). B4 outreach
+  pass complete (pan-click, hx-post, region refresh and flash fixes).
+- [x] D — screenshots + axe/Lighthouse/contrast/interaction evidence captured
+  2026-11-16; independent visual review **PASS 91/100** (no blockers).
+- [x] E2 — version **0.2.0** (whole-app UI replacement).
+- [x] E — scoped commits and version decision: **`v0.2.0`** tagged 2026-11-17
+  on the green gate (E1–E3 recorded in `docs/design/canvas-implementation-tasks.md`).
+
+**Exit criteria:** canvas contract tests green at the §V2.7 baseline (331+),
+browser evidence for all five viewports, design-reviewer gate passed, docs
+consistent, and a clean commit series.
+
 ## Phase 6+ — Deferred (design now, build later; not MVP)
 
 1. Email channel behind same approval gate (`Channel` boundary).
 2. Google Places discovery provider (billing-gated; storage-rule compliance coded then).
 3. Browser-assisted research (Playwright adapter for JS-heavy sites).
 4. Fuzzy merge UI, saved views, retention sweep (auto-flag inactive >N months).
-5. **Hosted multi-user:** PostgreSQL migration (checklist: freeze writes → alembic to PG → ORM-level dump/restore → `DATABASE_URL` swap → smoke suite → enable auth + `owner_id` scoping), Docker packaging, optional WhatsApp Business Platform adapter behind the same approval gate.
+5. **Hosted multi-user:** PostgreSQL migration (checklist: freeze writes → alembic to PG → ORM-level dump/restore → `DATABASE_URL` swap → smoke suite → hosted auth hardening), Docker packaging, optional WhatsApp Business Platform adapter behind the same approval gate. *(Local accounts + roles + `owner_id` scoping shipped 2026-11-18 on owner decision, and the **authorization enforcement layer** on 2026-11-19 — `require_permission` on 20 page handlers (16 paths) + 10 API endpoints, `AuthMiddleware` row-visibility guard, query-level `scope_criterion` across list/facet/dashboard/outreach, Account + Users surfaces, self-lockout guards — see `SECURITY_AND_PRIVACY.md` §3; what remains here is only the hosted/Postgres dimension.)*
 
 ---
 

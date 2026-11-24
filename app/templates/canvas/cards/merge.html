@@ -1,0 +1,72 @@
+{# Duplicates card panel body (spec §V2.3): threshold → possible pairs → merge.
+   The threshold applies live (debounced) instead of a Refresh button. #}
+<h2 class="panel-heading" data-panel-title>Duplicates</h2>
+<p class="muted small">Review fuzzy-matched prospect pairs and merge them into one.</p>
+
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<section class="card">
+  <h3>Match threshold</h3>
+  <form method="get" action="/merge/duplicates" data-merge-form>
+    <div class="field">
+      <label for="merge-score">Minimum match score</label>
+      <input id="merge-score" type="range" name="min_score" min="0.5" max="1.0" step="0.05"
+             value="{{ min_score }}" data-merge-score>
+      <div class="range-labels">
+        <span class="muted small">0.50 · looser</span>
+        <span class="mono small" data-merge-readout>Score: {{ "%.2f"|format(min_score) }}</span>
+        <span class="muted small">1.00 · exact</span>
+      </div>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Possible duplicates{% if pairs %} ({{ pairs|length }}){% endif %}</h3>
+  {% if not pairs %}
+  <p class="muted small">No live prospect pairs match at or above the current score threshold.</p>
+  {% else %}
+  <p class="muted small">Select which prospect to keep (target). The other will be archived.</p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th class="col-narrow">Merge</th>
+        <th>Source (will be archived)</th>
+        <th>Target (will be kept)</th>
+        <th>Score</th>
+        <th>Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for pair in pairs %}
+      <tr>
+        <td data-label="Merge">
+          <form method="post" action="/merge" data-confirm='Merge "{{ pair.source_name }}" into "{{ pair.target_name }}"? This cannot be undone.'>
+            {{ csrf_field() }}
+            <input type="hidden" name="source_id" value="{{ pair.source_id }}">
+            <input type="hidden" name="target_id" value="{{ pair.target_id }}">
+            <button class="btn danger-outline small" type="submit">Merge</button>
+          </form>
+        </td>
+        <td data-label="Source">
+          <strong>{{ pair.source_name }}</strong><br>
+          <span class="muted small">ID {{ pair.source_id }}</span>
+        </td>
+        <td data-label="Target">
+          <strong>{{ pair.target_name }}</strong><br>
+          <span class="muted small">ID {{ pair.target_id }}</span>
+        </td>
+        <td class="text-right" data-label="Score">
+          <span class="badge {% if pair.score >= 0.9 %}stage-danger{% elif pair.score >= 0.85 %}stage-warn{% else %}stage-muted{% endif %}">
+            {{ "%.2f"|format(pair.score) }}
+          </span>
+        </td>
+        <td class="muted small" data-label="Reason">{{ pair.reason }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>

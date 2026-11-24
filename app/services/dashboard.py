@@ -22,6 +22,7 @@ from app.models import (
     ProviderUsage,
     ResearchRun,
 )
+from app.services import authz
 
 # The main progression (SYSTEM_ARCHITECTURE §3.2), in order. Terminal states
 # (not_interested, do_not_contact, archived) are deliberately absent: they are
@@ -59,44 +60,52 @@ def stage_label(stage: str) -> str:
     return _LABELS.get(stage, stage.replace("_", " ").title())
 
 
-def stage_counts(db: Session) -> dict[str, int]:
+def stage_counts(db: Session, *, visible_to: authz.Identity | None = None) -> dict[str, int]:
     """Non-archived prospect count per pipeline stage, zero-filled.
 
     Partial index on `stage` serves this query (DATABASE_DESIGN §9).
+    ``visible_to`` scopes the counts to the prospects that user may see.
     """
-    rows = db.execute(
-        select(Prospect.stage, func.count(Prospect.id))
-        .where(Prospect.archived_at.is_(None))
-        .group_by(Prospect.stage)
-    ).all()
+    stmt = select(Prospect.stage, func.count(Prospect.id)).where(Prospect.archived_at.is_(None))
+    scope = authz.scope_criterion(visible_to)
+    if scope is not None:
+        stmt = stmt.where(scope)
+    rows = db.execute(stmt.group_by(Prospect.stage)).all()
     counts = dict(rows)
     return {stage: int(counts.get(stage, 0)) for stage in PIPELINE_STAGES}
 
 
-def total_prospects(db: Session) -> int:
+def total_prospects(db: Session, *, visible_to: authz.Identity | None = None) -> int:
     """Count of non-archived prospects (PRODUCT_BRIEF §8 'Total prospects')."""
-    return int(
-        db.execute(
-            select(func.count(Prospect.id)).where(Prospect.archived_at.is_(None))
-        ).scalar_one()
-    )
+    stmt = select(func.count(Prospect.id)).where(Prospect.archived_at.is_(None))
+    scope = authz.scope_criterion(visible_to)
+    if scope is not None:
+        stmt = stmt.where(scope)
+    return int(db.execute(stmt).scalar_one())
 
 
 # --- PRODUCT_BRIEF §8 operational metrics ---
 
 
-def researched_prospects(db: Session) -> int:
+def researched_prospects(db: Session, *, visible_to: authz.Identity | None = None) -> int:
     """Prospects with ≥1 completed research run (§8 'Researched')."""
-    subq = select(ResearchRun.prospect_id).where(ResearchRun.status == "succeeded").distinct()
-    return int(db.execute(select(func.count()).select_from(subq.subquery())).scalar_one())
+    stmt = select(ResearchRun.prospect_id).where(ResearchRun.status == "succeeded").distinct()
+    ids = authz.scoped_prospect_subq(visible_to)
+    if ids is not None:
+        stmt = stmt.where(ResearchRun.prospect_id.in_(ids))
+    return int(db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one())
 
 
-def requires_review_prospects(db: Session) -> int:
+def requires_review_prospects(db: Session, *, visible_to: authz.Identity | None = None) -> int:
     """Prospects with unverified/contradicted findings or pending drafts (§8)."""
+    ids = authz.scoped_prospect_subq(visible_to)
     unverified = select(Finding.prospect_id).where(
         Finding.verification_status.in_(("unverified", "contradicted"))
     )
     pending = select(OutreachMessage.prospect_id).where(OutreachMessage.status == "pending_review")
+    if ids is not None:
+        unverified = unverified.where(Finding.prospect_id.in_(ids))
+        pending = pending.where(OutreachMessage.prospect_id.in_(ids))
     combined = unverified.union_all(pending).subquery()
     return int(
         db.execute(
@@ -105,120 +114,143 @@ def requires_review_prospects(db: Session) -> int:
     )
 
 
-def approved_messages(db: Session) -> int:
+def approved_messages(db: Session, *, visible_to: authz.Identity | None = None) -> int:
     """Drafts in `approved` (not yet opened) state (§8 'Approved messages')."""
-    return int(
-        db.execute(
-            select(func.count(OutreachMessage.id)).where(OutreachMessage.status == "approved")
-        ).scalar_one()
-    )
+    stmt = select(func.count(OutreachMessage.id)).where(OutreachMessage.status == "approved")
+    ids = authz.scoped_prospect_subq(visible_to)
+    if ids is not None:
+        stmt = stmt.where(OutreachMessage.prospect_id.in_(ids))
+    return int(db.execute(stmt).scalar_one())
 
 
-def sent_confirmed_messages(db: Session) -> int:
+def sent_confirmed_messages(db: Session, *, visible_to: authz.Identity | None = None) -> int:
     """Messages in `sent_confirmed` (§8 'Sent (confirmed)')."""
-    return int(
-        db.execute(
-            select(func.count(OutreachMessage.id)).where(OutreachMessage.status == "sent_confirmed")
-        ).scalar_one()
-    )
+    stmt = select(func.count(OutreachMessage.id)).where(OutreachMessage.status == "sent_confirmed")
+    ids = authz.scoped_prospect_subq(visible_to)
+    if ids is not None:
+        stmt = stmt.where(OutreachMessage.prospect_id.in_(ids))
+    return int(db.execute(stmt).scalar_one())
 
 
-def replied_prospects(db: Session) -> int:
+def replied_prospects(db: Session, *, visible_to: authz.Identity | None = None) -> int:
     """Prospects with ≥1 inbound reply activity (§8 'Replies')."""
-    subq = select(Activity.prospect_id).where(Activity.type == "reply_received").distinct()
-    return int(db.execute(select(func.count()).select_from(subq.subquery())).scalar_one())
+    stmt = select(Activity.prospect_id).where(Activity.type == "reply_received").distinct()
+    ids = authz.scoped_prospect_subq(visible_to)
+    if ids is not None:
+        stmt = stmt.where(Activity.prospect_id.in_(ids))
+    return int(db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one())
 
 
-def interested_prospects(db: Session) -> int:
+def interested_prospects(db: Session, *, visible_to: authz.Identity | None = None) -> int:
     """Prospects in `interested` stage (§8 'Interested')."""
-    return int(
-        db.execute(
-            select(func.count(Prospect.id))
-            .where(Prospect.archived_at.is_(None))
-            .where(Prospect.stage == "interested")
-        ).scalar_one()
+    stmt = (
+        select(func.count(Prospect.id))
+        .where(Prospect.archived_at.is_(None))
+        .where(Prospect.stage == "interested")
     )
+    scope = authz.scope_criterion(visible_to)
+    if scope is not None:
+        stmt = stmt.where(scope)
+    return int(db.execute(stmt).scalar_one())
 
 
-def follow_ups_due(db: Session, today: date | None = None) -> int:
+def follow_ups_due(
+    db: Session, today: date | None = None, *, visible_to: authz.Identity | None = None
+) -> int:
     """Open follow-ups with `due_date ≤ today` (§8 'Follow-ups due')."""
     today = today or date.today()
     end_of_today = datetime(today.year, today.month, today.day, 23, 59, 59, tzinfo=UTC)
-    return int(
-        db.execute(
-            select(func.count(FollowUp.id))
-            .where(FollowUp.status == "open")
-            .where(FollowUp.due_date.is_not(None))
-            .where(FollowUp.due_date <= end_of_today)
-        ).scalar_one()
+    stmt = (
+        select(func.count(FollowUp.id))
+        .where(FollowUp.status == "open")
+        .where(FollowUp.due_date.is_not(None))
+        .where(FollowUp.due_date <= end_of_today)
     )
+    ids = authz.scoped_prospect_subq(visible_to)
+    if ids is not None:
+        stmt = stmt.where(FollowUp.prospect_id.in_(ids))
+    return int(db.execute(stmt).scalar_one())
 
 
-def follow_ups_overdue(db: Session, today: date | None = None) -> int:
+def follow_ups_overdue(
+    db: Session, today: date | None = None, *, visible_to: authz.Identity | None = None
+) -> int:
     """Open follow-ups with `due_date < today` (start of today, UTC)."""
     today = today or date.today()
-    start_of_today = datetime(today.year, today.month, today.day, tzinfo=UTC)
-    return int(
-        db.execute(
-            select(func.count(FollowUp.id))
-            .where(FollowUp.status == "open")
-            .where(FollowUp.due_date.is_not(None))
-            .where(FollowUp.due_date < start_of_today)
-        ).scalar_one()
+    start_of_today = datetime(today.year, today.month, today.day, 0, 0, 0, tzinfo=UTC)
+    stmt = (
+        select(func.count(FollowUp.id))
+        .where(FollowUp.status == "open")
+        .where(FollowUp.due_date.is_not(None))
+        .where(FollowUp.due_date < start_of_today)
     )
+    ids = authz.scoped_prospect_subq(visible_to)
+    if ids is not None:
+        stmt = stmt.where(FollowUp.prospect_id.in_(ids))
+    return int(db.execute(stmt).scalar_one())
 
 
-def converted_prospects(db: Session) -> int:
+def converted_prospects(db: Session, *, visible_to: authz.Identity | None = None) -> int:
     """Prospects in `converted` stage (§8 'Converted')."""
-    return int(
-        db.execute(
-            select(func.count(Prospect.id))
-            .where(Prospect.archived_at.is_(None))
-            .where(Prospect.stage == "converted")
-        ).scalar_one()
+    stmt = (
+        select(func.count(Prospect.id))
+        .where(Prospect.archived_at.is_(None))
+        .where(Prospect.stage == "converted")
     )
+    scope = authz.scope_criterion(visible_to)
+    if scope is not None:
+        stmt = stmt.where(scope)
+    return int(db.execute(stmt).scalar_one())
 
 
-def dashboard_metrics(db: Session) -> dict[str, int]:
+def dashboard_metrics(db: Session, *, visible_to: authz.Identity | None = None) -> dict[str, int]:
     """All PRODUCT_BRIEF §8 operational metrics in one dict."""
     return {
-        "total_prospects": total_prospects(db),
-        "researched": researched_prospects(db),
-        "requires_review": requires_review_prospects(db),
-        "approved_messages": approved_messages(db),
-        "sent_confirmed": sent_confirmed_messages(db),
-        "replies": replied_prospects(db),
-        "interested": interested_prospects(db),
-        "follow_ups_due": follow_ups_due(db),
-        "converted": converted_prospects(db),
+        "total_prospects": total_prospects(db, visible_to=visible_to),
+        "researched": researched_prospects(db, visible_to=visible_to),
+        "requires_review": requires_review_prospects(db, visible_to=visible_to),
+        "approved_messages": approved_messages(db, visible_to=visible_to),
+        "sent_confirmed": sent_confirmed_messages(db, visible_to=visible_to),
+        "replies": replied_prospects(db, visible_to=visible_to),
+        "interested": interested_prospects(db, visible_to=visible_to),
+        "follow_ups_due": follow_ups_due(db, visible_to=visible_to),
+        "converted": converted_prospects(db, visible_to=visible_to),
     }
 
 
 # --- "Needs attention" queue (UI/UX spec §2.1) ---
 
 
-def pending_review_messages(db: Session) -> int:
+def pending_review_messages(db: Session, *, visible_to: authz.Identity | None = None) -> int:
     """Drafts awaiting approval (§2.1 'drafts pending review')."""
-    return int(
-        db.execute(
-            select(func.count(OutreachMessage.id)).where(OutreachMessage.status == "pending_review")
-        ).scalar_one()
-    )
+    stmt = select(func.count(OutreachMessage.id)).where(OutreachMessage.status == "pending_review")
+    ids = authz.scoped_prospect_subq(visible_to)
+    if ids is not None:
+        stmt = stmt.where(OutreachMessage.prospect_id.in_(ids))
+    return int(db.execute(stmt).scalar_one())
 
 
-def research_failed_prospects(db: Session) -> int:
+def research_failed_prospects(db: Session, *, visible_to: authz.Identity | None = None) -> int:
     """Prospects whose latest research run failed (§2.1 'research runs failed')."""
-    subq = select(ResearchRun.prospect_id).where(ResearchRun.status == "failed").distinct()
-    return int(db.execute(select(func.count()).select_from(subq.subquery())).scalar_one())
+    stmt = select(ResearchRun.prospect_id).where(ResearchRun.status == "failed").distinct()
+    ids = authz.scoped_prospect_subq(visible_to)
+    if ids is not None:
+        stmt = stmt.where(ResearchRun.prospect_id.in_(ids))
+    return int(db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one())
 
 
-def findings_unverified_prospects(db: Session) -> int:
+def findings_unverified_prospects(db: Session, *, visible_to: authz.Identity | None = None) -> int:
     """Prospects with ≥1 unverified finding (§2.1 'findings unverified')."""
-    subq = select(Finding.prospect_id).where(Finding.verification_status == "unverified").distinct()
-    return int(db.execute(select(func.count()).select_from(subq.subquery())).scalar_one())
+    stmt = select(Finding.prospect_id).where(Finding.verification_status == "unverified").distinct()
+    ids = authz.scoped_prospect_subq(visible_to)
+    if ids is not None:
+        stmt = stmt.where(Finding.prospect_id.in_(ids))
+    return int(db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one())
 
 
-def needs_attention(db: Session, today: date | None = None) -> list[dict[str, Any]]:
+def needs_attention(
+    db: Session, today: date | None = None, *, visible_to: authz.Identity | None = None
+) -> list[dict[str, Any]]:
     """Items needing the operator's attention, in urgency order (§2.1).
 
     Buckets: overdue follow-ups → drafts pending review → failed research runs
@@ -227,7 +259,7 @@ def needs_attention(db: Session, today: date | None = None) -> list[dict[str, An
     today = today or date.today()
     items: list[dict[str, Any]] = []
 
-    overdue = follow_ups_overdue(db, today)
+    overdue = follow_ups_overdue(db, today, visible_to=visible_to)
     if overdue:
         items.append(
             {
@@ -238,7 +270,7 @@ def needs_attention(db: Session, today: date | None = None) -> list[dict[str, An
             }
         )
 
-    pending = pending_review_messages(db)
+    pending = pending_review_messages(db, visible_to=visible_to)
     if pending:
         items.append(
             {
@@ -249,7 +281,7 @@ def needs_attention(db: Session, today: date | None = None) -> list[dict[str, An
             }
         )
 
-    failed = research_failed_prospects(db)
+    failed = research_failed_prospects(db, visible_to=visible_to)
     if failed:
         items.append(
             {
@@ -260,7 +292,7 @@ def needs_attention(db: Session, today: date | None = None) -> list[dict[str, An
             }
         )
 
-    unverified = findings_unverified_prospects(db)
+    unverified = findings_unverified_prospects(db, visible_to=visible_to)
     if unverified:
         items.append(
             {

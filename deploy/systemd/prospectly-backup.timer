@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily Prospectly database backup
+Documentation=file:///path/to/prospectly/deploy/systemd/README.md
+
+[Timer]
+# Local time on the machine running the service.
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,102 @@
+{# Users panel: owner-only account management (SECURITY §3).
+   Self-lockout guards live in the route (_last_owner_guard): you can never
+   disable/delete yourself, and the last active owner can never be removed. #}
+<h2 class="panel-heading" data-panel-title>Users</h2>
+
+{% if error %}
+<div class="flash error" role="alert">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/settings/users">
+  {{ csrf_field() }}
+  <section class="card">
+    <h3>Add user</h3>
+    <div class="field">
+      <label for="new-username">Username</label>
+      <input id="new-username" type="text" name="username" value="{{ form_username or '' }}"
+             autocomplete="username" required>
+      <span class="muted small">3–40 chars: lowercase letters, digits, dots, dashes, underscores.</span>
+    </div>
+    <div class="field">
+      <label for="new-password">Password</label>
+      <input id="new-password" type="password" name="password" autocomplete="new-password" required>
+      <span class="muted small">At least 8 characters.</span>
+    </div>
+    <div class="field">
+      <label for="new-confirm">Confirm password</label>
+      <input id="new-confirm" type="password" name="confirm" autocomplete="new-password" required>
+    </div>
+    <div class="field">
+      <label for="new-role">Role</label>
+      <select id="new-role" name="role">
+        {% for r in roles %}
+        <option value="{{ r }}" {% if (form_role or 'member') == r %}selected{% endif %}>{{ r }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="action-group">
+      <button class="btn primary" type="submit">Create user</button>
+    </div>
+  </section>
+</form>
+
+<section class="card">
+  <h3>Accounts</h3>
+  <table class="data-table">
+    <thead>
+      <tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td data-label="Username">
+          <strong>{{ u.username }}</strong>
+          {% if u.id == account_id %}<span class="badge">you</span>{% endif %}
+        </td>
+        <td data-label="Role">
+          {% if u.id != account_id %}
+          <form method="post" action="/settings/users/{{ u.id }}/role" class="form-inline"
+                data-confirm="Change {{ u.username }}'s role?">
+            {{ csrf_field() }}
+            <select name="role" aria-label="Role for {{ u.username }}">
+              {% for r in roles %}
+              <option value="{{ r }}" {% if u.role == r %}selected{% endif %}>{{ r }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn small" type="submit">Set role</button>
+          </form>
+          {% else %}
+          <span class="badge">{{ u.role }}</span>
+          {% endif %}
+        </td>
+        <td data-label="Status">
+          {% if u.disabled %}<span class="badge danger">disabled</span>
+          {% else %}<span class="badge">active</span>{% endif %}
+        </td>
+        <td data-label="Created">{{ u.created_at.strftime("%Y-%m-%d") }}</td>
+        <td data-label="Actions">
+          {% if u.id != account_id %}
+          <div class="action-group">
+            <form method="post" action="/settings/users/{{ u.id }}/toggle" class="form-inline"
+                  data-confirm="{% if u.disabled %}Enable {{ u.username }}?{% else %}Disable {{ u.username }}? They are signed out immediately. You can re-enable them.{% endif %}">
+              {{ csrf_field() }}
+              <button class="btn small ghost" type="submit">
+                {{ 'Enable' if u.disabled else 'Disable' }}
+              </button>
+            </form>
+            <form method="post" action="/settings/users/{{ u.id }}/delete" class="form-inline"
+                  data-confirm="Delete {{ u.username }}? Their prospects become shared.">
+              {{ csrf_field() }}
+              <button class="btn small danger" type="submit">Delete</button>
+            </form>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted small">Disabling signs the user out immediately; deleting
+    hands their private prospects to the shared pool. You can never disable,
+    delete, or demote the last active owner, including yourself.</p>
+</section>

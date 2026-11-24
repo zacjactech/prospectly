@@ -1,0 +1,58 @@
+{# Retention card panel body (spec §V2.3): one threshold card + one flagged
+   list. The form stays whole because the threshold and Run sweep are one POST;
+   per-row Clear flag actions live in the table. #}
+<h2 class="panel-heading" data-panel-title>Retention Sweep</h2>
+
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<section class="card">
+  <h3>Sweep threshold</h3>
+  <p class="muted small">Prospects inactive for more than the threshold will be tagged <code>retention-review</code>.</p>
+  <form method="post" action="/settings/retention/sweep">
+    {{ csrf_field() }}
+    <div class="field">
+      <label for="retention-months">Inactive threshold (months)</label>
+      <input id="retention-months" type="number" name="months" value="12" min="1" max="60">
+    </div>
+    <div class="action-group">
+      <button class="btn primary" type="submit">Run sweep</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Flagged for retention review{% if flagged %} ({{ flagged|length }}){% endif %}</h3>
+  {% if flagged %}
+  <p class="muted small">These prospects have been inactive for longer than the current threshold. Review and clear the flag or archive them.</p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Prospect</th>
+        <th>Stage</th>
+        <th>Last activity</th>
+        <th class="text-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in flagged %}
+      <tr>
+        <td data-label="Prospect"><strong>{{ p.business_name }}</strong></td>
+        <td data-label="Stage"><span class="badge stage-{{ p.stage }}">{{ p.stage }}</span></td>
+        <td class="muted small" data-label="Last activity">{{ p.updated_at }}</td>
+        <td class="text-right small" data-label="Actions">
+          <form method="post" action="/retention/{{ p.id }}/clear" class="form-inline">
+            {{ csrf_field() }}
+            <button class="btn ghost small" type="submit">Clear flag</button>
+          </form>
+          <a href="/prospects/{{ p.id }}" class="btn ghost small">View</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted small">No prospects are currently flagged for retention review.</p>
+  {% endif %}
+</section>

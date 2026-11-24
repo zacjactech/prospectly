@@ -1,0 +1,124 @@
+/* Prospectly design tokens — canonical semantic layer.
+   Loaded before components.css and app.css. Values mirror the incumbent
+   charcoal + signal-orange system; app.css keeps legacy aliases to these
+   names so existing screens do not need a visual rewrite. No build step. */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces. surface-1 is the card fill; the old panel/section shade is kept
+     as --surface-panel because the incumbent UI uses two distinct steps. */
+  --surface-0: #090a0c;          /* page */
+  --surface-1: #1f232a;          /* cards, rows, hover */
+  --surface-2: #292d35;          /* raised: menus, toasts, chips, active tiles, secondary buttons */
+  --surface-2-hover: #33373f;    /* hover on a raised control (one step above surface-2) */
+  --surface-panel: #171a20;      /* containers: zones, panels, sections */
+  --surface-field: #0e1014;      /* sunken control fill */
+  --border: #33373f;             /* internal dividers only */
+  --border-strong: #6a7280;      /* focus/error boundary ≥3:1 (WCAG 1.4.11) */
+
+  /* Text — all AA on every surface in this ladder. */
+  --text-primary: #eceae6;
+  --text-secondary: #a6a9b0;
+  --text-muted: #9ba0a8;
+  --text-on-accent: #140d07;
+  --text-on-danger: #f87171;
+
+  /* Accent + the single link colour. Orange stays a state/action signal. */
+  --accent: #ff6b1a;
+  --accent-hover: #ff8340;
+  --accent-subtle: #3d271d;
+  --accent-border: #7a3d1c;
+  --link: #7aa2ff;
+
+  /* Status: foreground + pre-composited subtle tint + optional border. */
+  --success: #4cc38a;
+  --success-subtle: #173b2b;
+  --success-border: #1e5c3a;
+  --warn: #fbbf24;             /* legacy name used by app.css */
+  --warning: var(--warn);
+  --warning-subtle: #3a2f17;
+  --warning-border: #7a5a18;
+  --danger: #f87171;
+  --danger-subtle: #3a1d17;
+  --danger-border: #6e2f28;
+  --danger-hover: #4a211b;
+  --info: #56b8d8;
+  --info-subtle: #153440;
+  --info-border: #1d5563;
+
+  /* Type scale: fixed rem steps with paired line heights. Sans for UI copy;
+     mono only for small uppercase labels and tabular readouts. */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
+  --type-12: 0.75rem;
+  --type-12-lh: 1.4;
+  --type-13: 0.8125rem;
+  --type-13-lh: 1.4;
+  --type-14: 0.875rem;
+  --type-14-lh: 1.5;
+  --type-16: 1rem;
+  --type-16-lh: 1.5;
+  --type-20: 1.25rem;
+  --type-20-lh: 1.3;
+  --type-24: 1.5rem;
+  --type-24-lh: 1.25;
+  --type-32: 2rem;
+  --type-32-lh: 1.2;
+
+  /* Incumbent optical steps retained for visual parity. They are tokenised so
+     no rule needs a bare font-size; new components use the scale above. */
+  --type-15: 0.9375rem;
+  --type-17: 1.0625rem;
+  --type-18: 1.125rem;
+  --type-21: 1.3125rem;
+  --type-22: 1.375rem;
+  --type-28: 1.75rem;
+
+  --tracking-label: 0.08em;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Spacing scale (4 / 8 / 12 / 16 / 24 / 32 / 48). */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* Radii: 6 / 8 / 12 (pill is for status chips only). */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /* Elevation: offset + soft blur; borders still carry structure. */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.58);
+  --glow-accent: 0 0 20px rgba(255, 107, 26, 0.12);
+  --scrim: rgba(0, 0, 0, 0.6);
+  --scrim-soft: rgba(0, 0, 0, 0.2);
+
+  /* Auth photograph gradients need RGB channels of two surfaces so their
+     alpha stops can stay pre-composited against the same base colour. */
+  --surface-ambient: #14161c;
+  --surface-ambient-rgb: 20, 22, 28;
+  --surface-0-rgb: 9, 10, 12;
+
+  /* Controls, layout and motion are kept here so every component reads one
+     source of truth. Reduced motion still zeroes the durations in app.css. */
+  --control-h-sm: 32px;
+  --control-h-md: 36px;
+  --control-h: var(--control-h-md);
+  --topbar-h: 52px;
+  --nav-w: 15rem;
+  --max-w: 60rem;
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}

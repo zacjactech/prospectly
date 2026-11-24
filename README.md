@@ -6,7 +6,7 @@ Discover prospects → research them with evidence → identify outreach opportu
 
 Default path: **configure your profile first** (what you sell, who you target, where), then run automated discovery jobs to find prospects — no CSV required to start.
 
-> **Status: Phase 5 complete — hardening & release candidate.** Requirements, research, and architecture decisions live in [`docs/`](docs/); work proceeds phase-by-phase against the exit criteria in `docs/IMPLEMENTATION_ROADMAP.md`.
+> **Status: `v0.2.0` — Pipeline Canvas V2.** Phases 0–5 shipped in `v0.1.0`; this release replaces the multi-page UI with one canvas screen (setup cards, stage board, outreach region, slide-over panels). See [`docs/design/pipeline-canvas.md`](docs/design/pipeline-canvas.md) and the task tracker [`docs/design/canvas-implementation-tasks.md`](docs/design/canvas-implementation-tasks.md). Requirements, research, and architecture decisions live in [`docs/`](docs/); work proceeds phase-by-phase against the exit criteria in `docs/IMPLEMENTATION_ROADMAP.md`.
 
 ## Product principles (non-negotiable)
 
@@ -32,8 +32,12 @@ Full list: `docs/PRODUCT_BRIEF.md` §4.
 | [docs/API_DESIGN.md](docs/API_DESIGN.md) | Pages + JSON API contracts |
 | [docs/USER_FLOWS.md](docs/USER_FLOWS.md) | The ten core journeys and their guards |
 | [docs/UI_UX_SPECIFICATION.md](docs/UI_UX_SPECIFICATION.md) | Navigation, pages, components, tokens, responsive/a11y |
+| [docs/design/pipeline-canvas.md](docs/design/pipeline-canvas.md) | Pipeline Canvas V2 design contract (canvas-only IA, panels, build order) |
+| [docs/design/canvas-implementation-tasks.md](docs/design/canvas-implementation-tasks.md) | Canvas V2 task tracker, test gate, open QA items |
 | [docs/SECURITY_AND_PRIVACY.md](docs/SECURITY_AND_PRIVACY.md) | Validation, SSRF, CSRF, outreach posture, checklist |
 | [docs/IMPLEMENTATION_ROADMAP.md](docs/IMPLEMENTATION_ROADMAP.md) | Phases with testable exit criteria |
+| [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Pre-tag gate, migration/backup drill, version and rollback steps |
+| [deploy/systemd/README.md](deploy/systemd/README.md) | Run the app, worker and daily backup as Linux user services |
 | [docs/COST_ANALYSIS.md](docs/COST_ANALYSIS.md) | Free / low-cost / scalable configurations |
 | [AGENTS.md](AGENTS.md) | Engineering instructions for AI agents & contributors |
 
@@ -76,6 +80,18 @@ py -m uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 py -m uv run python -m app.cli worker
 ```
 
+The app and worker are two processes. If the worker is not running, research
+and discovery jobs stay queued; the UI reports them as queued, not failed.
+
+### Run as a service (Linux, optional)
+
+`deploy/systemd/` contains user units for the web app, the worker and a daily
+backup timer, so the two processes restart with the machine and backups do not
+depend on remembering a command. See
+[`deploy/systemd/README.md`](deploy/systemd/README.md) for install, logs and
+removal. Windows users can run the two commands in separate terminals or use
+Task Scheduler.
+
 ### Quality gate (runs before every milestone)
 
 ```powershell
@@ -83,7 +99,11 @@ py -m uv run ruff check .
 py -m uv run ruff format --check .
 py -m uv run mypy app
 py -m uv run pytest
+uvx pip-audit          # dependency audit (network required)
 ```
+
+The full pre-tag sequence, including migration and restore drills, is in
+[`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
 
 ### Configuration
 
@@ -92,7 +112,9 @@ All keys are documented in `.env.example`. Highlights:
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | defaults to local SQLite file |
-| `BIND_HOST` / `APP_ACCESS_TOKEN` | loopback by default; token **required** if bound beyond loopback. When set, a login gate (`/login`) protects every page and API route except `/healthz` and `/static/*` (12h sliding session) |
+| `BIND_HOST` / `APP_ACCESS_TOKEN` | loopback by default; token **required** if bound beyond loopback. When set, the gate turns on: accounts with scrypt-hashed passwords (`/setup` on first run → owner account, then `/login`) protect every page and API route except `/healthz` and `/static/*` (revocable DB-backed sessions, 12h sliding idle) |
+| `ALLOW_SIGNUP` | `true` opens `/signup` (creates `member` accounts); default `false` — the first account always comes from `/setup` as owner |
+| `COOKIE_SECURE` | `true` sets the `Secure` flag on session + CSRF cookies — required behind TLS/LAN HTTPS; default `false` for loopback HTTP |
 | `TAVILY_API_KEY` / `SERPER_API_KEY` / … | optional search providers (feature-flagged by presence) |
 | `AI_PROVIDER` | `gemini` \| `groq` \| `openrouter` \| `ollama` \| `template` (default floor: `template`) |
 | `*_DAILY_CAP` | enforced daily caps per provider (checked before each call; `0` blocks every call) |
@@ -108,7 +130,7 @@ All keys are documented in `.env.example`. Highlights:
 py -m uv run python -m app.cli backup    # consistent snapshot to backups/ (Phase 0+)
 ```
 
-Back up before major operations (import batches, bulk edits) and weekly. Keep `backups/` out of cloud-sync folders (it contains personal data).
+Back up before major operations (import batches, bulk edits) and weekly. Keep `backups/` out of cloud-sync folders (it contains personal data). On Linux, `deploy/systemd/prospectly-backup.timer` can run this daily; test a restore once using [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) §4.
 
 ## License / data note
 

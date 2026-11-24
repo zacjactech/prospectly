@@ -1,0 +1,617 @@
+/* Prospectly design-system components — reusable primitives built entirely on
+   tokens.css. Loaded before app.css. Buttons are the one consolidated
+   primitive: legacy `.btn` classes are grouped into the .ds-btn rules below,
+   so every screen's buttons follow one rule. Other .ds-* classes are additive
+   and opt-in. `.is-hover` / `.is-focus` are styleguide state hooks that share
+   the real :hover / :focus-visible rules. No build step, no JS required for
+   static states; interactive drawers/toasts use existing app.js/panel.js. */
+
+/* ===== Buttons =====
+   The ONE button implementation. Legacy `.btn` classes on existing templates
+   are grouped into the same rules (no second copy in app.css), so both
+   vocabularies render identically:
+     primary   .ds-btn--primary  / .btn.primary   orange fill: ONE per view
+     secondary .ds-btn--secondary / .btn(.secondary) raised grey: everything else
+     ghost     .ds-btn--ghost    / .btn.ghost     text only: tertiary
+     danger    .ds-btn--danger   / .btn.danger(-outline)  destructive only
+   Secondary is the default, so a bare `.btn` is never the near-black input
+   fill (that read as a field, not a button). */
+.ds-btn,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-13);
+  line-height: var(--type-13-lh);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+}
+
+.ds-btn:hover,
+.ds-btn.is-hover,
+.btn:hover {
+  background: var(--surface-2-hover);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.ds-btn--secondary,
+.btn.secondary {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.ds-btn--secondary:hover,
+.ds-btn--secondary.is-hover,
+.btn.secondary:hover {
+  background: var(--surface-2-hover);
+}
+
+.ds-btn--primary,
+.btn.primary {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-weight: var(--weight-semibold);
+}
+
+.ds-btn--primary:hover,
+.ds-btn--primary.is-hover,
+.btn.primary:hover {
+  background: var(--accent-hover);
+  color: var(--text-on-accent);
+  box-shadow: var(--glow-accent);
+}
+
+.ds-btn--ghost,
+.btn.ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.ds-btn--ghost:hover,
+.ds-btn--ghost.is-hover,
+.btn.ghost:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+/* On a raised (surface-2) container the secondary fill and the ghost hover
+   would match the container and vanish, so both step up one shade there. */
+:is(.ds-card--raised, .ds-toast, .toast, .help-panel, .sub-filter-menu, .flow-step)
+  :is(.ds-btn, .btn):not(.primary, .ghost, .danger, .danger-outline, .ds-btn--primary, .ds-btn--ghost, .ds-btn--danger) {
+  background: var(--surface-2-hover);
+}
+
+:is(.ds-card--raised, .ds-toast, .toast, .help-panel, .sub-filter-menu, .flow-step)
+  :is(.ds-btn, .btn):not(.primary, .ghost, .danger, .danger-outline, .ds-btn--primary, .ds-btn--ghost, .ds-btn--danger):hover {
+  border-color: var(--border-strong);
+}
+
+:is(.ds-card--raised, .ds-toast, .toast, .help-panel, .sub-filter-menu, .flow-step)
+  :is(.ds-btn--ghost, .btn.ghost):hover {
+  background: var(--surface-2-hover);
+}
+
+/* Destructive: tinted red, never a solid red wall in dense lists.
+   `.danger-outline` is a legacy alias kept for existing templates. */
+.ds-btn--danger,
+.btn.danger,
+.btn.danger-outline {
+  background: var(--danger-subtle);
+  color: var(--danger);
+}
+
+.ds-btn--danger:hover,
+.ds-btn--danger.is-hover,
+.btn.danger:hover,
+.btn.danger-outline:hover {
+  background: var(--danger-hover);
+  color: var(--danger);
+}
+
+.ds-btn--sm,
+.btn.small {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  font-size: var(--type-13); /* label/body floor: 13px */
+  line-height: var(--type-13-lh);
+}
+
+.ds-btn--block,
+.btn.full-width {
+  width: 100%;
+}
+
+/* Disabled: muted, and a disabled primary drops its orange so the view's one
+   loud element is always something you can actually press. */
+.ds-btn:disabled,
+.ds-btn[aria-disabled="true"],
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.ds-btn:disabled:hover,
+.btn:disabled:hover {
+  background: var(--surface-2);
+}
+
+.ds-btn--primary:disabled,
+.ds-btn--primary[aria-disabled="true"],
+.btn.primary:disabled,
+.btn.primary[aria-disabled="true"] {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.ds-btn:focus-visible,
+.ds-btn.is-focus,
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* ===== Form controls =====
+   Label, hint and error are part of the component, not caller-supplied ad hoc
+   markup. The error state pairs colour with text (never colour alone). */
+.ds-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.ds-label {
+  color: var(--text-secondary);
+  font-size: var(--type-13);
+  line-height: var(--type-13-lh);
+  font-weight: var(--weight-medium);
+}
+
+.ds-hint {
+  color: var(--text-muted);
+  font-size: var(--type-12);
+  line-height: var(--type-12-lh);
+}
+
+.ds-error {
+  color: var(--danger);
+  font-size: var(--type-13); /* label/body floor: 13px */
+  line-height: var(--type-13-lh);
+}
+
+.ds-input,
+.ds-select,
+.ds-textarea {
+  width: 100%;
+  min-height: var(--control-h-md);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-field);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-14);
+  line-height: var(--type-14-lh);
+}
+
+.ds-textarea {
+  min-height: calc(var(--control-h-md) * 3);
+  resize: vertical;
+}
+
+.ds-input::placeholder,
+.ds-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.ds-input:hover,
+.ds-select:hover,
+.ds-textarea:hover {
+  border-color: var(--border-strong);
+}
+
+.ds-input:focus-visible,
+.ds-select:focus-visible,
+.ds-textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+.ds-input[aria-invalid="true"],
+.ds-select[aria-invalid="true"],
+.ds-textarea[aria-invalid="true"] {
+  border-color: var(--danger);
+  background: var(--danger-subtle);
+}
+
+/* ===== Card (optional header + action slot) ===== */
+.ds-card {
+  background: var(--surface-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-1);
+}
+
+.ds-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.ds-card__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--type-20);
+  line-height: var(--type-20-lh);
+  font-weight: var(--weight-semibold);
+}
+
+.ds-card__subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--type-13);
+  line-height: var(--type-13-lh);
+}
+
+.ds-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ds-card--raised {
+  background: var(--surface-2);
+  box-shadow: var(--shadow-2);
+}
+
+/* ===== Badge / Chip ===== */
+.ds-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: var(--type-12);
+  line-height: var(--type-12-lh);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.ds-badge--neutral {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.ds-badge--success {
+  background: var(--success-subtle);
+  color: var(--success);
+  border-color: var(--success-border);
+}
+
+.ds-badge--warning {
+  background: var(--warning-subtle);
+  color: var(--warning);
+  border-color: var(--warning-border);
+}
+
+.ds-badge--danger {
+  background: var(--danger-subtle);
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+
+.ds-badge--accent {
+  background: var(--accent-subtle);
+  color: var(--accent-hover);
+  border-color: var(--accent-border);
+}
+
+/* ===== Tabs ===== */
+.ds-tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ds-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.ds-tab {
+  flex: none;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--type-13);
+  line-height: var(--type-13-lh);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ds-tab:hover {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.ds-tab[aria-selected="true"],
+.ds-tab[aria-current="page"] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.ds-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
+/* ===== Drawer =====
+   Static shell for the right slide-over; panel.js adds .is-open. */
+.ds-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-panel);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-3);
+  transform: translateX(var(--space-6));
+  opacity: 0;
+  transition: transform var(--dur-slow) var(--ease-out), opacity var(--dur-slow) var(--ease-out);
+  z-index: 91;
+}
+
+.ds-drawer.is-open {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.ds-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.ds-drawer__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--type-20);
+  line-height: var(--type-20-lh);
+}
+
+.ds-drawer__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.ds-drawer__scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim-soft);
+  z-index: 90;
+}
+
+/* ===== Empty state ===== */
+.ds-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-7) var(--space-4);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.ds-empty__icon {
+  display: grid;
+  place-items: center;
+  width: var(--space-7);
+  height: var(--space-7);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.ds-empty__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--type-20);
+  line-height: var(--type-20-lh);
+  font-weight: var(--weight-semibold);
+}
+
+.ds-empty__description {
+  max-width: 42ch;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--type-14);
+  line-height: var(--type-14-lh);
+}
+
+.ds-empty__action {
+  margin-top: var(--space-2);
+}
+
+/* ===== Data table ===== */
+.ds-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: var(--surface-panel);
+  -webkit-overflow-scrolling: touch;
+}
+
+.ds-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--text-primary);
+  font-size: var(--type-13);
+  line-height: var(--type-13-lh);
+}
+
+.ds-table th {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-12);
+  line-height: var(--type-12-lh);
+  font-weight: var(--weight-medium);
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+.ds-table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.ds-table tbody tr:hover td {
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+.ds-table__empty td {
+  padding: var(--space-5);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ===== Toast ===== */
+.ds-toasts {
+  position: fixed;
+  top: var(--space-5);
+  right: var(--space-4);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(100% - var(--space-6), 26rem);
+  pointer-events: none;
+}
+
+.ds-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--info);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-2);
+  color: var(--text-primary);
+  font-size: var(--type-13);
+  line-height: var(--type-13-lh);
+  pointer-events: auto;
+}
+
+.ds-toast--success { border-left-color: var(--success); }
+.ds-toast--warning { border-left-color: var(--warning); }
+.ds-toast--danger { border-left-color: var(--danger); }
+
+/* ===== Page header ===== */
+.ds-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.ds-page-header__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--type-24);
+  line-height: var(--type-24-lh);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.02em;
+}
+
+.ds-page-header__subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--type-14);
+  line-height: var(--type-14-lh);
+}
+
+.ds-page-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ===== Label (mono only for small uppercase labels) ===== */
+.ds-eyebrow {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-12);
+  line-height: var(--type-12-lh);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+/* ===== Link tokens ===== */
+.ds-link {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+.ds-link:hover {
+  color: var(--link); /* one link colour; orange stays an action/state signal */
+  text-decoration-thickness: 2px;
+}
+
+.ds-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+@media (max-width: 47.99rem) {
+  .ds-page-header,
+  .ds-card__header {
+    flex-direction: column;
+  }
+}

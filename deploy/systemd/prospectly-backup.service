@@ -1,0 +1,14 @@
+[Unit]
+Description=Prospectly database backup
+Documentation=file:///path/to/prospectly/deploy/systemd/README.md
+
+[Service]
+Type=oneshot
+WorkingDirectory=/path/to/prospectly
+ExecStart=/path/to/prospectly/.venv/bin/python -m app.cli backup
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+Nice=10
+IOSchedulingClass=idle

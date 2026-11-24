@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from datetime import datetime
-from typing import Annotated
+from datetime import date, datetime
+from types import SimpleNamespace
+from typing import Annotated, Any
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
@@ -14,6 +15,16 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.auth import (
+    SESSION_COOKIE_NAME,
+    check_rate_limit,
+    client_key,
+    current_user,
+    gate_enabled,
+    require_permission,
+    reset_rate_limit,
+    revoke_user_sessions,
+)
 from app.cli import perform_backup
 from app.config import BASE_DIR, save_settings, settings
 from app.db import get_db
@@ -29,11 +40,13 @@ from app.models import (
     ResearchRun,
     Source,
     Tag,
+    User,
+    UserSession,
     WebsiteCheck,
 )
+from app.services import authz, import_service, merge_service
 from app.services import dashboard as dashboard_service
 from app.services import findings as findings_service
-from app.services import import_service, merge_service
 from app.services import notes as notes_service
 from app.services import opportunity as opportunity_service
 from app.services import outreach as outreach_service
@@ -42,6 +55,7 @@ from app.services import prospect as prospect_service
 from app.services import providers as providers_service
 from app.services import retention as retention_service
 from app.services import saved_views as saved_views_service
+from app.services import users as users_service
 from app.services.usage import usage_summary
 from app.validation import (
     FollowUpFormData,
@@ -62,6 +76,230 @@ router = APIRouter(tags=["pages"])
 templates = Jinja2Templates(directory=BASE_DIR / "app" / "templates")
 
 DbSession = Annotated[Session, Depends(get_db)]
+
+# ===== Pipeline Canvas board context (spec §2.3) =====
+# Terminal states render as ONE merged zone with three sub-badges; everything
+# else follows the dashboard's display phases (presentation only — the stage
+# order and state machine live in SYSTEM_ARCHITECTURE §3.2 / prospect.py).
+TERMINAL_STAGES: tuple[str, ...] = ("not_interested", "do_not_contact", "archived")
+
+
+def _zone_label(stage: str) -> str:
+    return stage.replace("_", " ").title()
+
+
+def _build_board_bands() -> list[dict]:
+    bands: list[dict] = []
+    for idx, (label, stages) in enumerate(dashboard_service.PIPELINE_PHASES, start=1):
+        bands.append(
+            {
+                "key": f"{idx:02d}",
+                "label": label,
+                "zones": [
+                    {"key": s, "label": _zone_label(s), "stages": [s], "sub_badges": False}
+                    for s in stages
+                ],
+            }
+        )
+    bands.append(
+        {
+            "key": "T",
+            "label": "Terminal",
+            "zones": [
+                {
+                    "key": "terminal",
+                    "label": "Terminal",
+                    "stages": list(TERMINAL_STAGES),
+                    "sub_badges": True,
+                }
+            ],
+        }
+    )
+    return bands
+
+
+BOARD_BANDS: list[dict] = _build_board_bands()
+BOARD_ZONE_KEYS: tuple[str, ...] = tuple(z["key"] for b in BOARD_BANDS for z in b["zones"])
+
+STAGES: tuple[str, ...] = (
+    "new",
+    "researched",
+    "opportunity_identified",
+    "outreach_ready",
+    "contacted",
+    "replied",
+    "interested",
+    "follow_up_due",
+    "converted",
+    "not_interested",
+    "do_not_contact",
+    "archived",
+)
+
+
+def _hx(request: Request) -> bool:
+    """Content-negotiation probe (spec §4): HTMX asks for the fragment.
+
+    Same route, same path, same contract — the full-page representation is
+    returned unchanged when the HX-Request header is absent (all existing
+    tests exercise that path).
+    """
+    return bool(request.headers.get("hx-request"))
+
+
+# Removable filter chips (base spec §1.2): label order matches the toolbar.
+FILTER_CHIP_LABELS: tuple[tuple[str, str], ...] = (
+    ("q", "Search"),
+    ("stage", "Stage"),
+    ("tag", "Tag"),
+    ("category", "Category"),
+    ("location", "Location"),
+    ("include_archived", "Archived included"),
+    ("do_not_contact_only", "Suppressed only"),
+)
+
+
+def _active_filters(
+    *,
+    stage: str | None,
+    tag: str | None,
+    category: str | None,
+    location: str | None,
+    q: str | None,
+    include_archived: bool,
+    do_not_contact_only: bool,
+) -> list[dict[str, str]]:
+    """Build the removable filter chips shown under the canvas toolbar.
+
+    Each chip is a plain link to ``/prospects`` with every *other* active
+    filter kept, so removal works without JavaScript and cannot drift from
+    the URL state (no hidden form state, no fetch endpoint). The URL is the
+    single source of truth (spec §V2.2).
+    """
+    values: dict[str, str | bool | None] = {
+        "q": q,
+        "stage": stage,
+        "tag": tag,
+        "category": category,
+        "location": location,
+        "include_archived": include_archived,
+        "do_not_contact_only": do_not_contact_only,
+    }
+    chips: list[dict[str, str]] = []
+    for key, label in FILTER_CHIP_LABELS:
+        value = values[key]
+        if not value:
+            continue
+        text = label if isinstance(value, bool) else f"{label}: {value.replace('_', ' ')}"
+        remaining = {k: ("true" if v is True else v) for k, v in values.items() if k != key and v}
+        url = "/prospects"
+        if remaining:
+            url += "?" + urlencode(remaining)
+        chips.append({"key": key, "label": text, "url": url})
+    return chips
+
+
+def _relative_days(dt: datetime | None) -> str | None:
+    """Human "3d"/"today" label for a past timestamp (card meta row)."""
+    if dt is None:
+        return None
+    now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
+    days = (now - dt).days
+    if days <= 0:
+        return "today"
+    if days == 1:
+        return "1d"
+    return f"{days}d"
+
+
+def _follow_up_rel(due: datetime | date | None, today: date) -> tuple[str, bool]:
+    """("overdue 2d" | "due today" | "due 3d", is_due_now) for a follow-up."""
+    dd = due.date() if isinstance(due, datetime) else due
+    if dd is None:
+        return ("", False)
+    delta = (dd - today).days
+    if delta < 0:
+        return (f"overdue {-delta}d", True)
+    if delta == 0:
+        return ("due today", True)
+    return (f"due {delta}d", False)
+
+
+def _board_context(db: Session, rows: list[Prospect], *, stage: str | None = None) -> dict:
+    """Board-only template context: zones, cards, quick-action metadata.
+
+    ``stage`` is the URL stage lens (spec §V2.2): the full lane structure is
+    always rendered; ``lens_stage`` lets the template highlight the matching
+    zone and dim the others (Phase 1.3 — keep the lanes visible).
+    """
+    bands = BOARD_BANDS
+    zone_cards: dict[str, list[Prospect]] = {k: [] for k in BOARD_ZONE_KEYS}
+    for r in rows:
+        key = "terminal" if r.stage in TERMINAL_STAGES else r.stage
+        if key in zone_cards:
+            zone_cards[key].append(r)
+
+    ids = [r.id for r in rows]
+    active_messages: dict[int, OutreachMessage] = {}
+    rel_fu: dict[int, str] = {}
+    fu_due_ids: set[int] = set()
+    if ids:
+        for m in (
+            db.query(OutreachMessage)
+            .filter(
+                OutreachMessage.prospect_id.in_(ids),
+                OutreachMessage.active.is_(True),
+            )
+            .all()
+        ):
+            active_messages[m.prospect_id] = m
+        today = datetime.now().date()
+        open_followups = (
+            db.query(FollowUp)
+            .filter(FollowUp.prospect_id.in_(ids), FollowUp.status == "open")
+            .order_by(FollowUp.due_date.asc().nullslast())
+            .all()
+        )
+        earliest: dict[int, FollowUp] = {}
+        for f in open_followups:
+            earliest.setdefault(f.prospect_id, f)
+        for pid, f in earliest.items():
+            rel, is_due = _follow_up_rel(f.due_date, today)
+            if rel:
+                rel_fu[pid] = rel
+            if is_due:
+                fu_due_ids.add(pid)
+
+    rel_contact: dict[int, str] = {
+        r.id: label for r in rows if (label := _relative_days(r.last_contacted_at))
+    }
+
+    zone_hot: dict[str, str] = {}
+    for key, cards in zone_cards.items():
+        if any(c.id in fu_due_ids for c in cards):
+            zone_hot[key] = "warn"
+        elif any(
+            active_messages.get(c.id) is not None
+            and active_messages[c.id].status == "pending_review"
+            for c in cards
+        ):
+            zone_hot[key] = "accent"
+
+    zone_sub_counts: dict[str, int] = {
+        s: sum(1 for c in zone_cards["terminal"] if c.stage == s) for s in TERMINAL_STAGES
+    }
+
+    return {
+        "bands": bands,
+        "lens_stage": stage,
+        "zone_cards": zone_cards,
+        "zone_hot": zone_hot,
+        "zone_sub_counts": zone_sub_counts,
+        "active_messages": active_messages,
+        "fu_due_ids": fu_due_ids,
+        "rel_contact": rel_contact,
+        "rel_fu": rel_fu,
+    }
 
 
 def _render_list(
@@ -87,42 +325,350 @@ def _render_list(
         q=q,
         include_archived=include_archived,
         do_not_contact_only=do_not_contact_only,
+        visible_to=current_user(request),
     )
-    stages = [
-        "new",
-        "researched",
-        "opportunity_identified",
-        "outreach_ready",
-        "contacted",
-        "replied",
-        "interested",
-        "follow_up_due",
-        "converted",
-        "not_interested",
-        "do_not_contact",
-        "archived",
-    ]
-    tags = db.query(Tag).order_by(Tag.name).all()
-    categories = sorted({r.category for r in rows if r.category}, key=str.lower)
-    return templates.TemplateResponse(
-        request=request,
-        name="prospects/list.html",
-        context={
-            "app_name": settings.app_name,
-            "prospects": rows,
-            "stages": stages,
-            "tags": tags,
-            "categories": categories,
-            "current_stage": stage,
-            "current_tag": tag,
-            "current_category": category,
-            "current_location": location,
-            "current_q": q,
+    filters: dict[str, Any] = {
+        "stage": stage,
+        "tag": tag,
+        "category": category,
+        "location": location,
+        "q": q,
+        "include_archived": include_archived,
+        "do_not_contact_only": do_not_contact_only,
+    }
+    if _hx(request):
+        # HTMX board refresh (spec §4): fragment only — flashes + zones.
+        return templates.TemplateResponse(
+            request=request,
+            name="prospects/board_refresh.html",
+            context={
+                "app_name": settings.app_name,
+                **filters,
+                "message": message,
+                "message_type": message_type,
+                **_board_context(db, rows, stage=stage),
+            },
+        )
+    return _render_canvas(
+        request,
+        db,
+        rows=rows,
+        message=message,
+        message_type=message_type,
+        **filters,
+    )
+
+
+# ===== The canvas shell (spec §V2.1/§V2.2) =====
+# One screen for the whole app. Every retired page route renders this shell
+# with its setup card pre-opened, so direct URLs keep working; HTMX requests
+# on the same routes get the panel fragment only.
+
+
+def _can_settings(request: Request) -> bool:
+    """Whether the viewer may open settings surfaces (cluster cards, links).
+
+    Gate off → everyone (pass-through); gate on → settings permission, and
+    fail closed if the identity somehow vanished.
+    """
+    if not gate_enabled():
+        return True
+    user = current_user(request)
+    return user is not None and authz.has_permission(user.role, "settings")
+
+
+def _setup_cluster_context(db: Session, user: authz.Identity | None = None) -> dict:
+    """Live one-line state for each setup card (§V2.3). Read-only queries."""
+    profile = profile_service.get_or_create_profile(db)
+    needs = dashboard_service.needs_attention(db, visible_to=user)
+    provider_rows = providers_service.provider_status(db)
+    configured = sum(1 for r in provider_rows if r.get("configured") and r.get("implemented"))
+    usage = usage_summary(db)
+    calls = sum(int(v.get("used") or 0) for k, v in usage.items() if k != "ai")
+    views = saved_views_service.list_saved_views(db)
+    flagged = retention_service.list_retention_flagged(db)
+    # NOTE: do not run find_fuzzy_duplicates() here. It scans every live
+    # prospect and made the canvas render O(n) on every page load (~100ms at
+    # 5,000 prospects, breaking the Phase 5 budget). The Merge card computes
+    # its pairs when opened; the meta line only advertises the surface.
+    needs_count = sum(int(i.get("count") or 0) for i in needs)
+    industries = len(profile.target_industries or [])
+    calls_label = "call" if calls == 1 else "calls"
+    industries_label = "industry" if industries == 1 else "industries"
+    categories = len(settings.category_vocabulary or [])
+    categories_label = "category" if categories == 1 else "categories"
+    card_states = {
+        "status": {
+            "meta": (
+                f"{needs_count} need{'s' if needs_count == 1 else ''} attention"
+                if needs_count
+                else "all clear"
+            ),
+            "warn": needs_count > 0,
+        },
+        "profile": {
+            "meta": f"{'offer set' if profile.offer else 'no offer'} · {industries} "
+            f"{industries_label}",
+            "warn": not profile.offer,
+        },
+        "providers": {"meta": f"{configured}/{len(provider_rows)} configured", "warn": False},
+        "usage": {"meta": f"{calls} provider {calls_label} today", "warn": False},
+        "general": {
+            "meta": f"{settings.default_follow_up_days}d follow-up · "
+            f"{categories} {categories_label}",
+            "warn": False,
+        },
+        "import": {"meta": "CSV → candidates", "warn": False},
+        "saved_views": {
+            "meta": f"{len(views)} saved view{'s' if len(views) != 1 else ''}",
+            "warn": False,
+        },
+        "retention": {"meta": f"{len(flagged)} flagged", "warn": bool(flagged)},
+        "merge": {"meta": "review duplicates", "warn": False},
+    }
+    return {"card_states": card_states, "saved_views": views}
+
+
+def _outreach_context(db: Session, user: authz.Identity | None = None) -> dict:
+    """Messages in flight, grouped by state (spec §V2.1 outreach region).
+
+    ``user`` scopes the rows to the prospects that user may see — message
+    drafts are row-level data like the board itself.
+    """
+    query = (
+        db.query(OutreachMessage)
+        .join(Prospect)
+        .filter(OutreachMessage.status.in_(("pending_review", "approved", "opened_in_whatsapp")))
+        .order_by(OutreachMessage.updated_at.desc())
+    )
+    scope = authz.scope_criterion(user)
+    if scope is not None:
+        query = query.filter(scope)
+    messages = query.all()
+    groups = {
+        "pending_review": [m for m in messages if m.status == "pending_review"],
+        "approved": [m for m in messages if m.status == "approved"],
+        "opened_in_whatsapp": [m for m in messages if m.status == "opened_in_whatsapp"],
+    }
+    return {
+        "outreach_groups": groups,
+        "outreach_total": len(messages),
+        "outreach_zones": [
+            ("pending_review", "Pending review", "awaiting your approval"),
+            ("approved", "Approved", "ready to open in WhatsApp"),
+            ("opened_in_whatsapp", "Opened", "waiting on your confirmation"),
+        ],
+    }
+
+
+def _render_canvas(
+    request: Request,
+    db: Session,
+    *,
+    rows: list[Prospect] | None = None,
+    open_card: str | None = None,
+    panel_body_template: str | None = None,
+    panel_context: dict | None = None,
+    stage: str | None = None,
+    tag: str | None = None,
+    category: str | None = None,
+    location: str | None = None,
+    q: str | None = None,
+    include_archived: bool = False,
+    do_not_contact_only: bool = False,
+    message: str | None = None,
+    message_type: str = "info",
+    status_code: int = 200,
+) -> HTMLResponse:
+    if rows is None:
+        rows = prospect_service.list_prospects(
+            db,
+            stage=stage,
+            tag=tag,
+            category=category,
+            location=location,
+            q=q,
+            include_archived=include_archived,
+            do_not_contact_only=do_not_contact_only,
+            visible_to=current_user(request),
+        )
+    active_filters = _active_filters(
+        stage=stage,
+        tag=tag,
+        category=category,
+        location=location,
+        q=q,
+        include_archived=include_archived,
+        do_not_contact_only=do_not_contact_only,
+    )
+    filter_params = {
+        k: ("true" if v is True else v)
+        for k, v in {
+            "stage": stage,
+            "tag": tag,
+            "category": category,
+            "location": location,
+            "q": q,
             "include_archived": include_archived,
             "do_not_contact_only": do_not_contact_only,
-            "message": message,
-            "message_type": message_type,
-        },
+        }.items()
+        if v
+    }
+    filters_href = "/prospects/filters"
+    if filter_params:
+        filters_href += "?" + urlencode(filter_params)
+    # POST → 303 redirects put the confirmation in the query string
+    # (e.g. /prospects/6?flash=Message+sent+confirmed). The canvas routes
+    # don't take a message parameter, so surface it here; the type is
+    # whitelisted because it becomes a CSS class.
+    if message is None:
+        message = request.query_params.get("flash")
+        if message:
+            candidate = request.query_params.get("flash_type") or "info"
+            message_type = candidate if candidate in ("info", "success", "error") else "info"
+    context = {
+        "app_name": settings.app_name,
+        "canvas_mode": True,
+        "prospects": rows,
+        "stages": list(STAGES),
+        "tags": db.query(Tag).order_by(Tag.name).all(),
+        "categories": sorted({r.category for r in rows if r.category}, key=str.lower),
+        "current_stage": stage,
+        "current_tag": tag,
+        "current_category": category,
+        "current_location": location,
+        "current_q": q,
+        "include_archived": include_archived,
+        "do_not_contact_only": do_not_contact_only,
+        "active_filters": active_filters,
+        "filters_href": filters_href,
+        "stage_lens_clear_url": next(
+            (f["url"] for f in active_filters if f["key"] == "stage"), None
+        ),
+        "message": message,
+        "message_type": message_type,
+        "open_card": open_card,
+        "panel_body_template": panel_body_template,
+        "can_settings": _can_settings(request),
+        # Spec V2 amendment (owner 2026-11-19): on Home the Status panel owns
+        # the first screen and the world is revealed when it closes, instead
+        # of the panel floating over a cropped, edge-faded canvas.
+        "first_paint": bool(open_card) and request.url.path == "/",
+        **_board_context(db, rows, stage=stage),
+        **_setup_cluster_context(db, current_user(request)),
+        **_outreach_context(db, current_user(request)),
+    }
+    if panel_context:
+        context.update(panel_context)
+    return templates.TemplateResponse(
+        request=request,
+        name="canvas/shell.html",
+        context=context,
+        status_code=status_code,
+    )
+
+
+# Settings family as one tab-based page (owner 2026-11-18: "views without
+# the canvas" become standalone tab pages — the tab strip is their navigation;
+# these routes never had rail entries, only canvas setup cards).
+#: Tab key -> required permission. Unlisted keys default to ``"settings"``;
+#: ``None`` = any signed-in user (account self-service, shared filter presets).
+TAB_PERMISSIONS: dict[str, str | None] = {
+    "account": None,
+    "saved_views": None,
+    "users": "users",
+}
+
+#: Tabs that only exist while the gate is on (they manage identities).
+_AUTH_ONLY_TABS = frozenset({"account", "users"})
+
+
+def _visible_tabs(request: Request) -> list[tuple[str, str, str]]:
+    """Settings tabs the current viewer may actually open.
+
+    Gate off → everything except the identity-management tabs (no identities
+    exist to manage); gate on → filtered by role so a member never sees a
+    tab that would 403.
+    """
+    if not gate_enabled():
+        return [t for t in SETTINGS_TABS if t[0] not in _AUTH_ONLY_TABS]
+    user = current_user(request)
+    role = user.role if user else None
+    visible: list[tuple[str, str, str]] = []
+    for key, label, href in SETTINGS_TABS:
+        perm = TAB_PERMISSIONS.get(key, "settings")
+        if perm is None or authz.has_permission(role, perm):
+            visible.append((key, label, href))
+    return visible
+
+
+SETTINGS_TABS: list[tuple[str, str, str]] = [
+    ("general", "General", "/settings/general"),
+    ("profile", "Profile", "/settings/profile"),
+    ("providers", "Providers", "/settings/providers"),
+    ("import", "Import", "/settings/import"),
+    ("saved_views", "Saved views", "/settings/saved-views"),
+    ("retention", "Retention", "/settings/retention"),
+    ("usage", "Usage", "/settings/usage"),
+    ("merge", "Duplicates", "/merge/duplicates"),
+    ("account", "Account", "/settings/account"),
+    ("users", "Users", "/settings/users"),
+]
+
+
+def _card_page(
+    request: Request,
+    db: Session,
+    *,
+    card: str,
+    body: str,
+    context: dict[str, object],
+    status_code: int = 200,
+    page: str | None = None,
+    heading: str | None = None,
+    lede: str | None = None,
+) -> HTMLResponse:
+    """Render a card surface as its own page (or as an HX fragment).
+
+    HX-Request → the panel body fragment (no chrome) — what the canvas
+    Filters/Add panels still fetch.
+    Plain GET  → `page="settings"` renders the settings tab page,
+    `page="standalone"` the generic standalone page; without `page` the
+    legacy canvas shell with the card pre-opened (Home keeps this on purpose).
+    """
+    if _hx(request):
+        return templates.TemplateResponse(
+            request=request,
+            name=body,
+            context={**context, "panel_mode": True},
+            status_code=status_code,
+        )
+    if page == "settings":
+        return templates.TemplateResponse(
+            request=request,
+            name="settings_page.html",
+            context={
+                **context,
+                "settings_tabs": _visible_tabs(request),
+                "active_tab": card,
+                "tab_tpl": body,
+            },
+            status_code=status_code,
+        )
+    if page == "standalone":
+        return templates.TemplateResponse(
+            request=request,
+            name="standalone.html",
+            context={**context, "heading": heading, "lede": lede, "body": body},
+            status_code=status_code,
+        )
+    return _render_canvas(
+        request,
+        db,
+        open_card=card,
+        panel_body_template=body,
+        panel_context=context,
+        status_code=status_code,
     )
 
 
@@ -132,23 +678,58 @@ def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@router.get("/", response_class=HTMLResponse)
-def index(request: Request, db: DbSession) -> HTMLResponse:
-    """Dashboard home page: pipeline strip + operational metrics + quick start."""
-    counts = dashboard_service.stage_counts(db)
-    metrics = dashboard_service.dashboard_metrics(db)
+@router.get("/dev/styleguide", response_class=HTMLResponse, include_in_schema=False)
+def styleguide(request: Request) -> HTMLResponse:
+    """Unlinked design-system reference. Uses the normal auth gate; no nav link,
+    no OpenAPI entry and no data access — it renders static component examples.
+    """
     return templates.TemplateResponse(
         request=request,
-        name="index.html",
-        context={
-            "app_name": settings.app_name,
-            "stage_counts": counts,
-            "pipeline_phases": dashboard_service.PIPELINE_PHASES,
-            "stage_label": dashboard_service.stage_label,
-            "total_prospects": dashboard_service.total_prospects(db),
-            "metrics": metrics,
-            "needs_attention": dashboard_service.needs_attention(db),
-        },
+        name="dev/styleguide.html",
+        context={"app_name": settings.app_name, "title": "Design system"},
+    )
+
+
+def _status_context(db: Session, user: authz.Identity | None = None) -> dict[str, object]:
+    """Status card content (was the dashboard page): attention queue, metrics,
+    quick start. The 01→03 pipeline strip is dropped — the board itself is on
+    screen with phase chips and counts (§V2.3).
+    ``user`` scopes every count to the prospects that user may see.
+    """
+    return {
+        "app_name": settings.app_name,
+        "stage_counts": dashboard_service.stage_counts(db, visible_to=user),
+        "pipeline_phases": dashboard_service.PIPELINE_PHASES,
+        "stage_label": dashboard_service.stage_label,
+        "total_prospects": dashboard_service.total_prospects(db, visible_to=user),
+        "metrics": dashboard_service.dashboard_metrics(db, visible_to=user),
+        "needs_attention": dashboard_service.needs_attention(db, visible_to=user),
+    }
+
+
+@router.get("/", response_class=HTMLResponse)
+def index(request: Request, db: DbSession) -> HTMLResponse:
+    """The canvas, with the Status card open (§V2.2)."""
+    return _card_page(
+        request,
+        db,
+        card="status",
+        body="canvas/cards/status.html",
+        context=_status_context(db, current_user(request)),
+    )
+
+
+@router.get("/status", response_class=HTMLResponse)
+def status_card(request: Request, db: DbSession) -> HTMLResponse:
+    """Status card as its own address (rail item + `g s`)."""
+    return _card_page(
+        request,
+        db,
+        card="status",
+        body="canvas/cards/status.html",
+        context=_status_context(db, current_user(request)),
+        page="standalone",
+        heading="Status",
     )
 
 
@@ -177,11 +758,60 @@ def prospects_list(
     )
 
 
+@router.get("/prospects/filters", response_class=HTMLResponse)
+def prospects_filters(
+    request: Request,
+    db: Session = Depends(get_db),
+    stage: str | None = None,
+    tag: str | None = None,
+    category: str | None = None,
+    location: str | None = None,
+    q: str | None = None,
+    include_archived: bool = False,
+    do_not_contact_only: bool = False,
+) -> HTMLResponse:
+    """Filters panel (spec §1.2/§V2.3): a 360px surface, not inline rows.
+
+    The query string carries the current filter state so the panel always
+    opens on what the board is showing. HX-Request → panel body fragment.
+    """
+    facet_q = db.query(Prospect.category).filter(Prospect.category.isnot(None))
+    scope = authz.scope_criterion(current_user(request))
+    if scope is not None:
+        facet_q = facet_q.filter(scope)
+    categories = sorted((row[0] for row in facet_q.distinct().all() if row[0]), key=str.lower)
+    return _card_page(
+        request,
+        db,
+        card="filters",
+        body="canvas/cards/filters.html",
+        context={
+            "app_name": settings.app_name,
+            "stages": list(STAGES),
+            "tags": db.query(Tag).order_by(Tag.name).all(),
+            "categories": categories,
+            "current_stage": stage,
+            "current_tag": tag,
+            "current_category": category,
+            "current_location": location,
+            "current_q": q,
+            "include_archived": include_archived,
+            "do_not_contact_only": do_not_contact_only,
+            "has_filters": bool(
+                stage or tag or category or location or q or include_archived or do_not_contact_only
+            ),
+            "saved_views": saved_views_service.list_saved_views(db),
+        },
+    )
+
+
 @router.get("/prospects/new", response_class=HTMLResponse)
-def prospect_new_form(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(
-        request=request,
-        name="prospects/form.html",
+def prospect_new_form(request: Request, db: DbSession) -> HTMLResponse:
+    return _card_page(
+        request,
+        db,
+        card="prospect-new",
+        body="partials/panel_prospect_form.html",
         context={"app_name": settings.app_name, "prospect": None, "action": "/prospects/new"},
     )
 
@@ -218,9 +848,11 @@ def prospect_create(
             }
         )
     except ValidationError as exc:
-        return templates.TemplateResponse(
-            request=request,
-            name="prospects/form.html",
+        return _card_page(
+            request,
+            db,
+            card="prospect-new",
+            body="partials/panel_prospect_form.html",
             context={
                 "app_name": settings.app_name,
                 "prospect": None,
@@ -254,6 +886,7 @@ def prospect_create(
         normalize_phone(data.phone_raw, settings.phone_default_country) if data.phone_raw else None
     )
 
+    creator = current_user(request)
     prospect, error = prospect_service.create_prospect(
         db,
         business_name=data.business_name,
@@ -268,11 +901,15 @@ def prospect_create(
         phone_raw=data.phone_raw,
         email=data.email,
         website_url=data.website_url,
+        owner_id=authz.stamp_owner(creator),
+        visible_to=creator,
     )
     if error:
-        return templates.TemplateResponse(
-            request=request,
-            name="prospects/form.html",
+        return _card_page(
+            request,
+            db,
+            card="prospect-new",
+            body="partials/panel_prospect_form.html",
             context={
                 "app_name": settings.app_name,
                 "prospect": None,
@@ -351,21 +988,38 @@ def prospect_detail(
     )
     notes = db.query(Note).filter_by(prospect_id=prospect_id).order_by(Note.updated_at.desc()).all()
     opportunities = opportunity_service.list_opportunities(db, prospect_id=prospect_id)
+    # Which findings the active draft is grounded in: the panel needs this for
+    # the "Grounded in" row and to show the acknowledgement only for ungrounded
+    # drafts (it was never passed before, so both read as undefined here).
+    grounded_ids = set(active_message.grounding or []) if active_message else set()
+    grounded_findings = (
+        db.query(Finding).filter(Finding.id.in_(grounded_ids)).all() if grounded_ids else []
+    )
+    context = {
+        "app_name": settings.app_name,
+        "prospect": prospect,
+        "activities": activities,
+        "latest_run": latest_run,
+        "findings": findings,
+        "website_checks": website_checks,
+        "active_message": active_message,
+        "grounded_findings": grounded_findings,
+        "follow_ups": follow_ups,
+        "notes": notes,
+        "opportunities": opportunities,
+    }
+    if _hx(request):
+        # Panel representation (spec §4): the same partial detail.html
+        # includes, rendered standalone for #panel-body.
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/panel_detail.html",
+            context={**context, "panel_mode": True},
+        )
     return templates.TemplateResponse(
         request=request,
-        name="prospects/detail.html",
-        context={
-            "app_name": settings.app_name,
-            "prospect": prospect,
-            "activities": activities,
-            "latest_run": latest_run,
-            "findings": findings,
-            "website_checks": website_checks,
-            "active_message": active_message,
-            "follow_ups": follow_ups,
-            "notes": notes,
-            "opportunities": opportunities,
-        },
+        name="detail_page.html",
+        context=context,
     )
 
 
@@ -378,9 +1032,14 @@ def prospect_edit_form(
     prospect = db.get(Prospect, prospect_id)
     if prospect is None:
         return HTMLResponse("Prospect not found", status_code=404)
-    return templates.TemplateResponse(
-        request=request,
-        name="prospects/form.html",
+    return _card_page(
+        request,
+        db,
+        page="standalone",
+        heading="Edit details",
+        lede=prospect.business_name if prospect else None,
+        card=f"prospect-{prospect_id}-edit",
+        body="partials/panel_prospect_form.html",
         context={
             "app_name": settings.app_name,
             "prospect": prospect,
@@ -422,9 +1081,14 @@ def prospect_update(
             }
         )
     except ValidationError as exc:
-        return templates.TemplateResponse(
-            request=request,
-            name="prospects/form.html",
+        return _card_page(
+            request,
+            db,
+            page="standalone",
+            heading="Edit details",
+            lede=business_name,
+            card=f"prospect-{prospect_id}-edit",
+            body="partials/panel_prospect_form.html",
             context={
                 "app_name": settings.app_name,
                 "prospect": db.get(Prospect, prospect_id),
@@ -449,6 +1113,7 @@ def prospect_update(
     prospect, error = prospect_service.update_prospect(
         db,
         prospect_id,
+        visible_to=current_user(request),
         business_name=data.business_name,
         category=data.category,
         location_area=data.location_area,
@@ -466,9 +1131,14 @@ def prospect_update(
     if error:
         if error == "Prospect not found":
             return HTMLResponse("Prospect not found", status_code=404)
-        return templates.TemplateResponse(
-            request=request,
-            name="prospects/form.html",
+        return _card_page(
+            request,
+            db,
+            page="standalone",
+            heading="Edit details",
+            lede=prospect.business_name if prospect else None,
+            card=f"prospect-{prospect_id}-edit",
+            body="partials/panel_prospect_form.html",
             context={
                 "app_name": settings.app_name,
                 "prospect": db.get(Prospect, prospect_id),
@@ -511,10 +1181,11 @@ def prospect_archive(
 
 @router.post("/prospects/{prospect_id}/unarchive", response_class=HTMLResponse, response_model=None)
 def prospect_unarchive(
+    request: Request,
     prospect_id: int,
     db: Session = Depends(get_db),
 ) -> HTMLResponse | RedirectResponse:
-    ok = prospect_service.unarchive_prospect(db, prospect_id)
+    ok = prospect_service.unarchive_prospect(db, prospect_id, visible_to=current_user(request))
     if not ok:
         prospect = db.get(Prospect, prospect_id)
         if prospect is None:
@@ -599,12 +1270,19 @@ def prospect_unsuppress(
 
 
 @router.get("/settings/profile", response_class=HTMLResponse)
-def profile_form(request: Request, db: DbSession) -> HTMLResponse:
+def profile_form(
+    request: Request,
+    db: DbSession,
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
+) -> HTMLResponse:
     profile = profile_service.get_or_create_profile(db)
     discovery_jobs = db.query(DiscoveryJob).order_by(DiscoveryJob.created_at.desc()).limit(5).all()
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/profile.html",
+    return _card_page(
+        request,
+        db,
+        page="settings",
+        card="profile",
+        body="canvas/cards/profile.html",
         context={
             "app_name": settings.app_name,
             "profile": profile,
@@ -621,6 +1299,7 @@ def profile_update(
     target_industries: str | None = Form(None),
     target_locations: str | None = Form(None),
     ideal_signals: str | None = Form(None),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> HTMLResponse | RedirectResponse:
     try:
         data: ProfileFormData = validate_profile_form(
@@ -654,6 +1333,7 @@ def profile_update(
 def profile_discovery_run(
     request: Request,
     db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> HTMLResponse | RedirectResponse:
     """Queue a profile-driven discovery run (Flow 1, SYSTEM_ARCHITECTURE §4.1).
 
@@ -673,7 +1353,7 @@ def profile_discovery_run(
     queue_discover_job(db, profile_id=profile.id, discovery_job_id=discovery_job.id)
     return RedirectResponse(
         url=(
-            f"/settings/profile?flash={quote('Discovery queued — run the worker (python -m app.cli worker) to process it')}"
+            f"/settings/profile?flash={quote('Discovery queued. Run the worker (python -m app.cli worker) to process it')}"
             "&flash_type=success"
         ),
         status_code=303,
@@ -681,12 +1361,19 @@ def profile_discovery_run(
 
 
 @router.get("/settings/usage", response_class=HTMLResponse)
-def usage_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    """Settings → Usage: provider + AI call accounting per day (§2.7)."""
+def usage_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
+) -> HTMLResponse:
+    """Usage card: provider + AI call accounting per day (§2.7)."""
     stats = dashboard_service.usage_stats(db)
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/usage.html",
+    return _card_page(
+        request,
+        db,
+        page="settings",
+        card="usage",
+        body="canvas/cards/usage.html",
         context={
             "app_name": settings.app_name,
             "providers": stats["providers"],
@@ -697,14 +1384,21 @@ def usage_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
 
 
 @router.get("/settings/providers", response_class=HTMLResponse)
-def providers_settings_form(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    """Settings → Providers: configured/enabled status, usage, caps (§2.7).
+def providers_settings_form(
+    request: Request,
+    db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
+) -> HTMLResponse:
+    """Providers card: configured/enabled status, usage, caps (§2.7).
 
     Read-only by design: keys are never rendered, only presence booleans.
     """
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/providers.html",
+    return _card_page(
+        request,
+        db,
+        page="settings",
+        card="providers",
+        body="canvas/cards/providers.html",
         context={
             "app_name": settings.app_name,
             "settings": settings,
@@ -714,11 +1408,18 @@ def providers_settings_form(request: Request, db: Session = Depends(get_db)) -> 
 
 
 @router.get("/settings/general", response_class=HTMLResponse)
-def general_settings_form(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    """Settings → General: vocabulary, defaults, caps, backup (§2.7)."""
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/general.html",
+def general_settings_form(
+    request: Request,
+    db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
+) -> HTMLResponse:
+    """General card: vocabulary, defaults, caps, backup (§2.7)."""
+    return _card_page(
+        request,
+        db,
+        page="settings",
+        card="general",
+        body="canvas/cards/general.html",
         context={
             "app_name": settings.app_name,
             "settings": settings,
@@ -734,19 +1435,23 @@ def general_settings_update(
     default_follow_up_days: str | None = Form(None),
     category_vocabulary: str | None = Form(None),
     backup: str | None = Form(None),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> HTMLResponse | RedirectResponse:
     """Update general settings or trigger a database backup."""
     if backup:
         target = perform_backup()
         if target is None:
-            return templates.TemplateResponse(
-                request=request,
-                name="settings/general.html",
+            return _card_page(
+                request,
+                db,
+                page="settings",
+                card="general",
+                body="canvas/cards/general.html",
                 context={
                     "app_name": settings.app_name,
                     "settings": settings,
                     "usage": usage_summary(db),
-                    "error": "Backup failed — is the database a SQLite file?",
+                    "error": "Backup failed: is the database a SQLite file?",
                 },
             )
         return RedirectResponse(
@@ -759,9 +1464,12 @@ def general_settings_update(
         try:
             days = int(default_follow_up_days)
         except ValueError:
-            return templates.TemplateResponse(
-                request=request,
-                name="settings/general.html",
+            return _card_page(
+                request,
+                db,
+                page="settings",
+                card="general",
+                body="canvas/cards/general.html",
                 context={
                     "app_name": settings.app_name,
                     "settings": settings,
@@ -794,11 +1502,18 @@ def general_settings_update(
 
 
 @router.get("/settings/import", response_class=HTMLResponse)
-def import_form(request: Request) -> HTMLResponse:
-    """CSV import wizard step 1: upload form."""
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/import.html",
+def import_form(
+    request: Request,
+    db: DbSession,
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
+) -> HTMLResponse:
+    """CSV import card, step 1: upload form."""
+    return _card_page(
+        request,
+        db,
+        page="settings",
+        card="import",
+        body="canvas/cards/import.html",
         context={
             "app_name": settings.app_name,
             "settings": settings,
@@ -813,6 +1528,7 @@ def import_preview_page(
     db: Session = Depends(get_db),
     file: UploadFile | None = File(None),
     import_token: str | None = Form(None),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> HTMLResponse:
     """CSV import wizard step 2: parse file and show preview (or re-show preview)."""
 
@@ -830,9 +1546,12 @@ def import_preview_page(
         except import_service.ImportError as exc:
             # import_service.ImportError subclasses ValueError — catching the
             # builtin here let every structurally invalid CSV escape as a 500.
-            return templates.TemplateResponse(
-                request=request,
-                name="settings/import.html",
+            return _card_page(
+                request,
+                db,
+                page="settings",
+                card="import",
+                body="canvas/cards/import.html",
                 context={
                     "app_name": settings.app_name,
                     "settings": settings,
@@ -843,9 +1562,12 @@ def import_preview_page(
             )
 
     if preview is None:
-        return templates.TemplateResponse(
-            request=request,
-            name="settings/import.html",
+        return _card_page(
+            request,
+            db,
+            page="settings",
+            card="import",
+            body="canvas/cards/import.html",
             context={
                 "app_name": settings.app_name,
                 "settings": settings,
@@ -886,9 +1608,12 @@ def import_preview_page(
             }
         )
 
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/import.html",
+    return _card_page(
+        request,
+        db,
+        page="settings",
+        card="import",
+        body="canvas/cards/import.html",
         context={
             "app_name": settings.app_name,
             "step": 2,
@@ -910,13 +1635,17 @@ def import_commit_page(
     db: Session = Depends(get_db),
     import_token: str = Form(...),
     row_indices: list[int] = Form([]),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> HTMLResponse:
     """CSV import wizard step 3: commit selected rows and show results."""
     preview = import_service.load_import_session(import_token)
     if preview is None:
-        return templates.TemplateResponse(
-            request=request,
-            name="settings/import.html",
+        return _card_page(
+            request,
+            db,
+            page="settings",
+            card="import",
+            body="canvas/cards/import.html",
             context={
                 "app_name": settings.app_name,
                 "settings": settings,
@@ -935,9 +1664,12 @@ def import_commit_page(
 
     import_service.delete_import_session(import_token)
 
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/import.html",
+    return _card_page(
+        request,
+        db,
+        page="settings",
+        card="import",
+        body="canvas/cards/import.html",
         context={
             "app_name": settings.app_name,
             "step": 3,
@@ -957,9 +1689,12 @@ def saved_views_list(
 ) -> HTMLResponse:
     """Saved views list page."""
     views = saved_views_service.list_saved_views(db)
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/saved_views.html",
+    return _card_page(
+        request,
+        db,
+        page="settings",
+        card="saved_views",
+        body="canvas/cards/saved_views.html",
         context={
             "app_name": settings.app_name,
             "settings": settings,
@@ -1077,12 +1812,16 @@ def merge_duplicates_list(
     request: Request,
     db: Session = Depends(get_db),
     min_score: float = 0.85,
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> HTMLResponse:
     """Fuzzy duplicate review page."""
     pairs = merge_service.find_fuzzy_duplicates(db, min_score=min_score)
-    return templates.TemplateResponse(
-        request=request,
-        name="merge/duplicates.html",
+    return _card_page(
+        request,
+        db,
+        page="settings",
+        card="merge",
+        body="canvas/cards/merge.html",
         context={
             "app_name": settings.app_name,
             "settings": settings,
@@ -1098,6 +1837,7 @@ def merge_prospects_page(
     db: Session = Depends(get_db),
     source_id: int = Form(...),
     target_id: int = Form(...),
+    _perm: SimpleNamespace | None = Depends(require_permission("danger")),
 ) -> HTMLResponse | RedirectResponse:
     """Merge source prospect into target prospect from HTML form."""
     target, error = merge_service.merge_prospects(
@@ -1118,12 +1858,16 @@ def merge_prospects_page(
 def retention_sweep_page(
     request: Request,
     db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("settings")),
 ) -> HTMLResponse:
     """Retention sweep page - flag inactive prospects for review."""
     flagged = retention_service.list_retention_flagged(db)
-    return templates.TemplateResponse(
-        request=request,
-        name="settings/retention.html",
+    return _card_page(
+        request,
+        db,
+        page="settings",
+        card="retention",
+        body="canvas/cards/retention.html",
         context={
             "app_name": settings.app_name,
             "settings": settings,
@@ -1137,6 +1881,7 @@ def retention_sweep_run(
     request: Request,
     db: Session = Depends(get_db),
     months: int = Form(12),
+    _perm: SimpleNamespace | None = Depends(require_permission("danger")),
 ) -> HTMLResponse | RedirectResponse:
     """Run retention sweep from HTML form."""
     result = retention_service.sweep_inactive_prospects(db, months=months, actor="user")
@@ -1152,6 +1897,7 @@ def retention_clear_flag(
     request: Request,
     prospect_id: int,
     db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("danger")),
 ) -> HTMLResponse | RedirectResponse:
     """Clear retention-review flag from a prospect."""
     ok = retention_service.clear_retention_flag(db, prospect_id=prospect_id, actor="user")
@@ -1159,6 +1905,315 @@ def retention_clear_flag(
         return HTMLResponse("Prospect not found or not flagged", status_code=404)
     return RedirectResponse(
         url=f"/settings/retention?flash={quote('Retention flag cleared')}&flash_type=success",
+        status_code=303,
+    )
+
+
+#: Valid account roles (authz.POLICY: owner > admin > member).
+ROLES: tuple[str, ...] = ("owner", "admin", "member")
+
+
+# ===== Account (self-service; any signed-in user) =====
+
+
+def _account_id(request: Request) -> int | None:
+    """Signed-in user id (None only if the session vanished mid-request)."""
+    identity = current_user(request)
+    return identity.id if identity else None
+
+
+def _gate_off_account() -> RedirectResponse | None:
+    """Identity surfaces are inert while the gate is off (no sessions exist)."""
+    if not gate_enabled():
+        return RedirectResponse("/", status_code=303)
+    return None
+
+
+@router.get("/settings/account", response_class=HTMLResponse, response_model=None)
+def account_page(
+    request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse | RedirectResponse:
+    """Own account: identity, active sessions, change-password (SECURITY §3)."""
+    bypass = _gate_off_account()
+    if bypass:
+        return bypass
+    identity = current_user(request)
+    if identity is None:
+        return RedirectResponse("/login", status_code=303)
+    sessions = (
+        db.query(UserSession)
+        .filter_by(user_id=identity.id)
+        .order_by(UserSession.created_at.desc())
+        .all()
+    )
+    current_token = request.cookies.get(SESSION_COOKIE_NAME, "")
+    return _card_page(
+        request,
+        db,
+        page="settings",
+        card="account",
+        body="canvas/cards/account.html",
+        context={
+            "app_name": settings.app_name,
+            "account": identity,
+            "sessions": sessions,
+            "current_token": current_token,
+        },
+    )
+
+
+@router.post("/settings/account/password", response_class=HTMLResponse, response_model=None)
+def account_change_password(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_password: str = Form(""),
+    new_password: str = Form(""),
+    confirm: str = Form(""),
+) -> HTMLResponse | RedirectResponse:
+    """Change your own password; every *other* session is revoked (SECURITY §3)."""
+    bypass = _gate_off_account()
+    if bypass:
+        return bypass
+    identity = current_user(request)
+    if identity is None:
+        return RedirectResponse("/login", status_code=303)
+    # Credential check → rate limited like login: a hijacked session must not
+    # be able to brute-force the *current* password for permanent takeover.
+    limit_key = client_key(request, f"account:{identity.username}")
+    if not check_rate_limit(limit_key):
+        return HTMLResponse("Too many attempts. Wait a minute and try again.", status_code=429)
+
+    def _again(error: str) -> HTMLResponse:
+        sessions = (
+            db.query(UserSession)
+            .filter_by(user_id=identity.id)
+            .order_by(UserSession.created_at.desc())
+            .all()
+        )
+        return _card_page(
+            request,
+            db,
+            page="settings",
+            card="account",
+            body="canvas/cards/account.html",
+            context={
+                "app_name": settings.app_name,
+                "account": identity,
+                "sessions": sessions,
+                "current_token": request.cookies.get(SESSION_COOKIE_NAME, ""),
+                "error": error,
+            },
+            status_code=400,
+        )
+
+    user = db.get(User, identity.id)
+    assert user is not None
+    if not users_service.verify_password(current_password, user.password_hash):
+        return _again("Current password is incorrect.")
+    if new_password != confirm:
+        return _again("The two passwords do not match.")
+    try:
+        users_service.set_password(db, user, new_password)
+    except ValueError as exc:
+        return _again(str(exc))
+    reset_rate_limit(limit_key)
+    # This device stays signed in; every other session dies server-side.
+    revoke_user_sessions(db, identity.id, keep_token=request.cookies.get(SESSION_COOKIE_NAME))
+    return RedirectResponse(
+        url=f"/settings/account?flash={quote('Password updated')}&flash_type=success",
+        status_code=303,
+    )
+
+
+# ===== Users (owner-only user management) =====
+
+
+def _last_owner_guard(actor_id: int, target: User, action: str, owner_count: int) -> str | None:
+    """Refuse self-lockout and the loss of the last active owner (SECURITY §3).
+
+    Returns a user-facing refusal message, or ``None`` when the action is
+    allowed. ``owner_count`` counts *active* owners, so a disabled owner
+    cannot be used to satisfy the invariant.
+    """
+    if target.id == actor_id and action in ("disable", "delete"):
+        return f"You cannot {action} your own account."
+    if action in ("disable", "delete", "demote") and target.role == "owner" and owner_count <= 1:
+        return "This is the last active owner account. Promote another owner first."
+    return None
+
+
+@router.get("/settings/users", response_class=HTMLResponse, response_model=None)
+def users_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("users")),
+) -> HTMLResponse | RedirectResponse:
+    """User management: accounts, roles, disable/enable (owner only)."""
+    bypass = _gate_off_account()
+    if bypass:
+        return bypass
+    identity = current_user(request)
+    users = db.query(User).order_by(User.username).all()
+    return _card_page(
+        request,
+        db,
+        page="settings",
+        card="users",
+        body="canvas/cards/users.html",
+        context={
+            "app_name": settings.app_name,
+            "users": users,
+            "account_id": identity.id if identity else None,
+            "roles": ROLES,
+        },
+    )
+
+
+@router.post("/settings/users", response_class=HTMLResponse, response_model=None)
+def user_create(
+    request: Request,
+    db: Session = Depends(get_db),
+    username: str = Form(""),
+    password: str = Form(""),
+    confirm: str = Form(""),
+    role: str = Form("member"),
+    _perm: SimpleNamespace | None = Depends(require_permission("users")),
+) -> HTMLResponse | RedirectResponse:
+    """Create an account directly (signup may be env-gated off)."""
+    bypass = _gate_off_account()
+    if bypass:
+        return bypass
+
+    def _again(error: str) -> HTMLResponse:
+        return _card_page(
+            request,
+            db,
+            page="settings",
+            card="users",
+            body="canvas/cards/users.html",
+            context={
+                "app_name": settings.app_name,
+                "users": db.query(User).order_by(User.username).all(),
+                "account_id": _account_id(request),
+                "roles": ROLES,
+                "error": error,
+                "form_username": username,
+                "form_role": role,
+            },
+            status_code=400,
+        )
+
+    if role not in ROLES:
+        return _again(f"Unknown role: {role}.")
+    if password != confirm:
+        return _again("The two passwords do not match.")
+    try:
+        users_service.create_user(db, username=username, password=password, role=role)
+    except ValueError as exc:
+        return _again(str(exc))
+    return RedirectResponse(
+        url=f"/settings/users?flash={quote(f'User {username.strip().lower()} created')}"
+        "&flash_type=success",
+        status_code=303,
+    )
+
+
+@router.post("/settings/users/{user_id}/role", response_class=HTMLResponse, response_model=None)
+def user_set_role(
+    request: Request,
+    user_id: int,
+    db: Session = Depends(get_db),
+    role: str = Form(...),
+    _perm: SimpleNamespace | None = Depends(require_permission("users")),
+) -> HTMLResponse | RedirectResponse:
+    """Change a user's role (owner only; self-demotion allowed only with a
+    second active owner in place)."""
+    bypass = _gate_off_account()
+    if bypass:
+        return bypass
+    identity = current_user(request)
+    target = db.get(User, user_id)
+    if target is None or identity is None:
+        return HTMLResponse("User not found", status_code=404)
+    if role not in ROLES:
+        return HTMLResponse(f"Unknown role: {role}.", status_code=400)
+    action = "demote" if target.role == "owner" and role != "owner" else "promote"
+    owner_count = db.query(User).filter(User.role == "owner", User.disabled.is_(False)).count()
+    refusal = _last_owner_guard(identity.id, target, action, owner_count)
+    if refusal:
+        return RedirectResponse(
+            url=f"/settings/users?flash={quote(refusal)}&flash_type=error", status_code=303
+        )
+    target.role = role
+    return RedirectResponse(
+        url=f"/settings/users?flash={quote(f'{target.username} is now {role}')}&flash_type=success",
+        status_code=303,
+    )
+
+
+@router.post("/settings/users/{user_id}/toggle", response_class=HTMLResponse, response_model=None)
+def user_toggle(
+    request: Request,
+    user_id: int,
+    db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("users")),
+) -> HTMLResponse | RedirectResponse:
+    """Disable (revokes every session) or re-enable an account."""
+    bypass = _gate_off_account()
+    if bypass:
+        return bypass
+    identity = current_user(request)
+    target = db.get(User, user_id)
+    if target is None or identity is None:
+        return HTMLResponse("User not found", status_code=404)
+    action = "enable" if target.disabled else "disable"
+    owner_count = db.query(User).filter(User.role == "owner", User.disabled.is_(False)).count()
+    refusal = _last_owner_guard(identity.id, target, action, owner_count)
+    if refusal:
+        return RedirectResponse(
+            url=f"/settings/users?flash={quote(refusal)}&flash_type=error", status_code=303
+        )
+    target.disabled = not target.disabled
+    if target.disabled:
+        # Disabled kills the account at its next request anyway; revoking now
+        # ends existing sessions immediately (SECURITY §3).
+        revoke_user_sessions(db, target.id)
+    verb = "disabled" if target.disabled else "enabled"
+    return RedirectResponse(
+        url=f"/settings/users?flash={quote(f'{target.username} {verb}')}&flash_type=success",
+        status_code=303,
+    )
+
+
+@router.post("/settings/users/{user_id}/delete", response_class=HTMLResponse, response_model=None)
+def user_delete(
+    request: Request,
+    user_id: int,
+    db: Session = Depends(get_db),
+    _perm: SimpleNamespace | None = Depends(require_permission("users")),
+) -> HTMLResponse | RedirectResponse:
+    """Delete an account; its prospects become shared (owner_id -> NULL)."""
+    bypass = _gate_off_account()
+    if bypass:
+        return bypass
+    identity = current_user(request)
+    target = db.get(User, user_id)
+    if target is None or identity is None:
+        return HTMLResponse("User not found", status_code=404)
+    owner_count = db.query(User).filter(User.role == "owner", User.disabled.is_(False)).count()
+    refusal = _last_owner_guard(identity.id, target, "delete", owner_count)
+    if refusal:
+        return RedirectResponse(
+            url=f"/settings/users?flash={quote(refusal)}&flash_type=error", status_code=303
+        )
+    # Hand the user's private rows to the shared pool rather than orphaning
+    # them behind an owner_id nobody can resolve (authz: NULL = shared).
+    db.query(Prospect).filter(Prospect.owner_id == target.id).update(
+        {"owner_id": None}, synchronize_session=False
+    )
+    db.delete(target)  # user_sessions cascade via relationship + FK
+    return RedirectResponse(
+        url=f"/settings/users?flash={quote(f'User {target.username} deleted')}&flash_type=success",
         status_code=303,
     )
 
@@ -1195,9 +2250,13 @@ def prospect_research(
         .all()
     )
 
-    return templates.TemplateResponse(
-        request=request,
-        name="prospects/research.html",
+    return _card_page(
+        request,
+        db,
+        page="standalone",
+        heading=f"{prospect.business_name} · research",
+        card=f"research-{prospect_id}",
+        body="partials/panel_research.html",
         context={
             "app_name": settings.app_name,
             "prospect": prospect,
@@ -1571,15 +2630,27 @@ def message_edit_form(
     )
     grounded_ids = set(message.grounding or [])
     grounded_findings = [f for f in findings if f.id in grounded_ids]
+    context = {
+        "app_name": settings.app_name,
+        "prospect": prospect,
+        "message": message,
+        "findings": findings,
+        "grounded_findings": grounded_findings,
+    }
+    if _hx(request):
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/panel_message.html",
+            context={**context, "panel_mode": True},
+        )
     return templates.TemplateResponse(
         request=request,
-        name="messages/edit.html",
+        name="standalone.html",
         context={
-            "app_name": settings.app_name,
-            "prospect": prospect,
-            "message": message,
-            "findings": findings,
-            "grounded_findings": grounded_findings,
+            **context,
+            "heading": "Edit message",
+            "lede": prospect.business_name,
+            "body": "partials/panel_message.html",
         },
     )
 
@@ -1613,18 +2684,27 @@ def message_edit(
         )
         grounded_ids = set(message.grounding or [])
         grounded_findings = [f for f in findings if f.id in grounded_ids]
-        return templates.TemplateResponse(
-            request=request,
-            name="messages/edit.html",
-            context={
-                "app_name": settings.app_name,
-                "prospect": prospect,
-                "message": message,
-                "findings": findings,
-                "grounded_findings": grounded_findings,
-                "field_errors": exc.fields,
-                "form": {"current_text": current_text},
-            },
+        context = {
+            "app_name": settings.app_name,
+            "prospect": prospect,
+            "message": message,
+            "findings": findings,
+            "grounded_findings": grounded_findings,
+            "field_errors": exc.fields,
+            "form": {"current_text": current_text},
+        }
+        # Panel validation re-render (spec §4: "422 re-render lands in panel"):
+        # same route and 400 contract; a plain POST gets the canvas with this
+        # message's panel open, an HTMX POST gets the fragment.
+        return _card_page(
+            request,
+            db,
+            page="standalone",
+            heading="Edit message",
+            lede=prospect.business_name if prospect else None,
+            card=f"message-{message_id}",
+            body="partials/panel_message.html",
+            context=context,
             status_code=400,
         )
 
@@ -1670,18 +2750,24 @@ def message_submit(
         )
         grounded_ids = set(message.grounding or [])
         grounded_findings = [f for f in findings if f.id in grounded_ids]
-        return templates.TemplateResponse(
-            request=request,
-            name="messages/edit.html",
-            context={
-                "app_name": settings.app_name,
-                "prospect": prospect,
-                "message": message,
-                "findings": findings,
-                "grounded_findings": grounded_findings,
-                "field_errors": exc.fields,
-                "form": {"current_text": current_text},
-            },
+        context = {
+            "app_name": settings.app_name,
+            "prospect": prospect,
+            "message": message,
+            "findings": findings,
+            "grounded_findings": grounded_findings,
+            "field_errors": exc.fields,
+            "form": {"current_text": current_text},
+        }
+        return _card_page(
+            request,
+            db,
+            page="standalone",
+            heading="Edit message",
+            lede=prospect.business_name if prospect else None,
+            card=f"message-{message_id}",
+            body="partials/panel_message.html",
+            context=context,
             status_code=400,
         )
 
@@ -1750,9 +2836,15 @@ def message_open(
         return HTMLResponse(error, status_code=409)
     assert message is not None
     prospect = db.get(Prospect, message.prospect_id)
-    return templates.TemplateResponse(
-        request=request,
-        name="messages/open.html",
+    # Full-page POST (no hx-*): answer with the canvas + this panel open (§V2.2).
+    return _card_page(
+        request,
+        db,
+        page="standalone",
+        heading="Edit message",
+        lede=prospect.business_name if prospect else None,
+        card=f"message-{message_id}-open",
+        body="partials/panel_message_open.html",
         context={
             "app_name": settings.app_name,
             "prospect": prospect,
@@ -1965,21 +3057,15 @@ def outreach_queue(
     request: Request,
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
-    """Grouped list of messages needing attention: never lose an approved-but-unconfirmed message."""
-    messages = (
-        db.query(OutreachMessage)
-        .join(Prospect)
-        .filter(OutreachMessage.status.in_(("pending_review", "approved", "opened_in_whatsapp")))
-        .order_by(OutreachMessage.updated_at.desc())
-        .all()
-    )
-    groups = {
-        "pending_review": [m for m in messages if m.status == "pending_review"],
-        "approved": [m for m in messages if m.status == "approved"],
-        "opened_in_whatsapp": [m for m in messages if m.status == "opened_in_whatsapp"],
-    }
-    return templates.TemplateResponse(
-        request=request,
-        name="outreach/queue.html",
-        context={"app_name": settings.app_name, "groups": groups},
-    )
+    """The canvas, framed on the outreach region (messages in flight).
+
+    HX-Request → the outreach region fragment only, so panel actions can
+    refresh the region without a page reload (spec §V2.1/§3.4).
+    """
+    if _hx(request):
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/canvas_outreach_region.html",
+            context=_outreach_context(db, current_user(request)),
+        )
+    return _render_canvas(request, db)
