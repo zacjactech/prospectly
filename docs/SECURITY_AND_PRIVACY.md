@@ -15,7 +15,8 @@ Scope: a local-first, single-operator tool that stores personal contact data (na
 
 - **SQLi:** ORM-only access; no string-built SQL anywhere; dynamic filters built from allowlisted column objects; `PRAGMA foreign_keys=ON`.
 - **XSS:** Jinja2 autoescaping always on (`{{ }}` only; `|safe` forbidden except for explicitly sanitized fragments — and we don't sanitize rich HTML in MVP at all: all user/AI content renders escaped).
-- **CSP:** `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'`. HTMX/vanilla JS served as static files from our origin (no CDNs).
+- **CSP (global):** `default-src 'self'; script-src 'self'; style-src 'self' 'sha256-faU7yAF8NxuMTNEwVmBz+VcYeIoBQ2EMHW3WaVxCvnk='; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'`. The hash permits only the `.htmx-indicator` style htmx injects; HTMX/vanilla JS are served as static files from our origin (no CDNs).
+- **CSP exception (docs only):** `/api/docs` and `/api/redoc` alone receive `style-src 'self' 'unsafe-inline'; worker-src blob:` because Swagger UI/ReDoc inject styles and spawn a search worker. Their bundles (Swagger UI 5.36.0, ReDoc 2.5.4) and ReDoc's logo are local/pinned; no inline scripts or remote assets. Every other route keeps the strict global policy above.
 - AI output is text — rendered escaped like any user content.
 
 ## 3. CSRF & session (accounts + roles, amended 2026-11-18)

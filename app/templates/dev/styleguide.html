@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+{# Hidden design-system reference: unlinked, excluded from OpenAPI, rendered
+   under the normal auth gate. All examples use the .ds-* primitives and tokens;
+   demo-only layout lives in styleguide.css and never loads on working pages. #}
+{% block title %}Design system · {{ app_name }}{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/styleguide.css">
+{% endblock %}
+{% block content %}
+<div class="standalone-page ds-guide">
+  <header class="ds-page-header">
+    <div>
+      <span class="ds-eyebrow">Reference · not linked in the app</span>
+      <h1 class="ds-page-header__title">Design system</h1>
+      <p class="ds-page-header__subtitle">Every token and component state in one place. Tokens live in tokens.css; components in components.css. Buttons are shared with the legacy .btn classes, so what you see here is what every screen renders.</p>
+    </div>
+    <div class="ds-page-header__actions">
+      <a class="ds-btn ds-btn--ghost ds-btn--sm" href="/">Back to the pipeline</a>
+    </div>
+  </header>
+
+  <section class="ds-card" aria-labelledby="sg-surfaces">
+    <div class="ds-card__header">
+      <div>
+        <h2 class="ds-card__title" id="sg-surfaces">Surfaces &amp; borders</h2>
+        <p class="ds-card__subtitle">Charcoal ladder; borders are dividers, not element outlines.</p>
+      </div>
+    </div>
+    <div class="sg-grid">
+      <div class="sg-swatch sg-swatch--surface-0"><span class="sg-swatch__chip"></span><span>surface-0 · page</span></div>
+      <div class="sg-swatch sg-swatch--surface-1"><span class="sg-swatch__chip"></span><span>surface-1 · card</span></div>
+      <div class="sg-swatch sg-swatch--surface-2"><span class="sg-swatch__chip"></span><span>surface-2 · raised</span></div>
+      <div class="sg-swatch sg-swatch--panel"><span class="sg-swatch__chip"></span><span>surface-panel</span></div>
+      <div class="sg-swatch sg-swatch--field"><span class="sg-swatch__chip"></span><span>surface-field</span></div>
+      <div class="sg-swatch sg-swatch--border"><span class="sg-swatch__chip"></span><span>border</span></div>
+      <div class="sg-swatch sg-swatch--border-strong"><span class="sg-swatch__chip"></span><span>border-strong</span></div>
+    </div>
+  </section>
+
+  <section class="ds-card" aria-labelledby="sg-text">
+    <div class="ds-card__header">
+      <div>
+        <h2 class="ds-card__title" id="sg-text">Text &amp; accent</h2>
+        <p class="ds-card__subtitle">All three text steps meet AA on the surface ladder.</p>
+      </div>
+    </div>
+    <div class="sg-grid">
+      <div class="sg-swatch"><span class="sg-text-primary">Primary text</span><span>--text-primary</span></div>
+      <div class="sg-swatch"><span class="sg-text-secondary">Secondary text</span><span>--text-secondary</span></div>
+      <div class="sg-swatch"><span class="sg-text-muted">Muted text</span><span>--text-muted</span></div>
+      <div class="sg-swatch sg-swatch--accent"><span class="sg-swatch__chip"></span><span>--accent</span></div>
+      <div class="sg-swatch sg-swatch--accent-hover"><span class="sg-swatch__chip"></span><span>--accent-hover</span></div>
+      <div class="sg-swatch sg-swatch--accent-subtle"><span class="sg-swatch__chip"></span><span>--accent-subtle</span></div>
+      <div class="sg-swatch sg-swatch--link"><span class="sg-swatch__chip"></span><span>--link · the one link colour</span></div>
+    </div>
+  </section>
+
+  <section class="ds-card" aria-labelledby="sg-status">
+    <div class="ds-card__header">
+      <div>
+        <h2 class="ds-card__title" id="sg-status">Status colours</h2>
+        <p class="ds-card__subtitle">Foreground plus a pre-composited subtle tint; a word or icon always accompanies colour.</p>
+      </div>
+    </div>
+    <div class="sg-grid">
+      <div class="sg-swatch sg-swatch--success"><span class="sg-swatch__chip"></span><span class="sg-text-success">success + subtle</span></div>
+      <div class="sg-swatch sg-swatch--warning"><span class="sg-swatch__chip"></span><span class="sg-text-warning">warning + subtle</span></div>
+      <div class="sg-swatch sg-swatch--danger"><span class="sg-swatch__chip"></span><span class="sg-text-danger">danger + subtle</span></div>
+      <div class="sg-swatch sg-swatch--info"><span class="sg-swatch__chip"></span><span class="sg-text-info">info + subtle</span></div>
+    </div>
+  </section>
+
+  <section class="ds-card" aria-labelledby="sg-type">
+    <div class="ds-card__header">
+      <div>
+        <h2 class="ds-card__title" id="sg-type">Type scale &amp; spacing</h2>
+        <p class="ds-card__subtitle">Sans for UI copy; mono only for small uppercase labels.</p>
+      </div>
+    </div>
+    <div class="sg-grid">
+      <div>
+        <span class="ds-eyebrow sg-section-label">Type scale</span>
+        <div class="sg-type sg-type--12"><span>12 · meta</span><span>1.4</span></div>
+        <div class="sg-type sg-type--13"><span>13 · labels</span><span>1.4</span></div>
+        <div class="sg-type sg-type--14"><span>14 · body</span><span>1.5</span></div>
+        <div class="sg-type sg-type--16"><span>16 · body large</span><span>1.5</span></div>
+        <div class="sg-type sg-type--20"><span>20 · card title</span><span>1.3</span></div>
+        <div class="sg-type sg-type--24"><span>24 · page title</span><span>1.25</span></div>
+        <div class="sg-type sg-type--32"><span>32 · display</span><span>1.2</span></div>
+      </div>
+      <div>
+        <span class="ds-eyebrow sg-section-label">Spacing</span>
+        <div class="sg-space sg-space--1"><span class="sg-space__bar"></span><span>4</span></div>
+        <div class="sg-space sg-space--2"><span class="sg-space__bar"></span><span>8</span></div>
+        <div class="sg-space sg-space--3"><span class="sg-space__bar"></span><span>12</span></div>
+        <div class="sg-space sg-space--4"><span class="sg-space__bar"></span><span>16</span></div>
+        <div class="sg-space sg-space--5"><span class="sg-space__bar"></span><span>24</span></div>
+        <div class="sg-space sg-space--6"><span class="sg-space__bar"></span><span>32</span></div>
+        <div class="sg-space sg-space--7"><span class="sg-space__bar"></span><span>48</span></div>
+      </div>
+      <div>
+        <span class="ds-eyebrow sg-section-label">Radii &amp; elevation</span>
+        <div class="sg-row">
+          <div class="sg-radius sg-radius--sm">6</div>
+          <div class="sg-radius sg-radius--md">8</div>
+          <div class="sg-radius sg-radius--lg">12</div>
+        </div>
+        <div class="sg-row">
+          <div class="sg-elevation sg-elevation--1">shadow 1</div>
+          <div class="sg-elevation sg-elevation--2">shadow 2</div>
+          <div class="sg-elevation sg-elevation--3">shadow 3</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-card" aria-labelledby="sg-buttons">
+    <div class="ds-card__header">
+      <div>
+        <h2 class="ds-card__title" id="sg-buttons">Buttons</h2>
+        <p class="ds-card__subtitle">One primary per view; secondary for routine actions; ghost for tertiary; danger only for destructive confirmation.</p>
+      </div>
+    </div>
+    <div class="sg-row">
+      <button class="ds-btn ds-btn--primary" type="button">Primary</button>
+      <button class="ds-btn ds-btn--secondary" type="button">Secondary</button>
+      <button class="ds-btn ds-btn--ghost" type="button">Ghost</button>
+      <button class="ds-btn ds-btn--danger" type="button">Danger</button>
+    </div>
+    <div class="sg-row">
+      <button class="ds-btn ds-btn--primary ds-btn--sm" type="button">Primary sm</button>
+      <button class="ds-btn ds-btn--secondary ds-btn--sm" type="button">Secondary sm</button>
+      <button class="ds-btn ds-btn--ghost ds-btn--sm" type="button">Ghost sm</button>
+      <button class="ds-btn ds-btn--danger ds-btn--sm" type="button">Danger sm</button>
+    </div>
+    <div class="sg-row">
+      <button class="ds-btn ds-btn--primary" type="button" disabled>Primary disabled</button>
+      <button class="ds-btn ds-btn--secondary" type="button" disabled>Secondary disabled</button>
+      <a class="ds-btn ds-btn--secondary" href="/">Link as button</a>
+    </div>
+    <p class="ds-hint">Forced states (<code>.is-hover</code> / <code>.is-focus</code> share the real <code>:hover</code> / <code>:focus-visible</code> rules):</p>
+    <div class="sg-row">
+      <button class="ds-btn ds-btn--primary is-hover" type="button">Primary hover</button>
+      <button class="ds-btn ds-btn--secondary is-hover" type="button">Secondary hover</button>
+      <button class="ds-btn ds-btn--ghost is-hover" type="button">Ghost hover</button>
+      <button class="ds-btn ds-btn--danger is-hover" type="button">Danger hover</button>
+      <button class="ds-btn ds-btn--secondary is-focus" type="button">Keyboard focus</button>
+    </div>
+    <p class="ds-hint">Legacy classes on existing screens render through the same rules: <code>.btn.primary</code> · <code>.btn</code> (secondary) · <code>.btn.ghost</code> · <code>.btn.danger</code> · <code>.btn.small</code>.</p>
+    <div class="sg-row">
+      <button class="btn primary" type="button">.btn.primary</button>
+      <button class="btn" type="button">.btn</button>
+      <button class="btn ghost" type="button">.btn.ghost</button>
+      <button class="btn danger" type="button">.btn.danger</button>
+      <button class="btn small" type="button">.btn.small</button>
+    </div>
+  </section>
+
+  <section class="ds-card" aria-labelledby="sg-forms">
+    <div class="ds-card__header">
+      <div>
+        <h2 class="ds-card__title" id="sg-forms">Form controls</h2>
+        <p class="ds-card__subtitle">Label, hint and error are part of the field. Error state pairs colour with text.</p>
+      </div>
+    </div>
+    <div class="sg-field-grid">
+      <div class="ds-field">
+        <label class="ds-label" for="sg-input">Input</label>
+        <input class="ds-input" id="sg-input" type="text" placeholder="Business name">
+        <span class="ds-hint">Shown below the control.</span>
+      </div>
+      <div class="ds-field">
+        <label class="ds-label" for="sg-input-error">Input with error</label>
+        <input class="ds-input" id="sg-input-error" type="text" value="Not a phone number" aria-invalid="true" aria-describedby="sg-error-msg">
+        <span class="ds-error" id="sg-error-msg">Enter a number with a country code.</span>
+      </div>
+      <div class="ds-field">
+        <label class="ds-label" for="sg-select">Select</label>
+        <select class="ds-select" id="sg-select">
+          <option>Opportunity identified</option>
+          <option>Researching</option>
+        </select>
+        <span class="ds-hint">Options use the same field fill.</span>
+      </div>
+      <div class="ds-field">
+        <label class="ds-label" for="sg-textarea">Textarea</label>
+        <textarea class="ds-textarea" id="sg-textarea" rows="3" placeholder="Draft message"></textarea>
+        <span class="ds-hint">A human presses Send; the app never sends.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-card" aria-labelledby="sg-card">
+    <div class="ds-card__header">
+      <div>
+        <h2 class="ds-card__title" id="sg-card">Card with header &amp; action slot</h2>
+        <p class="ds-card__subtitle">The primitive used inside this reference page.</p>
+      </div>
+    </div>
+    <div class="ds-card ds-card--raised">
+      <div class="ds-card__header">
+        <div>
+          <h3 class="ds-card__title">Raised card</h3>
+          <p class="ds-card__subtitle">Optional subtitle under the title.</p>
+        </div>
+        <div class="ds-card__actions">
+          <button class="ds-btn ds-btn--secondary ds-btn--sm" type="button">Manage</button>
+        </div>
+      </div>
+      <p>Card body content sits on surface-1; the raised variant lifts to surface-2.</p>
+    </div>
+  </section>
+
+  <section class="ds-card" aria-labelledby="sg-badges">
+    <div class="ds-card__header">
+      <div>
+        <h2 class="ds-card__title" id="sg-badges">Badges &amp; chips</h2>
+        <p class="ds-card__subtitle">Neutral, success, warning, danger and accent.</p>
+      </div>
+    </div>
+    <div class="sg-row">
+      <span class="ds-badge ds-badge--neutral">Neutral</span>
+      <span class="ds-badge ds-badge--success">Verified</span>
+      <span class="ds-badge ds-badge--warning">Pending</span>
+      <span class="ds-badge ds-badge--danger">Blocked</span>
+      <span class="ds-badge ds-badge--accent">AI origin</span>
+    </div>
+  </section>
+
+  <section class="ds-card" aria-labelledby="sg-tabs">
+    <div class="ds-card__header">
+      <div>
+        <h2 class="ds-card__title" id="sg-tabs">Tabs</h2>
+        <p class="ds-card__subtitle">Active state is an accent underline, never a pill.</p>
+      </div>
+    </div>
+    <nav class="ds-tabs" aria-label="Styleguide tab example">
+      <button class="ds-tab" type="button" role="tab" aria-selected="true">Overview</button>
+      <button class="ds-tab" type="button" role="tab" aria-selected="false">Research</button>
+      <button class="ds-tab" type="button" role="tab" aria-selected="false">Messages</button>
+      <a class="ds-tab" href="/" aria-current="page">Link tab</a>
+    </nav>
+  </section>
+
+  <section class="ds-card" aria-labelledby="sg-drawer">
+    <div class="ds-card__header">
+      <div>
+        <h2 class="ds-card__title" id="sg-drawer">Drawer</h2>
+        <p class="ds-card__subtitle">Open and closed states; the real drawer is fixed to the viewport and uses panel.js.</p>
+      </div>
+    </div>
+    <div class="sg-drawer-demo">
+      <div class="ds-drawer is-open" role="dialog" aria-label="Open drawer example">
+        <div class="ds-drawer__header">
+          <h3 class="ds-drawer__title">Prospect detail</h3>
+          <button class="ds-btn ds-btn--ghost ds-btn--sm" type="button">Close</button>
+        </div>
+        <div class="ds-drawer__body">
+          <p>The slide-over keeps a sticky header and a scrolling body.</p>
+          <button class="ds-btn ds-btn--secondary" type="button">Edit details</button>
+        </div>
+      </div>
+    </div>
+    <div class="sg-drawer-demo">
+      <div class="ds-drawer is-closed" role="dialog" aria-label="Closed drawer example" aria-hidden="true">
+        <div class="ds-drawer__header"><h3 class="ds-drawer__title">Closed</h3></div>
+        <div class="ds-drawer__body"><p>Off-canvas state.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-card" aria-labelledby="sg-empty">
+    <div class="ds-card__header">
+      <div>
+        <h2 class="ds-card__title" id="sg-empty">Empty state</h2>
+        <p class="ds-card__subtitle">Icon, title, description and one action.</p>
+      </div>
+    </div>
+    <div class="ds-empty">
+      <span class="ds-empty__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4.5-4.5"></path></svg>
+      </span>
+      <h3 class="ds-empty__title">No prospects yet</h3>
+      <p class="ds-empty__description">Add a prospect to start the pipeline. Nothing is sent without your confirmation.</p>
+      <div class="ds-empty__action"><button class="ds-btn ds-btn--secondary" type="button">Add prospect</button></div>
+    </div>
+  </section>
+
+  <section class="ds-card" aria-labelledby="sg-table">
+    <div class="ds-card__header">
+      <div>
+        <h2 class="ds-card__title" id="sg-table">Data table</h2>
+        <p class="ds-card__subtitle">Mono uppercase column labels; rows lift on hover.</p>
+      </div>
+    </div>
+    <div class="ds-table-wrap">
+      <table class="ds-table">
+        <thead><tr><th scope="col">Business</th><th scope="col">Stage</th><th scope="col">Status</th></tr></thead>
+        <tbody>
+          <tr><td>Northwind Traders</td><td>Qualified</td><td><span class="ds-badge ds-badge--success">Verified</span></td></tr>
+          <tr><td>Initech</td><td>Researching</td><td><span class="ds-badge ds-badge--warning">Pending</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="ds-table-wrap">
+      <table class="ds-table">
+        <thead><tr><th scope="col">Business</th><th scope="col">Stage</th></tr></thead>
+        <tbody class="ds-table__empty"><tr><td colspan="2">No rows match these filters.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ds-card" aria-labelledby="sg-toasts">
+    <div class="ds-card__header">
+      <div>
+        <h2 class="ds-card__title" id="sg-toasts">Toasts</h2>
+        <p class="ds-card__subtitle">Info, success, warning and danger; colour is paired with a word.</p>
+      </div>
+    </div>
+    <div class="sg-toast-column">
+      <div class="ds-toast" role="status">Info · A research job is queued.</div>
+      <div class="ds-toast ds-toast--success" role="status">Success · Finding verified.</div>
+      <div class="ds-toast ds-toast--warning" role="status">Warning · Stage needs review.</div>
+      <div class="ds-toast ds-toast--danger" role="alert">Danger · Outreach blocked.</div>
+    </div>
+  </section>
+
+  <section class="ds-card" aria-labelledby="sg-header">
+    <div class="ds-card__header">
+      <div>
+        <h2 class="ds-card__title" id="sg-header">Page header &amp; links</h2>
+        <p class="ds-card__subtitle">Title, subtitle and an action slot; links use the themed link token.</p>
+      </div>
+    </div>
+    <header class="ds-page-header">
+      <div>
+        <h3 class="ds-page-header__title">Pipeline</h3>
+        <p class="ds-page-header__subtitle">A subtitle one step below the title.</p>
+      </div>
+      <div class="ds-page-header__actions"><a class="ds-link" href="/">Open the pipeline</a></div>
+    </header>
+  </section>
+</div>
+{% endblock %}

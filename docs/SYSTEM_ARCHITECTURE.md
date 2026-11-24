@@ -51,6 +51,9 @@ No other runtime dependencies: no Redis, no Celery, no message broker, no micros
 | `app/auth` | Session cookie + `AuthMiddleware` (gate, session lookup, row-visibility guard, sliding expiry), `require_permission` / `current_user` route deps, credential rate limits, session revocation | services, models | role policy (delegates to `authz`), SQL outside its own session |
 | `app/services/authz` | The authorization **policy**: `PERMISSIONS`/`has_permission`, `stamp_owner`, `scope_criterion`/`scoped_prospect_subq`, `can_see_prospect` | models | HTTP concerns (no `Request`, no status codes) |
 | `app/templates` + `static` | Presentation | context from routes | business logic in Jinja (no complex expressions) |
+| `static/css/tokens.css` | Canonical design tokens (surfaces, text, accent, status, type, space, radii, elevation) | — (plain CSS) | component rules, hard-coded colour literals outside token declarations |
+| `static/css/components.css` | Reusable `.ds-*` primitives built only on tokens; additive, no incumbent screen opts in yet | `tokens.css` | page-specific layout, JS build steps |
+| `static/css/styleguide.css` | Demo-only presentation for `/dev/styleguide`, loaded via `head_extra` | `tokens.css`, `components.css` | inclusion on working pages |
 | `app/templates/canvas` + `static/js/{canvas,panel,board}.js` | **The Pipeline Canvas shell** (spec `docs/design/pipeline-canvas.md` §V2): one world — setup-card cluster, stage board, outreach region, fixed wires; pan/zoom, card→panel opening, drag→stage transition | routes' context, HTMX | business rules, sending/drafting logic (P1); user-rewirable wires (they are a fixed system map) |
 
 **Dependency rule:** arrows point inward — routes → services → (providers/ai/models). Enforced by review + a lint-level import-linter contract (optional Phase 1 tooling).

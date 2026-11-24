@@ -68,6 +68,7 @@ moved. Retired page templates are gone; `login.html` keeps its own chrome.
 | GET | `/prospects/views/{id}/apply` | Redirect to `/prospects?` with the view's filters |
 | GET | `/outreach` | Canvas framed on the outreach region (messages in flight); `HX-Request` → outreach region fragment only |
 | GET | `/healthz` | Liveness (no auth, no data) |
+| GET | `/dev/styleguide` | Hidden design-system reference (`dev/styleguide.html`): every token and `.ds-*` component state. Unlinked from nav, `include_in_schema=False`, uses the normal auth gate; no data access, no HTMX fragment. Loads `styleguide.css` only on this page |
 
 **Auth pages** (own router, standalone dark chrome, all CSRF-protected POSTs;
 reachable without a session — the allowlist):
@@ -260,4 +261,4 @@ AI structured-output schemas reuse the same Pydantic models (`GeneratedDraft`, `
 
 - `/api/v1` frozen once Phase 4 lands (all MVP endpoints present); breaking changes ⇒ `/api/v2`.
 - HTML pages are unversioned (private tool) but keep redirect stubs if URLs change.
-- OpenAPI schema served at `/api/docs` (FastAPI default) and exported to `docs/openapi.json` in CI-ish fashion (manual `python -m app.cli export-openapi` in MVP).
+- OpenAPI JSON served at `/api/openapi.json`; human docs at `/api/docs` (Swagger UI) and `/api/redoc`, rendered from pinned self-hosted bundles under a docs-only CSP exception (no CDN). Schema export remains manual: `python -m app.cli export-openapi` → `docs/openapi.json` in MVP.

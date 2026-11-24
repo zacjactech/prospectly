@@ -720,15 +720,18 @@ def test_element_outlines_replaced_by_shade_levels() -> None:
         ]
         assert not boxes, f"{name} still draws box outlines: {boxes}"
     app = (_ROOT / "app/static/css/app.css").read_text(encoding="utf-8")
-    assert "--color-field: #0e1014" in app, "shade ladder lost its control fill"
+    tokens = (_ROOT / "app/static/css/tokens.css").read_text(encoding="utf-8")
+    assert "--surface-field: #0e1014" in tokens, "shade ladder lost its control fill"
+    assert "--color-field: var(--surface-field)" in app
 
 
 def test_canvas_motion_is_smooth_not_snappy() -> None:
     """Drawer-class motion decelerates over the slow token (owner: "make it smooth")."""
     app = (_ROOT / "app/static/css/app.css").read_text(encoding="utf-8")
+    tokens = (_ROOT / "app/static/css/tokens.css").read_text(encoding="utf-8")
     canvas = (_ROOT / "app/static/css/canvas.css").read_text(encoding="utf-8")
-    assert "--dur-slow: 320ms" in app
-    assert "--ease-out: cubic-bezier(0.22, 1, 0.36, 1)" in app
+    assert "--dur-slow: 320ms" in tokens
+    assert "--ease-out: cubic-bezier(0.22, 1, 0.36, 1)" in tokens
     assert "--dur-slow: 0ms" in app, "reduced-motion must zero the slow token too"
     panel = canvas.split(".panel {", 1)[1].split("}", 1)[0]
     assert "transition: transform var(--dur-slow) var(--ease-out)" in panel
@@ -802,7 +805,7 @@ def test_cards_have_more_room() -> None:
     assert "--zone-w: 288px" in css
     assert "--card-h: 84px" in css
     assert "--card-gap: var(--space-4)" in css
-    assert "--zone-pad: 12px" in css
+    assert "--zone-pad: var(--space-3)" in css
     assert "--card-pad: var(--space-4)" in css
     assert "var ZONE_W = 288" in js  # layout arithmetic mirrors the CSS token
     # hover states: fill + lift, never an underline (global a:hover loses)

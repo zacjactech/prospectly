@@ -530,6 +530,15 @@
     body.setAttribute("aria-busy", "false");
     assignTitle(panel);
     syncPanelScroll(panel);
-    if (panel.closeBtn) panel.closeBtn.focus();
+    if (panel.closeBtn) {
+      /* Page-load focus is a convenience, not a keyboard signal: suppress the
+         ring (same .autofocused contract as auth.js) until the first blur. */
+      var closeBtn = panel.closeBtn;
+      closeBtn.classList.add("autofocused");
+      closeBtn.addEventListener("blur", function () {
+        closeBtn.classList.remove("autofocused");
+      }, { once: true });
+      closeBtn.focus();
+    }
   })();
 })();

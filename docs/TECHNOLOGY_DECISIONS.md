@@ -164,3 +164,17 @@ Coverage target: meaningful branches of `services/` and `whatsapp.py` at ≥80%;
 
 - Node v26 exists but is intentionally unused (D2); PowerShell execution policy blocks `npm.ps1` — reinforces the no-JS-toolchain decision.
 - `git init` done; repo-local identity = GitHub noreply (`185103884+zacjactech@users.noreply.github.com`); initial commit pushed to the private repo `github.com/zacjactech/prospectly` (Phase 0 close).
+
+## D15 — Design-system asset layout (owner decision 2026-11-24)
+
+**Decision:** plain CSS, three separate files, no build step:
+
+- `app/static/css/tokens.css` — canonical `:root` tokens (the single source of literal values).
+- `app/static/css/components.css` — reusable `.ds-*` primitives built only from tokens.
+- `app/static/css/app.css` + `canvas.css` — incumbent screens; legacy `--color-*` / `--fs-*` / `--sp-*` names are **aliases only** to the canonical tokens.
+
+`base.html` and every standalone auth/error template load `tokens.css → components.css → app.css → canvas.css` in that order. A canonical name must never be redeclared in `app.css`: CSS custom properties cannot reference themselves, so `--space-1: var(--space-1)` resolves to an invalid value and breaks every consumer.
+
+**Alternatives considered:** one global stylesheet (rejected: no separation of concerns), a `design-system/` folder with utilities (rejected: more structure than the single-user MVP needs), any CSS preprocessor or JS toolchain (rejected by D2). A hidden `/dev/styleguide` page uses normal auth and no dev flag; its demo-only CSS loads via a `head_extra` block so it never ships to working screens.
+
+**Blast radius:** none at adoption time — the `.ds-*` classes are additive and no incumbent markup changes. Future views compose the primitives; migration of existing markup is a separate, owner-approved change.

@@ -65,7 +65,7 @@
 > feature is named **Duplicates** everywhere. Links are blue (`#7aa2ff`),
 > filter/phase/region chips are neutral, and destructive buttons are outlined
 > by default — orange is reserved for the primary CTA and selected states.
-> Body/micro text floor is 12/11px.
+> Body/label text is ≥13px and meta/readouts ≥12px (floor raised 2026-11-24; previously 12/11px).
 >
 > **Settings-panel content grammar (2026-11-16):** setup drawers use one
 > pattern — inset 12px-radius cards, a small section head, and
@@ -159,14 +159,17 @@ New: app/static/js/canvas.js, app/static/css/canvas.css (tokens only; constants 
 | touch two-finger | disabled <1024 (no transform layer); ≥1024 tablets same synthetic path |
 | wheel **stacked <1024** | **page scroll** — the wide zoom/pan/zoom-key handlers are guarded off below 1024 (2026-11-18: they preventDefault'd scrolling and only flipped card density — "it only expanding and collapsing the card"); zone drag and background pan are inert there too (they wrote state without moving anything), and stacked pins density visuals so cards stay full-size at every zoom. Card drag (stage moves) stays document-level and keeps working |
 
-Overflow fades (critique P1 run 2, 2026-11-18): the world is always larger
-than the viewport at the readable floor, so an edge cuts something (setup
-above, terminal below, messages right). A `.world-edges` overlay paints a
-64px gradient to `--color-bg` on each overflowing edge — `.has-edge-t/r/b/l`
-on the viewport, computed from the **content union** (the world shrink-wraps
-to 0×0; every child is absolutely positioned, so its offset box cannot be
-used for overflow math). `pointer-events: none`, so pan/drag pass through.
-The cut then reads as "more this way" instead of a card sliced in half.
+Overflow fades (critique P1 run 2, 2026-11-18; updated 2026-11-24): the world
+is still larger than the viewport at the readable floor, so an edge cuts
+something (setup above, terminal below; later outreach zones right). The
+first Pending review zone is now included in `fitBoardReadable()`, so the
+default board fit no longer slices that card. A `.world-edges` overlay paints
+a 64px gradient to `--color-bg` on each remaining overflowing edge —
+`.has-edge-t/r/b/l` on the viewport, computed from the **content union** (the
+world shrink-wraps to 0×0; every child is absolutely positioned, so its offset
+box cannot be used for overflow math). `pointer-events: none`, so pan/drag
+pass through. Each cut reads as "more this way" instead of a card sliced in
+half.
 
 Arrange (`data-canvas="tidy"`) confirms before running (2026-11-18): it
 re-frames the world and forgets every manual zone position — one misclick
@@ -216,8 +219,9 @@ tab… only show the content of that tab and add more gap between tab."
 
 ### 2.6 localStorage
 Key pl.canvas.v1, one JSON blob, version in-band:
-{ version:1, boards:{ prospects:{zoom,panX,panY,zones:{stage:{x,y}},cardOrder:{stage:[ids]}}, outreach:{…zones:pending_review/approved/opened_in_whatsapp…} } }
+{ version:1, boards:{ prospects:{zoom,panX,panY,fit,vpW,zones:{stage:{x,y}},cardOrder:{stage:[ids]}}, outreach:{…zones:pending_review/approved/opened_in_whatsapp…} } }
 - Write debounce 500ms; quota errors swallowed. Read on init; version mismatch/parse failure → discard → defaults.
+- View restore (2026-11-24): `fit` marks an auto fit-to-view, `vpW` the viewport width it was saved at. Init restores zoom/pan only for a manual view (`fit:false`) saved at the current width; a fit view, a view from another width, or a pre-`vpW` blob re-fits (`fitBoardReadable`) so the Pending review card is never left clipped by a stale pan. Within wide mode a resize re-fits a fit view and leaves a manual view alone. Zones/cardOrder are untouched.
 - cardOrder pruned to server payload IDs each load; cap 500/zone (beyond → server order); unknown IDs append bottom. Multi-tab last-write-wins (documented contract).
 
 ## 3. Cards & nodes

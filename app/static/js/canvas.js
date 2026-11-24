@@ -9,6 +9,7 @@
   /* ----- constants (mirrored in canvas.css) ----- */
   var ZONE_W = 288;
   var ZONE_GAP_X = 24;
+  var OUTREACH_GAP_X = 8; // mirrors .outreach-region gap
   var ZONE_GAP_Y = 48;
   var BAND_LABEL_H = 36;
   var BAND_GAP = 12;
@@ -41,6 +42,10 @@
   var panX = 0;
   var panY = 0;
   var wirePending = false;
+  /* True while the view is the auto "fit" (not a user pan/zoom). A fit view
+     re-fits on resize and is never restored stale; a manual view is kept. */
+  var viewIsFit = false;
+  var fitCap = 1;
   var saveTimer = null;
 
   /* ----- storage (spec §2.6) ----- */
@@ -90,6 +95,8 @@
       b.zoom = zoom;
       b.panX = panX;
       b.panY = panY;
+      b.fit = viewIsFit;
+      b.vpW = Math.round(vp.clientWidth); // a saved view only fits this width
     }
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function () {
@@ -182,6 +189,7 @@
   }
 
   function setView(z, x, y) {
+    viewIsFit = false; // fitBoardReadable re-marks its own result
     zoom = clampZoom(z);
     panX = x;
     panY = y;
@@ -283,15 +291,27 @@
     };
   }
 
-  /* Pipeline + full Messages lane: every board zone/label and the message
-     region/label, so fit-to-view never clips the Messages count. */
+  /* Pipeline + first Messages lane: board zones/labels plus the Pending
+     review zone and Messages label. The other two zones stay off-canvas in
+     this fit; /outreach frames the full lane (fitOutreach). Framing just the
+     first zone keeps its card fully visible at the readable zoom floor. */
   function stageBounds() {
     var b = boardBounds();
     if (!b) return null;
     var out = world ? world.querySelector('[data-region="outreach"]') : null;
+    var outPending = out ? out.querySelector('[data-msg-zone="pending_review"]') : null;
     var outLabel = world ? world.querySelector('[data-region-label="outreach"]') : null;
     var parts = [];
-    if (out) parts.push(out);
+    if (out && outPending) {
+      /* Zone offsets are relative to the region; add the region's own world
+         offset so the right edge is measured in world coordinates. */
+      parts.push({
+        offsetLeft: out.offsetLeft + outPending.offsetLeft,
+        offsetTop: out.offsetTop + outPending.offsetTop,
+        offsetWidth: outPending.offsetWidth,
+        offsetHeight: outPending.offsetHeight,
+      });
+    }
     if (outLabel) parts.push(outLabel);
     if (!parts.length) return b;
     var minX = b.offsetLeft, minY = b.offsetTop;
@@ -324,15 +344,24 @@
     var rect = vp.getBoundingClientRect();
     if (rect.width < 10 || rect.height < 10) return;
     var cap = typeof maxZoom === "number" ? maxZoom : 1;
-    var pad = 48;
+    /* Tight side padding keeps the board + Pending review zone inside a 1440
+       viewport at the readable floor; the card is never sliced by the edge. */
+    var pad = 8;
     var z = Math.min(MAX_ZOOM, Math.max(MIN_READABLE, Math.min(cap, (rect.width - pad * 2) / b.offsetWidth)));
     var w = b.offsetWidth * z;
     var h = b.offsetHeight * z;
-    /* Centre while it fits; otherwise start flush at the pad (48px) so the
-       first lane / setup cluster is never clipped off-canvas. */
+    /* Centre while it fits; otherwise start at the pad (8px) so the first
+       lane / setup cluster is never clipped off-canvas. */
     var x = w + pad * 2 <= rect.width ? (rect.width - w) / 2 - b.offsetLeft * z : pad - b.offsetLeft * z;
     var y = h + pad * 2 <= rect.height ? (rect.height - h) / 2 - b.offsetTop * z : pad - b.offsetTop * z;
+    /* When the stage cannot fit whole, trade board-left space rather than
+       slicing the Pending review card: keep the right edge inside the pad. */
+    var stageRight = pad + w;
+    if (stageRight > rect.width - pad) x -= stageRight - (rect.width - pad);
+    fitCap = cap;
     setView(z, x, y);
+    viewIsFit = true;
+    scheduleSave(); // persist the fit flag set after setView's own save
   }
 
   /* Phase 1.2 — selecting a card pans (never zooms) so the card is centered
@@ -489,10 +518,9 @@
       boardLabel.style.top = Math.max(0, dy - boardLabel.offsetHeight) + "px";
     }
     if (outreach && outreachLabel) {
-      /* Board-focused fit must not leave a clipped message card peeking in
-         at the right edge; 200px keeps the region fully off-canvas until
-         the user fits Home/Outreach. */
-      var ox = maxRight + 48;
+      /* Tight gap: board fit (stageBounds) includes this first zone, so the
+         Pending review card reaches the right edge without being clipped. */
+      var ox = maxRight + OUTREACH_GAP_X;
       outreach.style.left = ox + "px";
       outreach.style.top = dy + "px";
       outreachLabel.style.left = ox + "px";
@@ -926,6 +954,11 @@
          auto-zoom past 125%. */
       fitBoardReadable(1.25);
     } else if (
+      /* Restore only a deliberate (manual) view saved at this viewport width.
+         A stale fit, or any view from another width (or saved before vpW
+         existed), re-fits so the Pending review zone is never left clipped. */
+      !b.fit &&
+      b.vpW === Math.round(vp.clientWidth) &&
       typeof b.zoom === "number" &&
       typeof b.panX === "number" &&
       typeof b.panY === "number"
@@ -1087,6 +1120,8 @@
         applyDefaultLayout();
         applyStoredZones();
         if (mode === "wide") fit(); // stacked has no transform to fit; don't overwrite the stored wide view
+      } else if (mode === "wide" && viewIsFit) {
+        fitBoardReadable(fitCap); // a fitted board follows the window; manual views stay put
       }
       scheduleWires();
     });

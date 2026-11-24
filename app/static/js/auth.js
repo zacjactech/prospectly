@@ -4,6 +4,24 @@
    (script-src 'self'), so this is a file. */
 
 /* Password visibility: toggle in place, keeping the caret where it was. */
+/* An autofocused field is a convenience, not a keyboard-focus signal: mark it
+   so CSS suppresses the ring on load, then drop the mark on blur so the next
+   keyboard focus is visible (login/signup/reset share these standalone pages). */
+function quietAutofocus() {
+  var input = document.querySelector("input[autofocus]");
+  if (!input) return;
+  input.classList.add("autofocused");
+  input.removeAttribute("autofocus");
+  input.addEventListener("blur", function () {
+    input.classList.remove("autofocused");
+  }, { once: true });
+}
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", quietAutofocus, { once: true });
+} else {
+  quietAutofocus();
+}
+
 document.addEventListener("click", function (e) {
   var btn = e.target.closest && e.target.closest("[data-pw-toggle]");
   if (!btn) return;

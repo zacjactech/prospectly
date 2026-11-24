@@ -100,7 +100,7 @@ Prospectly
 │     ├── Providers      (keys/status, feature flags)
 │     ├── Usage          (provider + AI usage, errors, rate limits)
 │     └── General        (vocabulary, defaults, backup)
-└── Docs (target state only — not in the sidebar; a docs surface must exist first, and Swagger at /api/docs renders as an empty shell under the CSP)
+└── API docs (not in the sidebar; /api/docs and /api/redoc render from pinned self-hosted bundles under a docs-only CSP exception)
 ```
 
 **Design rule:** the pipeline is never more than two clicks deep; every list page has one dominant primary action in the header (Add prospect / Import / Run research / Generate draft).
@@ -218,61 +218,78 @@ Moved under Settings because CSV is not the default discovery path. 3-step wizar
 | `CopyButton` | phone/URL copy affordance |
 | `WaLinkButton` | renders only when message `approved`; includes status tooltip |
 
+The canonical implementations are the `.ds-*` classes in `app/static/css/components.css` (see §5 amendment). Incumbent classes in `app.css`/`canvas.css` remain in use on working screens; new views should compose the `.ds-*` primitives instead of adding parallel one-off rules.
+
 ## 5. Design tokens
 
-Defined once in `app/static/css/app.css` `:root` (plain CSS custom properties; no framework). Pre-composited solid hex for every tint — never `rgba(…)` overlays of the semantic hues, or the contrast table stops holding:
+Canonical tokens live in `app/static/css/tokens.css` `:root` (plain CSS custom properties; no framework). `app.css` keeps the incumbent `--color-*` / `--fs-*` / `--sp-*` names as **aliases only** so existing screens keep their exact computed values. Pre-composited solid hex for every tint — never `rgba(…)` overlays of the semantic hues, or the contrast table stops holding.
 
 ```css
-/* Surfaces — charcoal shade ladder, NO element outlines (2026-11-17)
-   (body 14.52:1, muted 7.41:1 on surface; adjacent steps 1.11–1.21:1) */
---color-bg:#090a0c; --color-surface:#171a20; --color-surface-hover:#1f232a;
---color-surface-raised:#292d35;     /* menus, toasts, chips, active tiles */
---color-field:#0e1014;              /* sunken control fill: inputs, buttons */
---color-border:#33373f;             /* INTERNAL DIVIDERS only — never boxes */
---color-border-strong:#6a7280;      /* focus/error boundary ≥3:1 (WCAG 1.4.11) */
---shadow-1:0 1px 2px rgba(0,0,0,.4); --shadow-2:0 8px 24px rgba(0,0,0,.5);
+/* Surfaces — charcoal shade ladder, NO element outlines (2026-11-17) */
+--surface-0:#090a0c;              /* page */
+--surface-1:#1f232a;              /* cards, rows, hover */
+--surface-2:#292d35;              /* raised: menus, toasts, chips, active tiles, secondary buttons */
+--surface-2-hover:#33373f;        /* hover on a raised control */
+--surface-panel:#171a20;          /* containers: zones, panels, sections */
+--surface-field:#0e1014;          /* sunken control fill: inputs only (not buttons, 2026-11-24) */
+--border:#33373f;                 /* INTERNAL DIVIDERS only — never boxes */
+--border-strong:#6a7280;          /* focus/error boundary ≥3:1 (WCAG 1.4.11) */
 
-/* Text — warm-tinted white (15.08 / 7.70 / 5.58:1 on surface) */
---color-text:#eceae6; --color-text-muted:#a6a9b0; --color-text-subtle:#8b8f97;
+/* Text — warm-tinted white; primary/secondary/muted all pass AA on every
+   surface in the ladder (16.48/8.42/7.53:1 on surface-0). */
+--text-primary:#eceae6; --text-secondary:#a6a9b0; --text-muted:#9ba0a8;
+--text-on-accent:#140d07;         /* 6.76:1 on accent */
 
-/* Single accent — primary actions, active nav, focus, running/hot, AI origin */
---color-accent:#ff6b1a; --color-accent-hover:#ff8340;   /* hover lightens on dark */
---color-accent-light:#3d271d;    /* accent tint — carries active states alone */
---color-accent-border:#7a3d1c;   /* pre-composited 35% orange over surface */
---glow-accent:0 0 20px rgba(255,107,26,.12);  /* CTA hover + active nav + focus rings */
---color-link:#ff8a3d;            /* same family, one hue lighter (7.72:1) */
---focus-ring:rgba(255,107,26,.28);
+/* Single accent + one link colour, never UA blue */
+--accent:#ff6b1a; --accent-hover:#ff8340; --accent-subtle:#3d271d;
+--accent-border:#7a3d1c; --link:#7aa2ff;
+--glow-accent:0 0 20px rgba(255,107,26,.12);  /* CTA hover + active nav only */
 
 /* Semantic — tint bg + coloured text (word/icon always present, never colour
    alone; the *-border tokens remain for focused states only, not chip outlines) */
---color-success:#4cc38a; --color-success-light:#173b2b; --color-success-border:#1e5c3a;
---color-danger:#f87171;  --color-danger-light:#3a1d17;  --color-danger-border:#6e2f28;
-                         --color-danger-hover:#4a211b;  /* destructive button hover */
---color-warn:#fbbf24;    --color-warn-light:#3a2f17;    --color-warn-border:#7a5a18;
---color-info:#56b8d8;    --color-info-light:#153440;    --color-info-border:#1d5563;
+--success:#4cc38a; --success-subtle:#173b2b; --success-border:#1e5c3a;
+--warning:#fbbf24; --warning-subtle:#3a2f17; --warning-border:#7a5a18;
+--danger:#f87171;  --danger-subtle:#3a1d17;  --danger-border:#6e2f28;
+--danger-hover:#4a211b;          /* destructive button hover */
+--info:#56b8d8;    --info-subtle:#153440;    --info-border:#1d5563;
 
-/* Type — system sans body + mono micro-typography; tabular numerals for data */
+/* Type — requested scale 12/13/14/16/20/24/32 with paired line heights.
+   Incumbent optical steps 15/17/18/21/22/28 are tokenised too, so no screen
+   shifts. Mono is reserved for small uppercase labels and tabular readouts. */
 --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
---tracking-label:.08em;            /* uppercase mono group/column labels */
---fs-xs:11px; --fs-sm:13px; --fs-base:15px; --fs-lg:17px; --fs-xl:18px; --fs-3xl:28px;
---fw-medium:500; --fw-semibold:600;
---lh-tight:1.3; --lh-normal:1.5;
+--type-12:0.75rem; --type-12-lh:1.4;   --type-13:0.8125rem; --type-13-lh:1.4;
+--type-14:0.875rem; --type-14-lh:1.5; --type-16:1rem;      --type-16-lh:1.5;
+--type-20:1.25rem; --type-20-lh:1.3;  --type-24:1.5rem;    --type-24-lh:1.25;
+--type-32:2rem;    --type-32-lh:1.2;
+--weight-regular:400; --weight-medium:500; --weight-semibold:600;
+--tracking-label:.08em;
 
-/* Space & shape — 4px base */
---sp-1:4px … --sp-8:32px;
---radius-sm:4px; --radius-md:6px; --radius-lg:8px;
---control-h:44px mobile / 36px ≥640px; --row-h:40px  /* row floor, rendered as td height (not a custom property) */;
+/* Space & shape — 4/8/12/16/24/32/48; radii 6/8/12; three elevations */
+--space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+--space-5:24px; --space-6:32px; --space-7:48px;
+--radius-sm:6px; --radius-md:8px; --radius-lg:12px;
+--shadow-1:0 1px 2px rgba(0,0,0,.4); --shadow-2:0 8px 24px rgba(0,0,0,.5);
+--shadow-3:0 16px 40px rgba(0,0,0,.58);
+--control-h-sm:32px; --control-h-md:36px; --control-h:var(--control-h-md);
 
 /* Layout — grouped sidebar (spec §1 amendment 2026-11-11, §7) */
---nav-w:15rem; --topbar-h:52px; --max-w:960px;
+--nav-w:15rem; --topbar-h:52px; --max-w:60rem;
 
 /* Motion — functional only; fast/base for micro-interactions, slow for the
-   drawer class; decelerating ease, never a snap (2026-11-17: "make it smooth
-   and not too fast"). prefers-reduced-motion → 0ms / static. */
+   drawer class; decelerating ease, never a snap. prefers-reduced-motion → 0ms. */
 --dur-fast:120ms; --dur-base:200ms; --dur-slow:320ms;
 --ease-out:cubic-bezier(0.22, 1, 0.36, 1);
 ```
+
+**Amendment — design system (2026-11-24):**
+
+- Load order is `tokens.css → components.css → app.css → canvas.css` in `base.html` and every standalone auth/error page. `app.css` must never redeclare a canonical token: a custom property cannot reference itself (`--space-1: var(--space-1)` is invalid).
+- Reusable primitives live in `app/static/css/components.css` with a `.ds-*` prefix: `Button`, `Input`/`Select`/`Textarea`, `Card`, `Badge`/`Chip`, `Tabs`, `Drawer`, `EmptyState`, `DataTable`, `Toast`, `PageHeader`, plus `.ds-link` and `.ds-eyebrow`. They are opt-in, **except buttons**: the legacy `.btn` classes are grouped into the same `.ds-btn` rules (`.btn`=secondary, `.btn.primary`, `.btn.ghost`, `.btn.danger`/`.danger-outline`, `.btn.small`), so there is one button implementation and `app.css` keeps only placement rules for `.btn`.
+- **Button rule:** exactly one orange primary per view, secondary for routine actions, ghost for tertiary, danger only for destructive confirmation. Secondary is a raised `--surface-2` fill (never the sunken input fill, which read as a field); inside a raised container (`.ds-card--raised`, toasts, `.help-panel`, `.sub-filter-menu`, `.flow-step`) secondary and ghost-hover step up to `--surface-2-hover`. While a slide-over panel is open its action is the view's primary, so the page-level **Add prospect** renders as secondary (`body.panel-open`). Icon buttons follow the same rule: shell toggles are secondary, the row-level remove icon is a ghost (red on hover). The styleguide shows every state, including forced `.is-hover`/`.is-focus` hooks that share the real `:hover`/`:focus-visible` rules.
+- **Links:** one themed token (`--link`, 6.3–7.0:1 on panels/cards), never default UA blue; hover keeps the colour and only underlines (orange stays an action/state signal).
+- **Spacing:** every padding/margin/gap uses the 4–48 scale. Off-scale values were snapped to the nearest step, ties rounded up (6→8, 10→12, 14→16, 18→16). Remaining raw px are geometry, not spacing: 1–3px optical/hairline nudges, `-1px` bleeds, slider-thumb centring, and reservations beside fixed overlay controls (52px panel heading beside the 40px close button, 44px password field beside its toggle). Pills use `--radius-pill`; circles stay `50%`.
+- `/dev/styleguide` is the hidden, unlinked reference page. It uses the normal auth gate, is excluded from OpenAPI, and loads `styleguide.css` only via `head_extra` so demo styles never ship to working screens.
 
 **Amendment — borderless pass (2026-11-17, owner directives):**
 1. **No element outlines.** Cards, zones, panels, drawers, badges, chips, buttons, inputs, banners, tooltips, menus and tables are fill-only; levels come from the shade ladder above. `--color-border` is dividers only (row rules, tab underline, region edges); `--color-border-strong` stays for focus rings and error borders. Focus outlines (`:focus-visible`, 2px accent) are untouched — they are state, not decoration.
@@ -280,6 +297,14 @@ Defined once in `app/static/css/app.css` `:root` (plain CSS custom properties; n
 3. **Colour = signal.** On prospect cards every chip is neutral (`raised` fill, muted text); red survives for suppression/failure and amber for `check failed`/overdue. Semantic tints were brightened so chips still read as blocks without borders.
 4. **Labels.** Card section headings that only restated their content (Key facts, Research, Opportunities, Outreach, Notes, Activity, Draft editor, Grounding, Send chain, Message history, Research status, Findings) are **removed**; headings remain only where they group many controls (Defaults, Daily caps, Backup, Discovery, Danger zone, Add finding). Panel titles are real `<h2>` so the outline never skips a level (axe `heading-order`).
 5. **Panel arrangement.** The suppression banner sits *below* the sticky header; the head is one row (name + badges inline, actions opposite); danger-zone blocks carry their status in the block head instead of a `Status:` line; Outreach shows a state row + message preview; activity payloads render as readable text (`describe_payload`) — never JSON.
+
+**Amendment — dark-UI polish (2026-11-24):**
+
+- **API docs:** `/api/docs` (Swagger UI) and `/api/redoc` load pinned local bundles; the route-scoped CSP adds `style-src 'unsafe-inline'` (runtime-injected styles) and `worker-src blob:` (ReDoc search worker). The global hash-only CSP is unchanged; no CDN scripts, styles or logos.
+- **Warning banners:** `.banner.warn` is an amber-tinted callout with a 3px left border, icon and `role="status"`. The prospect-detail stage/data mismatch is one short sentence, not two grey notes.
+- **Focus:** a single 2px `:focus-visible` outline (no glow, no mouse focus ring). Page-load autofocus is quiet until blur, so it never paints a thick ring on first paint.
+- **Type/contrast:** 13px body copy and control labels, 12px meta/readouts; `--color-text-subtle` is `#9ba0a8` (WCAG AA on every shade).
+- **Canvas fit:** `fitBoardReadable()` frames the board plus the first Pending review zone; the two later outreach zones stay reachable through `/outreach`.
 
 Typography: two families, strict role split — system sans for body/table/form text, mono for uppercase group labels, numeric readouts and log-style timestamps. Data tables use `font-variant-numeric: tabular-nums`. Hierarchy comes from weight/spacing/size, not color.
 
@@ -308,8 +333,8 @@ exception). Spacing rhythm on phone: 16px gutters, 12px between stacked zones,
 ## 8. Accessibility
 
 - Semantic HTML first (server-rendered helps): landmarks, real `<table>`, real `<button>`/`<a>`.
-- Keyboard: visible focus rings (2px accent outline), full table navigation, `?` opens shortcut help (j/k row nav, `/` search, `g d` dashboard — progressive enhancement).
-- Contrast: token pairs meet WCAG AA (muted text ≥4.5:1 on surface).
+- Keyboard: visible 2px accent ring on `:focus-visible` only (autofocus stays quiet until blur), full table navigation, `?` opens shortcut help (j/k row nav, `/` search, `g d` dashboard — progressive enhancement).
+- Contrast: token pairs meet WCAG AA (muted text ≥4.5:1 on surface); body/labels ≥13px, meta ≥12px.
 - Badges/icons always paired with text; status changes announced via `aria-live="polite"` on toasts.
 - Forms: labels tied to inputs, errors with `aria-describedby`, focus moved to first invalid field.
 

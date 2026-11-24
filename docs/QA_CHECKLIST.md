@@ -299,9 +299,10 @@ First real-browser pass over the previously cookie-jar-only behaviors
      404 silenced with `<link rel="icon" href="data:,">`.
 - Help overlay: `?` opens; Close button and backdrop both close (they
   didn't before this pass).
-- Regression tests added: CSP carries the hash and never `unsafe-inline`
-  (`test_smoke.py`); no template may contain an inline event handler
-  (`test_regressions_round4.py`).
+- Regression tests added: the global app CSP carries the hash and never
+  `unsafe-inline` (the two docs routes' scoped exception is tested separately
+  in `test_ui_polish_round5.py`); no template may contain an inline event
+  handler (`test_regressions_round4.py`).
 
 ## Live smoke — Phase 1, keyless — 2026-11-10
 
@@ -533,10 +534,11 @@ are live, not "not implemented".
 - **Deterministic:** `uv run pytest` 330 passed · `ruff check` / `ruff format
   --check` clean · `mypy app` clean · 61/61 CSS vars defined, 0 orphans ·
   0 old-palette refs, 0 `style=` attrs in templates, no `prefers-color-scheme`.
-- **Owner decisions applied during review:** Docs nav link removed (`/api/docs`
-  is an empty shell under the CSP — Swagger CDN blocked; revisit when a docs
-  surface exists); per-row Merge button uses new `.btn.danger-outline` so solid
-  red stays reserved for delete-grade actions.
+- **Owner decisions applied during review:** Docs nav link removed (since
+  superseded 2026-11-24: `/api/docs` and `/api/redoc` now render from local
+  pinned bundles under a docs-only CSP exception); per-row Merge button uses
+  new `.btn.danger-outline` so solid red stays reserved for delete-grade
+  actions.
 - **Known:** one pre-existing flaky network test
   (`test_safe_fetcher_allows_public_url_validation`, DNS-timing; passes in
   isolation and on re-run). Synthetic verification prospects were created and
@@ -633,7 +635,8 @@ line is a static advertisement. The Phase 5 budget is restored.
 
 - **Canvas at 1280/1440/1920:** no horizontal overflow; board fills the
   viewport width at a readable 0.97–1.5×; selecting a card keeps it fully
-  visible beside the 560px drawer; no text below 11px.
+  visible beside the 560px drawer; no text below 13px body / 12px meta (floor
+  raised 2026-11-24; this pass measured the older 11px floor).
 - **390/768:** stacked canvas, full card meta, no overflow; prospect/settings
   drawers are full-width (390) or 560px (768) with sticky headers.
 - **Guards browser-verified:** reply hidden without a sent message and for
@@ -885,7 +888,7 @@ only where it carries information, sync URL + aria-current.
 | Priority issue | Fix | Verified |
 |---|---|---|
 | P1 · research table scrolls Verification/Actions out of reach | Findings restacked into rows: statement on its own line, then kind/verification/confidence/origin + source + Verify/Edit/Delete (`.finding-list`) | Screenshot: Verify visible without horizontal scroll; contract tests green |
-| P1 · approval queue clipped from the default fit | Toolbar carries `Pending review · N` with a warn dot; clicking it pans to the messages region (`data-canvas-view="outreach"`) | `test_toolbar_surfaces_the_approval_queue`; chip renders `· 1` live on every canvas page |
+| P1 · approval queue clipped from the default fit | Toolbar carries `Pending review · N` with a warn dot; clicking it pans to the messages region (`data-canvas-view="outreach"`) (2026-11-24 follow-up: the default fit now frames the pending zone itself) | `test_toolbar_surfaces_the_approval_queue`; chip renders `· 1` live on every canvas page |
 | P1 · "you are here" disagreed with itself | SSR marks exactly one view (`/`→Home, `/prospects*`→Board, `/outreach`→Messages) with `aria-current`; view clicks now move `.active` **and** `aria-current`, update the `h1`, and `history.replaceState` the path (query preserved) | Live: `/`→Home, `/prospects`→Board, `/outreach`→Messages with h1 "Message pipeline", one `aria-current` per page, 0 console errors on 6 routes; `test_nav_marks_the_current_screen` |
 | P2 · approval copy contradicted P1 and differed per panel | Both panels confirm with *"Approve this draft? Opening WhatsApp is a separate step; you press Send."*; the ungrounded acknowledgement renders **only** when the draft has no grounding | `test_approval_gate_copy_and_ack_follow_grounding` (both surfaces, both states) |
 | P2 · suppressed prospect said "you can't" three times | Banner keeps the reason + gains **`Undo: Clear suppression`** beside it; the two muted restatements are gone; the Opportunities and Outreach cards (whose only content was the restatement) are skipped while suppressed, and the Outreach tab is hidden so no anchor dangles | Live screenshot + `test_danger_zone_copy_is_not_repetitive` |
@@ -920,9 +923,9 @@ priority issues in order, no question round.
 
 | Priority issue | Fix | Verified |
 |---|---|---|
-| P1 · `.pending-chip` rendered as a raw UA button (run-1 regression: markup without CSS) | Token styles in canvas.css (field fill, radius-md, control-h-md, mono label, 7px warn dot, accent focus-visible) | CDP computed style: mono 11px, field bg, radius 8, dot 7×7 warn; contract test |
+| P1 · `.pending-chip` rendered as a raw UA button (run-1 regression: markup without CSS) | Token styles in canvas.css (field fill, radius-md, control-h-md, mono label, 7px warn dot, accent focus-visible) | CDP computed style: mono 13px, field bg, radius 8, dot 7×7 warn; contract test |
 | P1 · one zoom-out click stripped every safety badge (0.93/1.25 = 0.744 < floor) | `density-compact` hides only `.pc-meta`; the status foot (badges + due text) stays; compensating name-row dot rule removed; spec §2.5 amended | CDP at 74%: foot display=flex, "check failed" badge visible, meta none; `test_compact_density_never_hides_status_foot` |
-| P1 · default framing sliced the pending card at the edge / cut regions with no affordance | `.world-edges` overlay: 64px gradient to bg on each overflowing edge, classes from the content union (world box is 0×0 — absolute children) | CDP: `has-edge-t/r/b` set, `l` correctly off; pixel-probed right edge 31,35,42 → 9,10,12 over exactly 64px; `test_world_edge_fades_mark_cuts` |
+| P1 · default framing sliced the pending card at the edge / cut regions with no affordance | `.world-edges` overlay: 64px gradient to bg on each overflowing edge, classes from the content union (world box is 0×0 — absolute children). Interim: 2026-11-24 changed the fit to include the pending zone so that right edge is no longer sliced; the overlay still marks the remaining cuts | CDP: `has-edge-t/r/b` set, `l` correctly off; pixel-probed right edge 31,35,42 → 9,10,12 over exactly 64px; `test_world_edge_fades_mark_cuts` |
 | P2 · documented `/` shortcut dead on the canvas | Falls through to clicking `.filter-open`, then focuses `#panel-root input[name=q]` when the HTMX body lands (poll ≤2s); help row now says "opens Filters" | CDP: keydown `/` → panel open, activeElement=`fp-q`, Escape closes; `test_slash_shortcut_opens_filters_panel` |
 | P2 · chip count stale after approval (outside both swap targets) | Chip always rendered (`hidden` at 0) + `syncPendingChip()` on every outreach swap recounts zone cards, updates text/aria/hidden | CDP real flow: approve pending message → PlBoard.refresh → chip hidden, count 0, zone 0; `test_pending_chip_is_token_styled_and_live` |
 | Heuristic-3 · Arrange discarded manual layouts with no confirm | `data-confirm` on the tidy button + capture-phase click handler for non-form controls (forms keep submit confirm; in-form controls skipped — no double prompts) | Contract test; existing confirms audited (all in-form, unaffected) |
@@ -1074,3 +1077,87 @@ overflow; `app/static/css/app.css` asset ref bumped `?v=69` → `?v=70`.
 Not exercised in the browser (covered by `tests/test_authz.py`): the JSON 403
 matrix, byte-identical hidden≡missing 404, duplicate-message parity,
 `owner_id` stamping/scoping, self-lockout guards, and the gate-off pass-through.
+
+## Dark-UI polish pass — 2026-11-24
+
+Manual browser walk (headless Chromium, gate off, synthetic local DB) plus the
+regressions in `tests/test_ui_polish_round5.py`:
+
+- [x] **API docs render:** Swagger UI at `/api/docs` (127 `.opblock` entries)
+  and ReDoc at `/api/redoc` both render fully with **0 console errors**. Assets
+  are pinned local bundles (`app/static/vendor/docs/`, Swagger UI 5.36.0 /
+  ReDoc 2.5.4); ReDoc's CDN logo was replaced with a local SVG. No CDN request
+  remains and there are no inline scripts.
+- [x] **CSP stays scoped:** global headers are unchanged
+  (`style-src 'self' <one htmx hash>`, no `unsafe-inline`, no `worker-src`);
+  only the two docs routes send `style-src 'self' 'unsafe-inline'` and
+  `worker-src blob:`.
+- [x] **Mismatch warning:** one `.banner.warn` on the prospect detail page —
+  amber left border (3px `rgb(251,191,36)`), tinted background, icon,
+  `role="status"` — with a single short correction instruction; the two grey
+  "no findings / no opportunities" notes are gone.
+- [x] **Focus:** `:focus-visible` draws a 2px accent outline; mouse focus and
+  page-load autofocus paint none. The autofocused field keeps `.autofocused`
+  until blur, after which keyboard focus shows the ring. No orange glow ring.
+- [x] **Type/contrast:** rendered body 15px, labels 13px, meta/small 12px,
+  `--color-text-subtle: #9ba0a8` (AA on all shades). No 9–11px font sizes or
+  `--focus-ring` token remain in either stylesheet.
+- [x] **Pending review card:** `fitBoardReadable()` now frames the board plus
+  the Pending review zone; the right edge lands 8px inside the viewport at
+  1024, 1280 and 1440 (no clipping). At 1280 the board starts off-canvas by
+  design, so all four zones remain reachable; `/outreach` frames the full lane.
+- [x] **Gate:** `ruff check`, `ruff format --check`, `mypy app` and the full
+  pytest suite clean; asset refs bumped `?v=76` → `?v=78` (Canvas + auth CSS/JS)
+  and vendored docs assets use `?v=1`.
+
+## Design-system extraction — 2026-11-24
+
+Automated gate: `uv run --frozen ruff check .`, `ruff format --check .`, `mypy app`
+and the full pytest suite (including `tests/test_design_system.py`) all pass.
+
+Manual browser walk (headless Chromium, local server with `APP_ACCESS_TOKEN`
+overridden to empty, synthetic local DB):
+
+- [x] `/dev/styleguide` renders 200 with normal auth, no nav link, no OpenAPI
+  entry, and 0 console errors. All four production stylesheets load in order
+  (`tokens → components → app → canvas`) plus the page-only `styleguide.css`.
+- [x] Computed tokens on the styleguide: `--space-2 = 8px`, `--type-13 =
+  0.8125rem`, `--accent = #ff6b1a`; primary button `rgb(255,107,26)` on
+  `rgb(20,13,7)`, secondary `rgb(14,16,20)`, ghost transparent, danger tint
+  `rgb(58,29,23)`, link `rgb(122,162,255)`, chips `999px` radius.
+- [x] Open/closed drawer states differ in opacity (`1` vs `0.55`); the empty
+  table row, all four toast variants, tabs, fields (including `aria-invalid`)
+  and card header/action slots are present.
+- [x] Visual parity on `/prospects`: body `rgb(9,10,12)` at 15px, incumbent
+  primary button unchanged at `rgb(255,107,26)` / 13px, zone width `288px`,
+  card height `84px` (84.25px with border), card inset `12px`, link
+  `rgb(122,162,255)`, 0 console errors. No incumbent markup changed.
+- [x] Standalone/auth page entry points link `tokens.css` before `app.css`
+  (asserted by test); login under the gate-off server redirects to `/` as
+  before, with `rgb(9,10,12)` body and unchanged primary button.
+
+### Token exceptions (intentional, no visual change)
+
+- `app/templates/base.html` `<meta name="theme-color" content="#0b0c0e">` —
+  an HTML attribute, not a CSS declaration; `var()` cannot be used there.
+- `app.css` auth-photo gradients keep `rgba(var(--surface-0-rgb), …)` and
+  `rgba(var(--surface-ambient-rgb), …)` — alpha stops need channels, so the
+  RGB triplets are tokens and the alpha values stay literal.
+- `app.css` / `canvas.css` optical sub-scale spacing (1/2/3/5/6/7/9/10/14/18px),
+  hairline borders (`1px`, `1.5px`), negative overlay offsets (`-1px`,
+  `-3.5px`, `-5px`), off-screen guides (`±2000px`), fixed offsets (toast
+  `top: 60px`, panel `scroll-padding-top: 72px`, `52px` header reservation,
+  `44px` action chevron space) and pill/circle radii (`999px`, `50%`) remain
+  raw. Forcing them onto the 4/8/12/16/24/32/48 scale would shift the dense
+  incumbent layout, which this pass explicitly forbids.
+- `canvas.js` / `board.js` geometry constants and `style.left/top/width/height`
+  writes are runtime layout under the hash-only CSP, not design tokens; their
+  mirrored CSS constants (`--zone-w`, `--card-h`, `--card-pad`, …) are tokens
+  where they map to the scale.
+- `app.css` `--sp-8` remains an alias of `--space-6` (32px) for legacy rules;
+  there is no `--sp-7`. Canonical components use `--space-*` directly.
+- `tokens.css` keeps incumbent optical type steps 15/17/18/21/22/28 alongside
+  the requested 12/13/14/16/20/24/32 scale so existing font sizes do not move.
+- `.ds-*` primitives are additive and unused by incumbent templates. Migrating
+  existing markup is a separate owner-approved change; this pass only makes
+  them available and catalogues them on `/dev/styleguide`.

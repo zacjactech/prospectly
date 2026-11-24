@@ -678,6 +678,18 @@ def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@router.get("/dev/styleguide", response_class=HTMLResponse, include_in_schema=False)
+def styleguide(request: Request) -> HTMLResponse:
+    """Unlinked design-system reference. Uses the normal auth gate; no nav link,
+    no OpenAPI entry and no data access — it renders static component examples.
+    """
+    return templates.TemplateResponse(
+        request=request,
+        name="dev/styleguide.html",
+        context={"app_name": settings.app_name, "title": "Design system"},
+    )
+
+
 def _status_context(db: Session, user: authz.Identity | None = None) -> dict[str, object]:
     """Status card content (was the dashboard page): attention queue, metrics,
     quick start. The 01→03 pipeline strip is dropped — the board itself is on

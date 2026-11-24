@@ -117,14 +117,13 @@
 </section>
 
 {% if research_contradiction or opportunity_contradiction %}
-<section class="card" aria-live="polite">
-  <div class="banner warn">
-    <strong>Stage/data mismatch.</strong>
-    {% if research_contradiction %}The stage is “{{ prospect.stage|replace('_',' ') }}” but there are no research findings yet.{% endif %}
-    {% if opportunity_contradiction %}The stage is “opportunity identified” but there are no opportunities recorded.{% endif %}
-    Run research or correct the stage in the danger zone below.
-  </div>
-</section>
+<aside class="banner warn" role="status">
+  <svg class="banner-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <path d="M10 2.6 1.8 16.6a1 1 0 0 0 .86 1.5h14.68a1 1 0 0 0 .86-1.5L10 2.6Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M10 7.4v4.2M10 14.4h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  </svg>
+  <span>Stage doesn’t match the saved data. Run research or correct the stage below.</span>
+</aside>
 {% endif %}
 
 <section class="card" id="detail-research">

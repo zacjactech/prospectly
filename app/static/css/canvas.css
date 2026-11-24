@@ -1,19 +1,20 @@
 /* Prospectly Pipeline Canvas — canvas engine, board, cards, slide-over
    panels, move menu (docs/design/pipeline-canvas.md).
    Tokens only: every color/border/shadow/radius/duration comes from
-   app.css :root — no hex values live here (spec §2). Geometry constants
+   tokens.css :root (aliased by app.css) — no hex values live here (spec §2).
+   Geometry constants
    mirror canvas.js/board.js (ZONE_W/ZONE_GAP/ZONE_HEAD/CARD_H/CARD_GAP/
    ZONE_PAD/GRID — spec §2): change them in both places. */
 
 /* ===== Canvas constants (mirrored in canvas.js) ===== */
 .canvas-screen {
   --zone-w: 288px;
-  --zone-gap: 48px;
+  --zone-gap: var(--space-7);
   --zone-head-h: 36px;
   --card-h: 84px;
   --card-pad: var(--space-4); /* card + stage-tab inset, one source */
   --card-gap: var(--space-4);
-  --zone-pad: 12px;
+  --zone-pad: var(--space-3);
   --band-label-h: 36px;
 }
 
@@ -81,7 +82,7 @@
 
 .canvas-toolbar .views-picker > span {
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
@@ -91,7 +92,7 @@
 
 .canvas-toolbar .views-picker select {
   height: var(--control-h-md);
-  padding: 0 32px 0 var(--space-3);
+  padding: 0 var(--space-6) 0 var(--space-3);
   max-width: 200px;
   font-size: var(--fs-sm);
   color: var(--color-text);
@@ -124,6 +125,21 @@
   margin-left: var(--space-2);
 }
 
+/* One primary per view: while a slide-over panel is open, its action is the
+   view's primary, so the page-level "Add prospect" steps down to secondary. */
+body.panel-open .canvas-toolbar > .btn.primary,
+body.panel-open .header-add.btn.primary {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+  box-shadow: none;
+}
+
+body.panel-open .canvas-toolbar > .btn.primary:hover,
+body.panel-open .header-add.btn.primary:hover {
+  background: var(--surface-2-hover);
+}
+
 /* Stage lens (?stage=): keep every lane visible so the pipeline structure
    survives a narrow filter; dim the lanes outside the lens instead of
    hiding them (Phase 1.3). */
@@ -153,7 +169,7 @@
 .filter-summary-label {
   margin-right: var(--space-1);
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
@@ -169,7 +185,7 @@
   padding: 0 var(--space-3);
   background: var(--color-field);
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--color-text);
   font-size: var(--fs-sm);
   text-decoration: none;
@@ -236,7 +252,7 @@
 .canvas-toolbar h1 {
   margin: 0 var(--space-1) 0 0;
   font-family: var(--font-sans);
-  font-size: 1.375rem;
+  font-size: var(--type-22);
   font-weight: var(--fw-semibold);
   line-height: 1.25;
   color: var(--color-text);
@@ -268,7 +284,7 @@
   min-width: 20px;
   height: 20px;
   padding: 0 var(--space-1);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-surface-raised);
   border: 1px solid transparent;
   color: var(--color-text);
@@ -293,7 +309,7 @@
   background: var(--color-field);
   color: var(--color-text);
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
@@ -390,13 +406,13 @@
   color: var(--color-text-muted);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-weight: var(--fw-semibold);
 }
 
 .band-name {
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
@@ -441,7 +457,7 @@
   gap: var(--sp-2);
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 1.0625rem;
+  font-size: var(--type-17);
   font-weight: var(--fw-medium);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
@@ -468,7 +484,7 @@
 }
 
 .zone-sep {
-  margin-right: 6px;
+  margin-right: var(--space-2);
   color: var(--color-text-subtle);
 }
 
@@ -500,7 +516,7 @@
   border-radius: var(--radius-sm);
   background: var(--color-surface-raised);
   color: var(--color-text-muted);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
   cursor: pointer;
   list-style: none;
@@ -564,7 +580,7 @@
 .zone-empty {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   color: var(--color-text-subtle);
 }
 
@@ -611,7 +627,7 @@
   border-radius: var(--radius-sm);
   color: var(--color-text); /* 13.4:1 on the accent-light fill (spec §6.3) */
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   white-space: nowrap;
   z-index: 3;
 }
@@ -670,7 +686,6 @@
 .prospect-card:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
-  box-shadow: var(--glow-accent);
 }
 
 /* j/k keyboard highlight (distinct from .selected and :focus-visible). */
@@ -770,7 +785,7 @@
   align-items: center;
   height: 24px;
   padding: var(--space-1) var(--space-2);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1;
 }
 
@@ -935,7 +950,7 @@
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
@@ -944,8 +959,8 @@
 .canvas-controls button[data-canvas-zoom] {
   width: auto;
   min-width: 48px;
-  padding: 0 6px;
-  font-size: 12px;
+  padding: 0 var(--space-2);
+  font-size: var(--type-12);
   line-height: 1;
 }
 
@@ -1035,7 +1050,7 @@
 .move-menu .move-menu-label {
   padding: var(--space-1) var(--space-2) var(--space-1);
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   color: var(--color-text-subtle);
@@ -1047,7 +1062,7 @@
   justify-content: space-between;
   gap: var(--sp-2);
   min-height: 32px;
-  padding: 0 10px;
+  padding: 0 var(--space-3);
   background: none;
   border: none;
   border-radius: var(--radius-sm);
@@ -1068,7 +1083,7 @@
 }
 
 .move-menu button .mono {
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   color: var(--color-text-subtle);
 }
 
@@ -1078,7 +1093,7 @@
 .panel-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.2); /* canvas stays legible behind (spec §4) */
+  background: var(--scrim-soft); /* canvas stays legible behind (spec §4) */
   z-index: 90;
 }
 
@@ -1142,7 +1157,7 @@
   gap: var(--space-1);
   margin-bottom: var(--space-2);
   color: var(--color-text-muted);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
   text-decoration: none;
 }
@@ -1182,7 +1197,7 @@
 .panel-body .detail-head .btn,
 .panel-body .message-head .btn {
   height: var(--control-h-md);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
 }
 
 /* Suppression banner inside a panel runs edge to edge. */
@@ -1211,7 +1226,7 @@
 .inline-add {
   margin-left: var(--space-2);
   color: var(--color-text-muted);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   text-decoration: underline;
 }
 
@@ -1358,7 +1373,7 @@
 .panel-loading {
   padding: var(--sp-5) var(--sp-4);
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   color: var(--color-text-subtle);
 }
 
@@ -1408,7 +1423,7 @@
 
 .region-chip {
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   letter-spacing: 0.08em;
   color: var(--color-text-muted);
   background: var(--color-surface-raised);
@@ -1540,7 +1555,7 @@
 }
 
 .sc-state {
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   line-height: 1.4;
   padding-bottom: 2px;
   color: var(--color-text-muted);
@@ -1570,9 +1585,12 @@
 }
 
 .outreach-region {
+  /* Narrower columns and a tighter gap let the board fit include the first
+     (Pending review) zone at the 0.93 readable floor on a 1440 desktop. */
+  --outreach-zone-w: 232px;
   display: grid;
-  grid-template-columns: repeat(3, var(--zone-w));
-  gap: var(--space-5);
+  grid-template-columns: repeat(3, var(--outreach-zone-w));
+  gap: var(--space-2);
   align-items: start;
 }
 
@@ -1597,7 +1615,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  font-size: 1.0625rem;
+  font-size: var(--type-17);
   font-weight: 600;
   margin: 0;
 }
@@ -1646,7 +1664,7 @@
 }
 
 .msg-card-text {
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   color: var(--color-text-muted);
 }
 
@@ -1659,7 +1677,7 @@
    (axe target-size: >=24x24 and 24px spacing). */
 .msg-card-actions .btn {
   min-height: 28px;
-  padding: 0 10px;
+  padding: 0 var(--space-3);
 }
 
 /* ===== Setup-card panel: mini-pipeline (spec §V2.3) =====
@@ -1760,7 +1778,7 @@
 }
 
 .panel-body > .muted.small {
-  margin: 0 16px 12px;
+  margin: 0 var(--space-4) var(--space-3);
 }
 
 /* Filters panel (360px, spec §1.2/§4): one column of fields, then saved
@@ -1769,7 +1787,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: 0 16px 18px;
+  padding: 0 var(--space-4) var(--space-4);
 }
 
 .filter-panel-form .field {
@@ -1789,20 +1807,20 @@
 }
 
 .panel-section {
-  margin: 0 16px 18px;
+  margin: 0 var(--space-4) var(--space-4);
   padding-top: var(--space-4);
   border-top: 1px solid var(--color-border);
 }
 
 .panel-section h3 {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-2);
   font-size: var(--fs-sm);
   font-weight: var(--fw-semibold);
 }
 
 .saved-view-list {
   list-style: none;
-  margin: 0 0 10px;
+  margin: 0 0 var(--space-3);
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -1820,7 +1838,7 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 0 16px 24px;
+  padding: 0 var(--space-4) var(--space-5);
 }
 
 .flow-step {
@@ -1853,7 +1871,7 @@
 
 .flow-step-num {
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   color: var(--color-text-muted);
   background: var(--color-field);
   border: 1px solid transparent;
@@ -1886,7 +1904,7 @@
 }
 
 .flow-step-note {
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   color: var(--color-text-subtle);
   margin: var(--space-2) 0 0;
 }
@@ -2043,7 +2061,7 @@
   .phase-tabs [role="tab"] {
     flex: none;
     min-height: 44px;
-    padding: 10px 14px;
+    padding: var(--space-3) var(--space-4);
     border: 0;
     border-bottom: 2px solid transparent;
     background: none;
@@ -2195,7 +2213,7 @@
   width: 32px;
   height: 32px;
   padding: 0;
-  background: var(--color-field);
+  background: transparent; /* ghost: tertiary, tinted red on hover */
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--color-danger);
@@ -2226,7 +2244,7 @@ input[type="range"] {
 
 input[type="range"]::-webkit-slider-runnable-track {
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-border);
 }
 
@@ -2241,7 +2259,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 input[type="range"]::-moz-range-track {
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-border);
 }
 
@@ -2307,19 +2325,19 @@ input[type="range"]::-moz-range-thumb {
   height: 8px;
   appearance: none;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   overflow: hidden;
   background: var(--color-surface-hover);
 }
 
 .cap-progress::-webkit-progress-bar {
   background: var(--color-surface-hover);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .cap-progress::-webkit-progress-value {
   background: var(--color-success);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .cap-progress.warn::-webkit-progress-value {
@@ -2332,7 +2350,7 @@ input[type="range"]::-moz-range-thumb {
 
 .cap-progress::-moz-progress-bar {
   background: var(--color-success);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .cap-progress.warn::-moz-progress-bar {
@@ -2373,10 +2391,10 @@ input[type="range"]::-moz-range-thumb {
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-surface-raised);
   color: var(--color-text);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
 }
 
 .chip-remove {
@@ -2418,7 +2436,7 @@ input[type="number"] {
 
 select {
   min-height: 32px;
-  padding: 0 10px;
+  padding: 0 var(--space-3);
   color: var(--color-text);
   background: var(--color-field);
   border: 1px solid transparent;
@@ -2433,12 +2451,16 @@ input[type="file"] {
 input[type="file"]::file-selector-button {
   min-height: 32px;
   margin-right: var(--space-3);
-  padding: 0 12px;
+  padding: 0 var(--space-3);
   color: var(--color-text);
-  background: var(--color-surface-hover);
+  background: var(--surface-2); /* secondary button fill */
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   cursor: pointer;
+}
+
+input[type="file"]::file-selector-button:hover {
+  background: var(--surface-2-hover);
 }
 
 :focus-visible {
@@ -2538,7 +2560,7 @@ input[type="file"]::file-selector-button {
   align-self: flex-start;
   max-width: 46%;
   margin: calc(-1 * (var(--card-pad) + 1px)) calc(-1 * (var(--card-pad) + 1px)) 0 0;
-  padding: 4px var(--space-2) 5px;
+  padding: var(--space-1) var(--space-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2547,7 +2569,7 @@ input[type="file"]::file-selector-button {
   border-radius: 0 var(--radius-md) 0 var(--radius-sm);
   color: var(--color-text-muted);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-sm);
   font-weight: var(--fw-semibold);
   letter-spacing: var(--tracking-label);
   line-height: 1;
@@ -2660,8 +2682,8 @@ input[type="file"]::file-selector-button {
 }
 
 .view-filters .badge {
-  padding: 2px 6px;
-  font-size: 10px;
+  padding: 2px var(--space-2); /* 2px: optical, badge stays one line-height */
+  font-size: var(--fs-sm);
   line-height: 1.4;
 }
 
@@ -2694,7 +2716,7 @@ input[type="file"]::file-selector-button {
 .provider-group-head h3 {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-sm);
   font-weight: var(--fw-semibold);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
@@ -2737,14 +2759,14 @@ input[type="file"]::file-selector-button {
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   color: var(--color-text-muted);
 }
 
 .provider-flag {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   white-space: nowrap;
 }
 
@@ -2765,7 +2787,7 @@ input[type="file"]::file-selector-button {
 
 .provider-note {
   margin: var(--space-1) 0 0;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   line-height: 1.4;
   color: var(--color-text-muted);
 }
@@ -2785,7 +2807,7 @@ input[type="file"]::file-selector-button {
 
 .provider-metrics dt {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-sm);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--color-text-subtle);
@@ -2793,20 +2815,20 @@ input[type="file"]::file-selector-button {
 
 .provider-metrics dd {
   margin: 0;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
   color: var(--color-text);
 }
 
 .provider-error {
   margin: var(--space-2) 0 0;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   color: var(--color-danger);
 }
 
 .provider-error-label {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-sm);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
@@ -2889,7 +2911,7 @@ input[type="file"]::file-selector-button {
 
 .history-list dt {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-sm);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--color-text-subtle);

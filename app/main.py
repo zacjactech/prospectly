@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import RequestResponseEndpoint
@@ -41,6 +41,17 @@ _SECURITY_HEADERS = {
     ),
 }
 
+# Swagger UI and ReDoc inject styles at runtime (styled-components). The two
+# docs routes are the only exception: assets are self-hosted, but their
+# generated style tags need 'unsafe-inline'. The rest of the app keeps the
+# hash-only policy above — this value is applied only to these two paths.
+_DOCS_PATHS = frozenset({"/api/docs", "/api/redoc"})
+_DOCS_CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; connect-src 'self'; worker-src blob:; "
+    "frame-ancestors 'none'"
+)
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -68,8 +79,11 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.app_version,
         lifespan=lifespan,
-        docs_url="/api/docs",
-        redoc_url="/api/redoc",
+        # FastAPI's built-in docs HTML embeds an inline init script and loads
+        # CDN bundles. We serve equivalent pages from local, pinned assets
+        # instead (app/static/vendor/docs), with a route-scoped CSP below.
+        docs_url=None,
+        redoc_url=None,
         openapi_url="/api/openapi.json",
     )
 
@@ -80,6 +94,44 @@ def create_app() -> FastAPI:
     app.include_router(pages.router)
     app.include_router(auth.router)
     app.include_router(api.router, prefix="/api/v1")
+
+    @app.get("/api/docs", response_class=HTMLResponse, include_in_schema=False)
+    async def api_docs() -> HTMLResponse:
+        """Swagger UI from pinned, self-hosted assets (no CDN under CSP)."""
+        return HTMLResponse(
+            """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prospectly API docs</title>
+<link rel="stylesheet" href="/static/vendor/docs/swagger-ui.css?v=1">
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="/static/vendor/docs/swagger-ui-bundle.js?v=1"></script>
+<script src="/static/js/api-docs-init.js?v=1"></script>
+</body>
+</html>"""
+        )
+
+    @app.get("/api/redoc", response_class=HTMLResponse, include_in_schema=False)
+    async def api_redoc() -> HTMLResponse:
+        """ReDoc from pinned, self-hosted assets (no CDN under CSP)."""
+        return HTMLResponse(
+            """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prospectly API reference</title>
+</head>
+<body>
+<redoc spec-url="/api/openapi.json"></redoc>
+<script src="/static/vendor/docs/redoc.standalone.js?v=1"></script>
+</body>
+</html>"""
+        )
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(request: Request, exc: RequestValidationError) -> Response:
@@ -170,6 +222,8 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         for header, value in _SECURITY_HEADERS.items():
             response.headers.setdefault(header, value)
+        if request.url.path in _DOCS_PATHS:
+            response.headers["Content-Security-Policy"] = _DOCS_CSP
         # Local-first, no build step: assets are edited in place. Revalidate
         # instead of letting the browser serve a stale script after an update.
         if request.url.path.startswith("/static/"):
